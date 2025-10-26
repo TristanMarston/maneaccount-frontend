@@ -1,26 +1,73 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+    --primary: #024e3a;
+    --primary-light: #03805f;
+    --primary-dark: #011c15;
+
+    --secondary: #f1d128;
+    --secondary-light: #f4db58;
+    --secondary-dark: #d8b80e;
+
+    --background: #f4eee5;
+
+    --svg-filter-invert: 22%;
+    --svg-filter-sepia: 13%;
+    --svg-filter-saturate: 3460%;
+    --svg-filter-hue-rotate: 119deg;
+    --svg-filter-brightness: 96%;
+    --svg-filter-contrast: 98%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    /* base breakpoints */
+    --breakpoint-min: 300px;
+    --breakpoint-xxs: 330px;
+    --breakpoint-xs: 350px;
+    --breakpoint-sm: 375px;
+    --breakpoint-cm: 400px;
+    --breakpoint-md: 425px;
+    --breakpoint-lg: 500px;
+    --breakpoint-xl: 600px;
+    --breakpoint-2xl: 700px;
+    --breakpoint-3xl: 800px;
+    --breakpoint-4xl: 900px;
+    --breakpoint-5xl: 1000px;
+    --breakpoint-6xl: 1100px;
+    --breakpoint-7xl: 1200px;
+    --breakpoint-8xl: 1300px;
+    --breakpoint-9xl: 1400px;
+    --breakpoint-10xl: 1500px;
+    --breakpoint-max: 1800px;
+
+    --container-max-width: 1400px;
+
+    --font-figtree: var(--font-figtree), sans-serif;
+    --font-lusitana: var(--font-lusitana), sans-serif;
+
+    /* brand colors */
+    --color-primary: var(--primary);
+    --color-primary-light: var(--primary-light);
+    --color-primary-dark: var(--primary-dark);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-light: var(--secondary-light);
+    --color-secondary-dark: var(--secondary-dark);
+
+    --color-background: var(--background);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.svg-filter {
+    filter: invert(var(--svg-filter-invert)) sepia(var(--svg-filter-sepia)) saturate(var(--svg-filter-saturate)) hue-rotate(var(--svg-filter-hue-rotate))
+        brightness(var(--svg-filter-brightness)) contrast(var(--svg-filter-contrast));
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.bg-filter {
+    filter: invert(99%) sepia(33%) saturate(478%) hue-rotate(336deg) brightness(108%) contrast(92%);
+}
+
+.primary-border {
+    border-width: 1.9px;
+    border-color: var(--primary);
+    box-shadow: 2.5px 2.5px 0 0 var(--primary);
 }

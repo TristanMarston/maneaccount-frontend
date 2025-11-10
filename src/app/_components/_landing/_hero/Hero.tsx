@@ -113,14 +113,11 @@ const HeroVisualElement = () => {
                     {paperColumns.map((title, index) => (
                         <div key={title} className='w-full h-full flex flex-col'>
                             <span className='font-reenie font-semibold grid place-items-center text-xl md:text-2xl h-full capitalize'>{title}</span>
-                            {Array.from({ length: paperLines - 1 }).map((_, i: number) => {
-                                // console.log(index, i, safeSquiggleIndices[index].indexOf(i));
-                                return (
-                                    <span key={title + i} className='grid place-items-center h-full font-reenie font-semibold text-xl'>
-                                        {safeSquiggleIndices[index].indexOf(i) !== -1 ? <WritingSquiggle index={i} /> : ''}
-                                    </span>
-                                );
-                            })}
+                            {Array.from({ length: paperLines - 1 }).map((_, i: number) => (
+                                <span key={title + i} className='grid place-items-center h-full font-reenie font-semibold text-xl'>
+                                    {safeSquiggleIndices[index].indexOf(i) !== -1 ? <WritingSquiggle index={i} /> : ''}
+                                </span>
+                            ))}
                         </div>
                     ))}
 
@@ -226,7 +223,7 @@ const WritingSquiggle = ({ color = '#3f3214', className = '', index = -1 }) => {
 
     const safePadding = isMounted ? randoms.padding : 0;
 
-    console.log(index, randoms.endLength);
+    // console.log(index, randoms.endLength);
 
     return (
         <svg viewBox='0 0 200 50' xmlns='http://www.w3.org/2000/svg' className={cn('w-full max-h-[30px]', className)} style={{ padding: `${safePadding}px` }}>

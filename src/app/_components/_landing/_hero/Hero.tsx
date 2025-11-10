@@ -65,7 +65,7 @@ const getSquiggleIndices = (numCells: number[]): number[][] => {
     for (let i = 0; i < numCells.length; i++) {
         for (let k = 0; k < numCells[i]; k++) {
             while (true) {
-                const rand = Math.round(Math.random() * 8);
+                const rand = Math.round(Math.random() * 6);
                 if (returnIndices[i].indexOf(rand) === -1) {
                     returnIndices[i].push(rand);
                     break;
@@ -82,19 +82,18 @@ const HeroVisualElement = () => {
 
     const paperLines = 8;
     const baseSquiggleIndices = [
-        [0, 1, 2, 4, 5, 8],
-        [0, 1, 3, 4, 6, 8],
-        [2, 3, 5, 6, 7],
-        [0, 1, 5, 7, 8],
+        [0, 1, 2, 4, 5],
+        [0, 1, 3, 4, 5],
+        [2, 3, 5, 6],
+        [0, 1, 4, 5],
     ];
-    const squiggleIndices = getSquiggleIndices([6, 6, 5, 5]);
+    const squiggleIndices = getSquiggleIndices([5, 5, 4, 4]);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
     const safeSquiggleIndices = isMounted ? squiggleIndices : baseSquiggleIndices;
-    console.log(safeSquiggleIndices);
 
     const paperColumns = ['horse', 'owner', 'notes', 'paid'];
 
@@ -114,11 +113,14 @@ const HeroVisualElement = () => {
                     {paperColumns.map((title, index) => (
                         <div key={title} className='w-full h-full flex flex-col'>
                             <span className='font-reenie font-semibold grid place-items-center text-xl md:text-2xl h-full capitalize'>{title}</span>
-                            {Array.from({ length: paperLines - 1 }).map((_, i: number) => (
-                                <span key={title + i} className='grid place-items-center h-full font-reenie font-semibold text-xl'>
-                                    {safeSquiggleIndices[index].indexOf(i) !== -1 ? <WritingSquiggle /> : ''}
-                                </span>
-                            ))}
+                            {Array.from({ length: paperLines - 1 }).map((_, i: number) => {
+                                // console.log(index, i, safeSquiggleIndices[index].indexOf(i));
+                                return (
+                                    <span key={title + i} className='grid place-items-center h-full font-reenie font-semibold text-xl'>
+                                        {safeSquiggleIndices[index].indexOf(i) !== -1 ? <WritingSquiggle index={i} /> : ''}
+                                    </span>
+                                );
+                            })}
                         </div>
                     ))}
 
@@ -206,7 +208,7 @@ const HeroVisualElement = () => {
     );
 };
 
-const WritingSquiggle = ({ color = '#3f3214', className = '' }) => {
+const WritingSquiggle = ({ color = '#3f3214', className = '', index = -1 }) => {
     const [randoms] = useState(() => {
         return {
             delay: parseFloat((Math.random() * (Math.random() > 0.5 ? 0.2 : 5)).toFixed(1)),
@@ -224,6 +226,8 @@ const WritingSquiggle = ({ color = '#3f3214', className = '' }) => {
 
     const safePadding = isMounted ? randoms.padding : 0;
 
+    console.log(index, randoms.endLength);
+
     return (
         <svg viewBox='0 0 200 50' xmlns='http://www.w3.org/2000/svg' className={cn('w-full max-h-[30px]', className)} style={{ padding: `${safePadding}px` }}>
             <motion.path
@@ -234,13 +238,15 @@ const WritingSquiggle = ({ color = '#3f3214', className = '' }) => {
                 strokeLinecap='round'
                 initial={{ pathLength: 0 }}
                 whileInView={{ pathLength: randoms.endLength }}
+                strokeDashoffset={0}
+                strokeDasharray={`${randoms.endLength}px 1px`}
                 viewport={{ once: true }}
                 transition={{
                     duration: randoms.duration,
                     delay: randoms.delay,
                     ease: 'easeInOut',
                 }}
-                className='grid place-items-center'
+                className={`${randoms.endLength} grid place-items-center`}
             />
         </svg>
     );

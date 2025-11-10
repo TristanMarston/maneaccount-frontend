@@ -34,7 +34,6 @@ const ColorSelection = () => {
         document.documentElement.style.setProperty('--background-secondary', `#${selectedColor.backgroundSecondary}`);
 
         const result = useSVGFilter(selectedColor.primary);
-        console.log(result);
         if (result) {
             document.documentElement.style.setProperty('--svg-filter-invert', `${result.invert}%`);
             document.documentElement.style.setProperty('--svg-filter-sepia', `${result.sepia}%`);

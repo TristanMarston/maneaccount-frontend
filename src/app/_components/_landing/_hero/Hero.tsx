@@ -19,7 +19,7 @@ const Hero = () => {
             <section className='w-full flex flex-col items-center justify-center'>
                 <h1 className='font-lusitana text-primary text-[32px] min-[340px]:text-4xl min-[370px]:text-[40px] cm:text-[44px] min-[430px]:text-5xl min-[475px]:text-[54px] min-[520px]:text-6xl xl:text-[46px] min-[620px]:text-5xl 2xl:text-[55px] min-[760px]:text-6xl 4xl:text-7xl leading-[1.1] text-center'>
                     No more <br className='block xl:hidden' />
-                    <span className='relative'>
+                    <span className='relative inline-block'>
                         tangled
                         <svg
                             viewBox='0 0 286 73'

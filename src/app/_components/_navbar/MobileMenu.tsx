@@ -112,7 +112,7 @@ const DropdownLink = ({
                 initial='closed'
                 animate={currentDropdown === index ? 'open' : 'closed'}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className='px-2 overflow-y-scroll overflow-x-hidden h-full text-base lg:text-[17px] max-h-[400px]'
+                className='px-2 overflow-y-scroll overflow-x-hidden h-full text-base lg:text-[17px] max-h-[200px]'
             >
                 {dropdown()}
             </motion.div>

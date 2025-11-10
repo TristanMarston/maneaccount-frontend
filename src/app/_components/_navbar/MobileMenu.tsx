@@ -3,7 +3,7 @@ import { useAnimate, stagger, motion, Variants, AnimatePresence } from 'motion/r
 import { dropdownVariants, flipVariants, NavLink } from './Navbar';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
-
+import { useScrollShadow } from '@/hooks/useScrollShadow';
 const MobileMenu = ({ isOpen, setIsOpen, links }: { isOpen: boolean; setIsOpen: React.Dispatch<React.SetStateAction<boolean>>; links: NavLink[] }) => {
     const [currentDropdown, setCurrentDropdown] = useState(-1);
 
@@ -63,6 +63,7 @@ const DropdownLink = ({
 }) => {
     const contentRef = useRef<HTMLDivElement>(null);
     const [contentHeight, setContentHeight] = useState(0);
+    const { showBottomShadow } = useScrollShadow(contentRef);
 
     const toggleQuestion = (index: number) => {
         if (currentDropdown === index) setCurrentDropdown(-1);
@@ -112,9 +113,10 @@ const DropdownLink = ({
                 initial='closed'
                 animate={currentDropdown === index ? 'open' : 'closed'}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className='px-2 overflow-y-scroll overflow-x-hidden h-full text-base lg:text-[17px] max-h-[200px]'
+                className='px-2 flex flex-col gap-2 relative overflow-x-hidden h-full text-base lg:text-[17px] max-h-[30vh] lg:max-h-[35vh]'
             >
                 {dropdown()}
+                {showBottomShadow && <div className='sticky bottom-0 left-0 right-0 min-h-8 bg-linear-to-t from-background to-transparent pointer-events-none' />}
             </motion.div>
         </motion.div>
     );

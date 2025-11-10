@@ -129,7 +129,7 @@ const DropdownLink = ({
                         exit='closed'
                         ref={dropdownRef}
                     >
-                        {dropdown()}
+                        <div className='flex flex-col navbar-desktop:grid navbar-xl:grid-cols-[49%_49%] navbar-xl:grid-rows-2 gap-2 w-full h-full navbar-desktop:p-3'>{dropdown()}</div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -142,7 +142,7 @@ const navLinks: NavLink[] = [
         name: 'Features',
         href: '/features',
         dropdown: () => (
-            <div className='flex flex-col navbar-xl:grid navbar-xl:grid-cols-[49%_49%] navbar-xl:grid-rows-2 gap-2 w-full h-full navbar-desktop:p-3'>
+            <>
                 <div className='p-3 w-full rounded-xl flex gap-3 hover:bg-background-secondary transition-colors cursor-pointer'>
                     <div className='rounded-full bg-primary-light primary-border p-2 w-14 h-14 aspect-square grid place-items-center'>
                         <Calendar className='text-background w-7 h-7' />
@@ -179,14 +179,14 @@ const navLinks: NavLink[] = [
                         <p className='font-light text-[15px]'>Keep detailed records of clients and horses, synced across devices for instant access.</p>
                     </div>
                 </div>
-            </div>
+            </>
         ),
     },
     {
         name: 'Solutions',
         href: '/solutions',
         dropdown: () => (
-            <div className='flex flex-col navbar-desktop:grid navbar-xl:grid-cols-[49%_49%] navbar-xl:grid-rows-2 gap-2 w-full h-full navbar-desktop:p-3'>
+            <>
                 <div className='p-3 w-full rounded-xl flex gap-3 hover:bg-background-secondary transition-colors cursor-pointer'>
                     <div className='rounded-full bg-primary-light primary-border p-2 w-14 h-14 aspect-square grid place-items-center'>
                         <Icon iconNode={horseHead} className='text-background w-7 h-7' />
@@ -214,7 +214,7 @@ const navLinks: NavLink[] = [
                         <p className='font-light text-[15px]'>Simplify your bookings, track payments, and keep your schedule organized.</p>
                     </div>
                 </div>
-            </div>
+            </>
         ),
     },
     {

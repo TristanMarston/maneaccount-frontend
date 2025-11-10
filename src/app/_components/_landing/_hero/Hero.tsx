@@ -94,6 +94,7 @@ const HeroVisualElement = () => {
     }, []);
 
     const safeSquiggleIndices = isMounted ? squiggleIndices : baseSquiggleIndices;
+    console.log(safeSquiggleIndices);
 
     const paperColumns = ['horse', 'owner', 'notes', 'paid'];
 
@@ -206,33 +207,25 @@ const HeroVisualElement = () => {
 };
 
 const WritingSquiggle = ({ color = '#3f3214', className = '' }) => {
-    const [delayPassed, setDelayPassed] = useState(false);
-    const [isMounted, setIsMounted] = useState(false);
+    const [randoms] = useState(() => {
+        return {
+            delay: parseFloat((Math.random() * (Math.random() > 0.5 ? 0.2 : 5)).toFixed(1)),
+            padding: parseFloat((Math.random() * 6).toFixed(1)),
+            endLength: parseFloat((Math.random() * 0.4 + 0.6).toFixed(2)),
+            duration: parseFloat((Math.random() + 1).toFixed(2)),
+        };
+    });
 
-    const delay = parseFloat((Math.random() * (Math.random() > 0.5 ? 0.2 : 5)).toFixed(1));
-    const padding = parseFloat((Math.random() * 6).toFixed(1));
-    const endLength = parseFloat((Math.random() * 0.4 + 0.6).toFixed(2));
-    const duration = parseFloat((Math.random() + 1).toFixed(2));
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
+    }, []);
 
-        const timer = setTimeout(() => {
-            setDelayPassed(true);
-        }, delay * 1000);
-
-        return () => clearTimeout(timer);
-    }, [delay]);
-
-    const safePadding = isMounted ? padding : 0;
+    const safePadding = isMounted ? randoms.padding : 0;
 
     return (
-        <svg
-            viewBox='0 0 200 50'
-            xmlns='http://www.w3.org/2000/svg'
-            className={cn('w-full max-h-[30px]', className, delayPassed ? 'block' : 'hidden')}
-            style={{ padding: `${safePadding}px` }}
-        >
+        <svg viewBox='0 0 200 50' xmlns='http://www.w3.org/2000/svg' className={cn('w-full max-h-[30px]', className)} style={{ padding: `${safePadding}px` }}>
             <motion.path
                 d='M5 28 C15 15, 25 40, 35 25 S55 15, 65 30 S85 45, 95 20 S115 10, 125 35 S145 50, 155 25 S175 15, 190 30'
                 stroke={color}
@@ -240,10 +233,11 @@ const WritingSquiggle = ({ color = '#3f3214', className = '' }) => {
                 fill='none'
                 strokeLinecap='round'
                 initial={{ pathLength: 0 }}
-                whileInView={{ pathLength: endLength }}
+                whileInView={{ pathLength: randoms.endLength }}
+                viewport={{ once: true }}
                 transition={{
-                    duration,
-                    delay,
+                    duration: randoms.duration,
+                    delay: randoms.delay,
                     ease: 'easeInOut',
                 }}
                 className='grid place-items-center'

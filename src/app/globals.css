@@ -10,6 +10,7 @@
     --secondary-dark: #d8b80e;
 
     --background: #f4eee5;
+    --background-secondary: #fbf7f2;
 
     --svg-filter-invert: 22%;
     --svg-filter-sepia: 13%;
@@ -40,10 +41,21 @@
     --breakpoint-10xl: 1500px;
     --breakpoint-max: 1800px;
 
+    /* arbitrary breakpoints */
+    --breakpoint-hero-lg: 800px;
+    --breakpoint-hero-max: 1200px;
+
+    --breakpoint-navbar-desktop: 1000px;
+    --breakpoint-navbar-lg: 1080px;
+    --breakpoint-navbar-xl: 1180px;
+    --breakpoint-navbar-max: 1460px;
+
     --container-max-width: 1400px;
 
     --font-figtree: var(--font-figtree), sans-serif;
     --font-lusitana: var(--font-lusitana), sans-serif;
+    --font-lustria: var(--font-lustria), sans-serif;
+    --font-reenie: var(--font-reenie-beanie), sans-serif;
 
     /* brand colors */
     --color-primary: var(--primary);
@@ -55,6 +67,27 @@
     --color-secondary-dark: var(--secondary-dark);
 
     --color-background: var(--background);
+    --color-background-secondary: var(--background-secondary);
+}
+
+::-webkit-scrollbar {
+    width: 3px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 5px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-light);
 }
 
 .svg-filter {
@@ -70,4 +103,22 @@
     border-width: 1.9px;
     border-color: var(--primary);
     box-shadow: 2.5px 2.5px 0 0 var(--primary);
+}
+
+.primary-border-hover {
+    border-width: 1.9px;
+    border-color: var(--primary);
+    box-shadow: 2.5px 2.5px 0 0 var(--primary);
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 250ms;
+}
+
+.primary-border-hover:hover {
+    translate: 2.5px 2.5px 0;
+    box-shadow: none;
+}
+
+.paper-aspect-ratio {
+    aspect-ratio: 11 / 8.5;
 }

@@ -23,7 +23,7 @@ const Footer = () => {
                 </svg>
             </div>
 
-            <div className='w-full relative flex justify-center bg-primary text-white pt-20 pb-10'>
+            <div className='w-full relative flex justify-center bg-primary text-white pt-16 lg:pt-20 pb-10'>
                 <div className='w-full max-w-max-width flex flex-col px-8'>
                     <div className='flex flex-col 4xl:flex-row justify-between items-start gap-12 4xl:gap-8 mb-16'>
                         <div className='flex flex-col gap-5 max-w-sm'>

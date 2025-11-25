@@ -50,7 +50,7 @@ const Pricing = () => {
                 </div>
 
                 <div className='w-full max-w-max-width'>
-                    <section className='w-full pt-28 pb-24 px-8'>
+                    <section className='w-full pt-20 lg:pt-28 pb-24 px-8'>
                         <div className='w-full max-w-max-width flex flex-col items-center mx-auto'>
                             {/* Header Text */}
                             <div className='flex flex-col items-center justify-center text-center mt-4 7xl:mt-0 mb-16 xl:mb-20'>

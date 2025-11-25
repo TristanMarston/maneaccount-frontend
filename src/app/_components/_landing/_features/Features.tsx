@@ -23,7 +23,7 @@ const Features = () => {
                 </div>
 
                 <div className='w-full max-w-max-width'>
-                    <section className='w-full pt-28 pb-24 px-8'>
+                    <section className='w-full pt-20 lg:pt-28 pb-24 px-8'>
                         <div className='w-full max-w-max-width mx-auto'>
                             <div className='flex flex-col items-center justify-center text-center mt-4 7xl:mt-0 mb-12 xl:mb-16'>
                                 <h2 className='font-lusitana leading-[1.1] text-primary mb-4 text-[33px] xs:text-4xl min-[450px]:text-[33px] lg:text-[38px] min-[650px]:text-[43px] min-[720px]:text-5xl 3xl:text-[54px] 4xl:text-6xl'>

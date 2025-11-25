@@ -1,7 +1,6 @@
 import { Lusitana, Figtree, Lustria, Reenie_Beanie } from 'next/font/google';
 import type { Metadata } from 'next';
 import './globals.css';
-import ColorSelection from './_components/ColorSelection';
 
 const figtree = Figtree({
     subsets: ['latin'],
@@ -52,7 +51,6 @@ export default function RootLayout({
         <html lang='en' className={`${figtree.variable} ${lusitana.variable} ${lustria.variable} ${reenieBeanie.variable}`}>
             <body className={`overflow-x-hidden h-screen w-screen p-0 bg-background`}>
                 {children}
-                <ColorSelection />
             </body>
         </html>
     );

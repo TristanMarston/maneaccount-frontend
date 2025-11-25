@@ -1,23 +1,23 @@
 @import 'tailwindcss';
 
 :root {
-    --primary: #024e3a;
-    --primary-light: #03805f;
-    --primary-dark: #011c15;
+    --primary: #538475;
+    --primary-light: #69a190;
+    --primary-dark: #3f6559;
 
     --secondary: #f1d128;
     --secondary-light: #f4db58;
     --secondary-dark: #d8b80e;
 
-    --background: #f4eee5;
-    --background-secondary: #fbf7f2;
+    --background: #ffffff;
+    --background-secondary: #f3f4f6;
 
-    --svg-filter-invert: 22%;
-    --svg-filter-sepia: 13%;
-    --svg-filter-saturate: 3460%;
-    --svg-filter-hue-rotate: 119deg;
-    --svg-filter-brightness: 96%;
-    --svg-filter-contrast: 98%;
+    --svg-filter-invert: 52%;
+    --svg-filter-sepia: 14%;
+    --svg-filter-saturate: 848%;
+    --svg-filter-hue-rotate: 111deg;
+    --svg-filter-brightness: 88%;
+    --svg-filter-contrast: 89%;
 }
 
 @theme inline {
@@ -43,12 +43,16 @@
 
     /* arbitrary breakpoints */
     --breakpoint-hero-lg: 800px;
+    --breakpoint-hero-xl: 1000px;
     --breakpoint-hero-max: 1200px;
 
     --breakpoint-navbar-desktop: 1000px;
     --breakpoint-navbar-lg: 1080px;
     --breakpoint-navbar-xl: 1180px;
     --breakpoint-navbar-max: 1460px;
+
+    --breakpoint-pricing-lg: 600px;
+    --breakpoint-pricing-max: 850px;
 
     --container-max-width: 1400px;
 
@@ -95,14 +99,20 @@
         brightness(var(--svg-filter-brightness)) contrast(var(--svg-filter-contrast));
 }
 
-.bg-filter {
-    filter: invert(99%) sepia(33%) saturate(478%) hue-rotate(336deg) brightness(108%) contrast(92%);
+.background-svg-filter {
+    filter: brightness(0) saturate(100%) invert(100%) sepia(27%) saturate(2%) hue-rotate(163deg) brightness(113%) contrast(101%);
 }
 
 .primary-border {
     border-width: 1.9px;
     border-color: var(--primary);
     box-shadow: 2.5px 2.5px 0 0 var(--primary);
+}
+
+.primary-border-bold {
+    border-width: 3px;
+    border-color: var(--primary);
+    box-shadow: 3.9px 3.9px 0 0 var(--primary);
 }
 
 .primary-border-hover {

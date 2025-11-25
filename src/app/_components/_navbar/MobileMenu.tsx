@@ -4,6 +4,7 @@ import { dropdownVariants, flipVariants, NavLink } from './Navbar';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useScrollShadow } from '@/hooks/useScrollShadow';
+
 const MobileMenu = ({ isOpen, setIsOpen, links }: { isOpen: boolean; setIsOpen: React.Dispatch<React.SetStateAction<boolean>>; links: NavLink[] }) => {
     const [currentDropdown, setCurrentDropdown] = useState(-1);
 
@@ -12,18 +13,32 @@ const MobileMenu = ({ isOpen, setIsOpen, links }: { isOpen: boolean; setIsOpen: 
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        variants={dropdownVariants}
+                        variants={dropdownVariants(0.2, 0.3)}
                         animate={isOpen ? 'open' : 'closed'}
                         exit='closed'
                         initial='closed'
                         className='flex navbar-desktop:hidden flex-col gap-4 bg-background rounded-[18px] primary-border p-6 w-full'
                     >
-                        {links.map(({ name, href, dropdown }, index) => (
+                        {links.map(({ name, href, dropdown, scroll }, index) => (
                             <Fragment key={name}>
                                 {dropdown !== undefined ? (
                                     <DropdownLink key={name} name={name} dropdown={dropdown} index={index} currentDropdown={currentDropdown} setCurrentDropdown={setCurrentDropdown} />
                                 ) : (
-                                    <Link key={name} href={href} className='text-primary hover:text-primary-light font-figtree font-semibold text-2xl select-none w-full transition-all'>
+                                    <Link
+                                        key={name}
+                                        href={scroll ? '#' : href}
+                                        onClick={(e) => {
+                                            setIsOpen(false);
+                                            e.preventDefault();
+                                            if (scroll) {
+                                                const targetElement = document.getElementById(href.substring(1));
+                                                if (targetElement) {
+                                                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                                                }
+                                            }
+                                        }}
+                                        className='text-primary hover:text-primary-light font-figtree font-semibold text-2xl select-none w-full transition-all'
+                                    >
                                         {name}
                                     </Link>
                                 )}
@@ -34,12 +49,12 @@ const MobileMenu = ({ isOpen, setIsOpen, links }: { isOpen: boolean; setIsOpen: 
                             <Link href='/sign-in' className='w-full text-nowrap grid place-items-center rounded-[10px] py-2 text-lg text-primary primary-border-hover'>
                                 Sign In
                             </Link>
-                            <Link
+                            {/* <Link
                                 href='/get-started'
                                 className='w-full text-nowrap grid place-items-center rounded-[10px] py-2 text-lg bg-primary-light text-background primary-border-hover'
                             >
                                 Get Started
-                            </Link>
+                            </Link> */}
                         </div>
                     </motion.div>
                 )}

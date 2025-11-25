@@ -9,7 +9,7 @@ const Features = () => {
             <div className='w-full relative bg-stone-50 pb-24 flex flex-col items-center'>
                 <div className='w-full absolute overflow-hidden leading-none z-10'>
                     <svg
-                        className='relative block w-[calc(100%+1.3px)] h-[60px] sm:h-[100px]'
+                        className='relative block w-[calc(100%+1.3px)] h-[60px] lg:h-[100px]'
                         data-name='Layer 1'
                         xmlns='http://www.w3.org/2000/svg'
                         viewBox='0 0 1200 120'
@@ -21,7 +21,7 @@ const Features = () => {
                         ></path>
                     </svg>
                 </div>
-                
+
                 <div className='w-full max-w-max-width'>
                     <section className='w-full pt-28 pb-24 px-8'>
                         <div className='w-full max-w-max-width mx-auto'>

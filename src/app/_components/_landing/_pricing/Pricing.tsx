@@ -36,7 +36,7 @@ const Pricing = () => {
                 {/* SVG Wave */}
                 <div className='w-full absolute overflow-hidden leading-none z-10'>
                     <svg
-                        className='relative block w-[calc(100%+1.3px)] h-[60px] sm:h-[100px]'
+                        className='relative block w-[calc(100%+1.3px)] h-[60px] lg:h-[100px]'
                         data-name='Layer 1'
                         xmlns='http://www.w3.org/2000/svg'
                         viewBox='0 0 1200 120'

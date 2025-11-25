@@ -29,9 +29,9 @@ const Solutions = () => {
         <div className='relative w-full'>
             <div className='absolute -top-30' id='solutions'></div>
             <div className='w-full relative bg-white flex flex-col items-center'>
-                <div className='w-full absolute -top-14 sm:-top-24 overflow-hidden rotate-180 leading-none z-10'>
+                <div className='w-full absolute -top-14 lg:-top-24 overflow-hidden rotate-180 leading-none z-10'>
                     <svg
-                        className='relative block w-[calc(100%+1.3px)] h-[60px] sm:h-[100px]'
+                        className='relative block w-[calc(100%+1.3px)] h-[60px] lg:h-[100px]'
                         data-name='Layer 1'
                         xmlns='http://www.w3.org/2000/svg'
                         viewBox='0 0 1200 120'

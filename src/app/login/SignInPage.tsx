@@ -121,7 +121,7 @@ const SignInPage = () => {
     return (
         <>
             <Toaster />
-            <GradientBackground gradient='from-primary-dark/50 via-primary/50 to-primary-light/50' className='flex flex-col items-center justify-center min-h-screen overflow-hidden py-10'>
+            <GradientBackground gradient='from-primary-dark/50 via-primary/50 to-primary-light/50' className='flex flex-col items-center justify-center fixed inset-0 h-dvh overflow-hidden py-10'>
                 <AnimatePresence>
                     {providers ? (
                         <motion.div

@@ -543,6 +543,19 @@ const ImageCropper = ({ file, onCancel, onComplete }: { file: File; onCancel: ()
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
+                        onTouchStart={(e) => {
+                            const touch = e.touches[0];
+                            setIsDragging(true);
+                            setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+                        }}
+                        onTouchMove={(e) => {
+                            if (!isDragging) return;
+                            const touch = e.touches[0];
+                            const newX = touch.clientX - dragStart.x;
+                            const newY = touch.clientY - dragStart.y;
+                            setPosition({ x: newX, y: newY });
+                        }}
+                        onTouchEnd={() => setIsDragging(false)}
                     >
                         {imageSrc && (
                             <img

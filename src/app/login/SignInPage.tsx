@@ -121,14 +121,14 @@ const SignInPage = () => {
     return (
         <>
             <Toaster />
-            <GradientBackground gradient='from-primary-dark/50 via-primary/50 to-primary-light/50' className='flex flex-col items-center justify-center min-h-screen py-10'>
+            <GradientBackground gradient='from-primary-dark/50 via-primary/50 to-primary-light/50' className='flex flex-col items-center justify-center min-h-screen overflow-hidden py-10'>
                 <AnimatePresence>
                     {providers ? (
                         <motion.div
                             initial='hidden'
                             animate='visible'
                             variants={scrollVariants()}
-                            className='bg-white rounded-2xl p-6 lg:p-8 shadow-lg font-figtree w-[90%] max-w-[600px] max-h-[90vh] overflow-y-scroll'
+                            className='bg-white rounded-2xl p-6 lg:p-8 shadow-lg font-figtree w-[90%] max-w-xl max-h-[90vh] overflow-y-scroll'
                         >
                             <h1 className='text-[33px] lg:text-4xl font-bold text-center mb-2'>{mode === 'signin' ? 'Sign In' : 'Sign Up'}</h1>
                             <p className='text-gray-500 text-center mb-4 lg:mb-6'>{mode === 'signin' ? 'Welcome back to ManeAccount' : 'Select an account type to get started'}</p>

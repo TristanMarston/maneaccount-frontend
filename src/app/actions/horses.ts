@@ -1,13 +1,11 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
+import { Gender, PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createClient } from '@supabase/supabase-js';
-
-type Gender = 'mare' | 'gelding' | 'stallion' | 'filly' | 'colt';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 

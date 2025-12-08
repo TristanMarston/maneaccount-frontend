@@ -2,12 +2,15 @@
 
 import { SessionProvider } from 'next-auth/react';
 import SignInPage from './SignInPage';
+import { Suspense } from 'react';
 
 const page = () => {
     return (
-        <SessionProvider>
-            <SignInPage />
-        </SessionProvider>
+        <Suspense fallback={<></>}>
+            <SessionProvider>
+                <SignInPage />
+            </SessionProvider>
+        </Suspense>
     );
 };
 

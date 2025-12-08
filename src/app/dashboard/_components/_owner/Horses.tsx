@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, X, Upload, Info, AlertTriangle, PlusCircle, ChevronDown, Check, Move, ZoomOut, ZoomIn, Pencil } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
-import { getHorses, addHorse, deleteHorse, editHorse } from '@/app/api/horses/route';
+import { getHorses, addHorse, deleteHorse, editHorse } from '@/app/actions/horses';
 import Modal from '../../Modal';
 import { failToast, successToast } from '@/app/context';
 import { createClient } from '@/app/api/supabase/client/client';

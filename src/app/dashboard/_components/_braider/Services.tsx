@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, Clock, DollarSign, Tag, X, PlusCircle, ChevronDown, Check, Pencil } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
-import { addService, deleteService, editService, getServices } from '@/app/api/services/route';
+import { addService, deleteService, editService, getServices } from '@/app/actions/services';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import { failToast, successToast } from '@/app/context';

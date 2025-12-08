@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import Image from 'next/image';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 type ViewOption = 'braiders' | 'subcontractors' | 'barns';
 

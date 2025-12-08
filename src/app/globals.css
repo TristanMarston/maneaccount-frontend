@@ -4,6 +4,7 @@
     --primary: #538475;
     --primary-light: #69a190;
     --primary-dark: #3f6559;
+    --primary-extra-light: #eef5f1;
 
     --secondary: #f1d128;
     --secondary-light: #f4db58;
@@ -54,7 +55,28 @@
     --breakpoint-pricing-lg: 600px;
     --breakpoint-pricing-max: 850px;
 
+    --breakpoint-dashboard-sm: 650px;
+
     --container-max-width: 1400px;
+
+    /* container breakpoints */
+    --container-min: 300px;
+    --container-xxs: 330px;
+    --container-xs: 350px;
+    --container-sm: 375px;
+    --container-cm: 400px;
+    --container-md: 425px;
+    --container-lg: 500px;
+    --container-xl: 600px;
+    --container-2xl: 700px;
+    --container-3xl: 800px;
+    --container-4xl: 900px;
+    --container-5xl: 1000px;
+    --container-6xl: 1100px;
+    --container-7xl: 1200px;
+    --container-8xl: 1300px;
+    --container-9xl: 1400px;
+    --container-10xl: 1500px;
 
     --font-figtree: var(--font-figtree), sans-serif;
     --font-lusitana: var(--font-lusitana), sans-serif;
@@ -65,6 +87,7 @@
     --color-primary: var(--primary);
     --color-primary-light: var(--primary-light);
     --color-primary-dark: var(--primary-dark);
+    --color-primary-extra-light: var(--primary-extra-light);
 
     --color-secondary: var(--secondary);
     --color-secondary-light: var(--secondary-light);
@@ -131,4 +154,58 @@
 
 .paper-aspect-ratio {
     aspect-ratio: 11 / 8.5;
+}
+
+.loader {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 6rem;
+    margin-top: 3rem;
+    margin-bottom: 3rem;
+}
+.loader:before,
+.loader:after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    animation: pulseOut 1.8s ease-in-out infinite;
+    filter: drop-shadow(0 0 1rem rgba(255, 255, 255, 1));
+}
+.loader:before {
+    width: 100%;
+    padding-bottom: 100%;
+    box-shadow: inset 0 0 0 1rem #fff;
+    animation-name: pulseIn;
+}
+.loader:after {
+    width: calc(100% - 2rem);
+    padding-bottom: calc(100% - 2rem);
+    box-shadow: 0 0 0 0 #fff;
+}
+
+@keyframes pulseIn {
+    0% {
+        box-shadow: inset 0 0 0 1rem #fff;
+        opacity: 1;
+    }
+    50%,
+    100% {
+        box-shadow: inset 0 0 0 0 #fff;
+        opacity: 0;
+    }
+}
+
+@keyframes pulseOut {
+    0%,
+    50% {
+        box-shadow: 0 0 0 0 #fff;
+        opacity: 0;
+    }
+    100% {
+        box-shadow: 0 0 0 1rem #fff;
+        opacity: 1;
+    }
 }

@@ -4,13 +4,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Logo from './Logo';
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar, ChevronDown, QrCode, Scissors, UserCheck, Users, Wallet, Icon } from 'lucide-react';
-import { horseHead } from '@lucide/lab';
-import { AnimatePresence, motion, Variants } from 'motion/react';
-import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import { cn } from '@/lib/utils';
+import { Variants } from 'motion/react';
 import MobileMenu from './MobileMenu';
 import MenuToggle from './MenuToggle';
+import { signOut, useSession } from 'next-auth/react';
 
 export type NavLink = {
     name: string;
@@ -21,20 +18,62 @@ export type NavLink = {
 
 const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [authenticated, setAuthenticated] = useState(false);
+    const { data: session, status } = useSession({
+        required: true,
+        onUnauthenticated() {
+            setAuthenticated(false);
+        },
+    });
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    useEffect(() => {
+        if (status === 'authenticated' && session) {
+            setAuthenticated(true);
+            if (session.user && session.user.role === 'admin') setIsAdmin(true);
+        }
+    }, [session, status]);
 
     return (
         <>
             <section className='w-screen fixed top-0 backdrop-blur-sm px-5 z-100 flex justify-center max-w-max-width'>
                 <div className='flex items-center justify-between h-16 4xl:h-18 mt-5 rounded-[18px] primary-border px-4 min-[450px]:px-4.5 navbar-desktop:px-6 w-full max-w-max-width bg-background'>
                     <Logo position='navbar' />
-                    {/* <Image src='/maneaccount-logo.png' alt='logo' className='h-15 w-[430px]' width={300} height={42} /> */}
                     <div className='hidden navbar-desktop:flex justify-center gap-1 font-figtree font-semibold text-base pt-1'>
                         <NavbarLinks links={navLinks} />
                     </div>
-                    <div className='hidden navbar-desktop:flex gap-2 pl-[110px] navbar-lg:pl-[125px] min-[1150px]:pl-[150px] items-center justify-end font-figtree font-bold text-base'>
-                        <Link href='/sign-in' className='w-full text-nowrap grid place-items-center rounded-[10px] py-1 px-4 text-[17px] text-primary primary-border-hover'>
-                            Sign In
-                        </Link>
+                    <div className='hidden navbar-desktop:flex gap-2 items-center justify-end font-figtree font-bold text-base'>
+                        {authenticated ? (
+                            <>
+                                <button
+                                    onClick={() => signOut({ callbackUrl: '/login?mode=signin' })}
+                                    className='w-full cursor-pointer text-nowrap grid place-items-center rounded-[10px] py-1 px-4 text-[17px] text-primary primary-border-hover'
+                                >
+                                    Sign Out
+                                </button>
+                                <Link
+                                    href={isAdmin ? '/admin' : '/dashboard'}
+                                    className='w-full text-nowrap grid place-items-center rounded-[10px] py-1 px-4 text-[17px] bg-primary-light text-background primary-border-hover'
+                                >
+                                    Dashboard
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href='/login?mode=signin'
+                                    className='w-full text-nowrap grid place-items-center rounded-[10px] py-1 px-4 text-[17px] text-primary primary-border-hover'
+                                >
+                                    Sign In
+                                </Link>
+                                <Link
+                                    href='/login?mode=signup'
+                                    className='w-full text-nowrap grid place-items-center rounded-[10px] py-1 px-4 text-[17px] bg-primary-light text-background primary-border-hover'
+                                >
+                                    Start For Free
+                                </Link>
+                            </>
+                        )}
                     </div>
                     <MenuToggle className='navbar-desktop:hidden' toggle={() => setMenuOpen((prev) => !prev)} isOpen={menuOpen} />
                 </div>

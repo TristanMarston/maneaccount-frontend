@@ -3,6 +3,7 @@
 import { useSVGFilter } from '@/hooks/useSVGFilter';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect } from 'react';
 
 const Hero = () => {
@@ -31,9 +32,9 @@ const Hero = () => {
                         <button className='rounded-[10px] px-4 py-2 font-figtree font-semibold bg-background text-primary primary-border-hover text-xs xs:text-sm min-[380px]:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
                             See How It Works
                         </button>
-                        <button className='rounded-[10px] px-4 py-2 font-figtree font-semibold bg-primary-light text-background primary-border-hover text-xs xs:text-sm min-[380px]:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
+                        <Link href='/login?mode=signup' className='rounded-[10px] px-4 py-2 font-figtree font-semibold bg-primary-light text-background primary-border-hover text-xs xs:text-sm min-[380px]:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
                             Start For Free
-                        </button>
+                        </Link>
                     </div>
                 </section>
 

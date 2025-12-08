@@ -1,3 +1,6 @@
+'use client';
+
+import { SessionProvider } from 'next-auth/react';
 import Features from './_components/_landing/_features/Features';
 import Footer from './_components/_landing/_footer/Footer';
 import Hero from './_components/_landing/_hero/Hero';
@@ -9,12 +12,14 @@ const page = () => {
     return (
         <>
             <div className='w-full h-fit flex flex-col items-center'>
-                <Navbar />
-                <Hero />
-                <Features />
-                <Solutions />
-                <Pricing />
-                <Footer />
+                <SessionProvider>
+                    <Navbar />
+                    <Hero />
+                    <Features />
+                    <Solutions />
+                    <Pricing />
+                    <Footer />
+                </SessionProvider>
             </div>
         </>
     );

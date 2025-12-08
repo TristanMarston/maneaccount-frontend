@@ -1,0 +1,478 @@
+'use client';
+
+import {
+    BadgeDollarSign,
+    Banknote,
+    Calendar,
+    ChevronsLeft,
+    CreditCard,
+    HelpCircle,
+    Home,
+    Icon,
+    LogOut,
+    Mail,
+    Menu,
+    MoreHorizontal,
+    Settings,
+    User,
+    UserPlus,
+    Users,
+    X,
+} from 'lucide-react';
+import { horseHead } from '@lucide/lab';
+import { AnimatePresence, motion, Variants } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import { signOut } from 'next-auth/react';
+import { Session } from 'next-auth';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+
+type Page = {
+    title: string;
+    icon: React.ElementType;
+    path: string;
+    accountTypes: string[];
+};
+const HorseIcon = () => <Icon className='w-full h-full dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
+
+const pages: Page[] = [
+    { title: 'Dashboard', path: '/dashboard/', icon: Home, accountTypes: ['client', 'subcontractor', 'braider', 'admin'] },
+    { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['client'] },
+    { title: 'Calendar', path: '/dashboard/calendar', icon: Calendar, accountTypes: ['braider', 'subcontractor', 'client'] },
+    { title: 'Clients', path: '/dashboard/clients', icon: Users, accountTypes: ['braider', 'subcontractor'] },
+    { title: 'Team', path: '/dashboard/team', icon: UserPlus, accountTypes: ['braider', 'subcontractor'] },
+    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider', 'subcontractor'] },
+    { title: 'Pricing', path: '/dashboard/pricing', icon: BadgeDollarSign, accountTypes: ['braider'] },
+];
+
+const DashboardSidebar = ({
+    dashboard,
+    session,
+    loading,
+    name,
+    selectedPage,
+    setSelectedPage,
+}: {
+    dashboard: string;
+    session: Session | null;
+    loading: boolean;
+    name: string;
+    selectedPage: string;
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+}) => {
+    // Desktop State
+    const [open, setOpen] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Dropdown State (Desktop)
+    const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
+    const userDropdownRef = useRef<HTMLDivElement>(null);
+    const userButtonRef = useRef<HTMLDivElement>(null);
+
+    // Mobile Detection (Breakpoint 650px)
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 650);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    useOnClickOutside(userDropdownRef, [userButtonRef], () => setUserDropdownOpen(false));
+
+    useEffect(() => {
+        const saved = localStorage.getItem('sidebar-open');
+        if (saved !== null) setOpen(JSON.parse(saved));
+    }, []);
+
+    const handleToggle = () => {
+        setOpen((prev) => {
+            const newState = !prev;
+            localStorage.setItem('sidebar-open', JSON.stringify(newState));
+            return newState;
+        });
+    };
+
+    const normalizedRole = (dashboard || 'braider').toLowerCase();
+    const filteredPages = pages.filter((page) => page.accountTypes.includes(normalizedRole));
+
+    const mobilePrimaryPages = filteredPages.slice(0, 3);
+    const mobileSecondaryPages = filteredPages.slice(3);
+
+    if (isMobile) {
+        return (
+            <>
+                <AnimatePresence>
+                    {mobileMenuOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-60'
+                            />
+
+                            <motion.div
+                                initial={{ y: '100%', opacity: 0.5 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: '100%', opacity: 0 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className='fixed bottom-6 left-4 right-4 bg-white rounded-3xl z-70 shadow-2xl border border-gray-100 overflow-hidden max-h-[75vh] flex flex-col'
+                            >
+                                <div className='p-5 border-b border-gray-100 bg-gray-50/50'>
+                                    <div className='flex items-center gap-3'>
+                                        {session?.user.image ? (
+                                            <Image className='w-10 h-10 rounded-full border border-white shadow-sm' src={session.user.image} alt='profile' width={50} height={50} />
+                                        ) : (
+                                            <div className='h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm'>
+                                                {name ? name.charAt(0).toUpperCase() : ''}
+                                            </div>
+                                        )}
+                                        <div className='flex flex-col overflow-hidden'>
+                                            <span className='font-lusitana font-bold text-lg text-gray-900 truncate'>{name}</span>
+                                            <span className='text-xs text-gray-500 font-figtree truncate'>{session?.user.email}</span>
+                                        </div>
+                                        <div className='ml-auto'>
+                                            <span className='inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary'>
+                                                Pro
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className='overflow-y-auto p-4 space-y-4 font-figtree'>
+                                    {/* Secondary Navigation Links */}
+                                    {mobileSecondaryPages.length > 0 && (
+                                        <div className='space-y-1'>
+                                            <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>Menu</p>
+                                            {mobileSecondaryPages.map((page) => (
+                                                <MobileDrawerItem
+                                                    key={page.title}
+                                                    icon={page.icon}
+                                                    title={page.title}
+                                                    onClick={() => {
+                                                        setSelectedPage(page.title);
+                                                        setMobileMenuOpen(false);
+                                                    }}
+                                                    selected={selectedPage === page.title}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className='space-y-1'>
+                                        <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2'>Account</p>
+                                        <MobileDrawerItem icon={User} title='View Profile' onClick={() => {}} />
+                                        <MobileDrawerItem icon={CreditCard} title='Billing' onClick={() => {}} />
+                                        <MobileDrawerItem icon={Settings} title='Settings' onClick={() => {}} />
+                                        <MobileDrawerItem icon={HelpCircle} title='Help Center' onClick={() => {}} />
+                                    </div>
+
+                                    <button
+                                        onClick={() => signOut({ callbackUrl: '/login?mode=signin' })}
+                                        className='w-full cursor-pointer flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors'
+                                    >
+                                        <LogOut className='w-4.5 h-4.5' />
+                                        Sign Out
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+
+                <div className='fixed bottom-6 h-16 z-50 w-full flex justify-center px-8 min-[450px]:px-12 @container/nav'>
+                    <div className='bg-white/95 w-full backdrop-blur-md rounded-[18px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200/50 flex items-center justify-between dashboard-sm:hidden'>
+                        {mobilePrimaryPages.map((page, index) => (
+                            <MobileNavItem
+                                key={page.title}
+                                icon={page.icon}
+                                title={page.title}
+                                index={index}
+                                selected={selectedPage === page.title}
+                                onClick={() => {
+                                    setSelectedPage(page.title);
+                                    setMobileMenuOpen(false);
+                                }}
+                            />
+                        ))}
+                        <MobileNavItem icon={MoreHorizontal} index={3} title='More' selected={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    // --- RENDER DESKTOP VIEW (>= 650px) ---
+    return (
+        <motion.nav
+            layout
+            initial={false}
+            animate={{ width: open ? 240 : 80 }}
+            transition={{ duration: 0.3 }}
+            className={cn(
+                'sticky top-0 h-screen shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden'
+            )}
+        >
+            <div className='flex flex-col h-full'>
+                {/* Header */}
+                <div className='flex h-20 items-center justify-start border-b border-gray-50/50 scale-95'>
+                    <motion.div className={cn('flex items-center transition-all duration-300 justify-start', open ? 'w-full ml-2' : 'w-10 ml-4.5')}>
+                        <Image
+                            key='m-image'
+                            src='/mane-account-M.svg'
+                            alt='M'
+                            className={cn('svg-filter text-primary fill-current min-w-10 h-7 relative left-0.5')}
+                            width={50}
+                            height={50}
+                        />
+                        <AnimatePresence>
+                            {open && (
+                                <motion.span
+                                    layout
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 }}
+                                    className='flex items-center gap-1 whitespace-nowrap'
+                                >
+                                    <p className='text-primary font-lustria pt-2.5 text-[26px]'>ane</p>
+                                    <Image key='a-image' src='/mane-account-A.svg' alt='A' className='svg-filter text-primary fill-current w-7 h-7' width={50} height={50} />
+                                    <p className='text-primary font-lustria pt-2.5 text-[26px]'>ccount</p>
+                                </motion.span>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+                </div>
+
+                <div className='w-[90%] mx-auto h-px -mt-2 bg-primary' />
+
+                {/* Desktop Menu Items */}
+                <div className='flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar'>
+                    {filteredPages.map((page, index) => (
+                        <SidebarItem
+                            key={page.title + index}
+                            icon={page.icon}
+                            title={page.title}
+                            onClick={() => setSelectedPage(page.title)}
+                            selected={selectedPage === page.title}
+                            open={open}
+                            stagger={index * 0.025}
+                        />
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div className='border-t border-gray-50 p-3'>
+                    <SidebarItem
+                        icon={() => (
+                            <motion.div
+                                initial='open'
+                                animate={open ? 'open' : 'closed'}
+                                variants={{
+                                    open: { rotate: 0, transition: { duration: 0.3, type: 'spring', bounce: 0.5 } },
+                                    closed: { rotate: 180, transition: { duration: 0.3, type: 'spring', bounce: 0.5 } },
+                                }}
+                            >
+                                <ChevronsLeft />
+                            </motion.div>
+                        )}
+                        title='Collapse'
+                        onClick={handleToggle}
+                        selected={false}
+                        open={open}
+                    />
+
+                    <div className='relative'>
+                        <div
+                            className={cn('mt-4 flex items-center gap-2 rounded-xl bg-primary-extra-light p-2 cursor-pointer hover:brightness-[1.025] transition-all')}
+                            ref={userButtonRef}
+                            onClick={() => setUserDropdownOpen((prev) => !prev)}
+                        >
+                            {session?.user.image ? (
+                                <Image className='w-9 h-9 rounded-full' src={session.user.image} alt='profile' width={50} height={50} />
+                            ) : (
+                                <div className='h-9 w-9 rounded-full bg-primary/80 text-background flex items-center justify-center text-sm font-bold shrink-0'>
+                                    {name ? name.charAt(0).toUpperCase() : ''}
+                                </div>
+                            )}
+                            <AnimatePresence>
+                                {open && (
+                                    <motion.div
+                                        initial={{ opacity: 0, width: 0 }}
+                                        animate={{ opacity: 1, width: 'auto' }}
+                                        exit={{ opacity: 0, width: 0 }}
+                                        className='font-figtree overflow-hidden'
+                                    >
+                                        <div className='flex flex-col pl-1'>
+                                            <span className='text-xs font-semibold text-gray-700 whitespace-nowrap'>{name}</span>
+                                            <span className='text-[11px] text-gray-400 capitalize whitespace-nowrap'>{dashboard}</span>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        <AnimatePresence>
+                            {userDropdownOpen && (
+                                <motion.div
+                                    className={cn('absolute bottom-[calc(100%+8px)] w-[215px] left-0 bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-50')}
+                                    variants={dropupVariants}
+                                    ref={userDropdownRef}
+                                    initial='closed'
+                                    animate='open'
+                                    exit='closed'
+                                >
+                                    <div className='p-1'>
+                                        <div className='px-3 py-3 border-b border-gray-50 mb-1 font-figtree'>
+                                            <div className='flex items-center gap-2'>
+                                                <p className='text-sm font-semibold text-gray-900 truncate'>{name}</p>
+                                                <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary'>Pro</span>
+                                            </div>
+                                            <div className='flex items-center gap-1'>
+                                                <Mail className='w-3 h-3 text-gray-500' />
+                                                <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className='space-y-0.5'>
+                                            <MenuItem icon={User} onClick={() => {}} label='View Profile' />
+                                            <MenuItem icon={CreditCard} onClick={() => {}} label='Billing' />
+                                            <MenuItem icon={Settings} onClick={() => {}} label='Settings' />
+                                            <MenuItem icon={HelpCircle} onClick={() => {}} label='Help Center' />
+                                        </div>
+
+                                        <div className='mt-1 border-t border-gray-50 pt-1'>
+                                            <MenuItem icon={LogOut} onClick={() => signOut({ callbackUrl: '/login?mode=signin' })} label='Sign Out' isDestructive />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            </div>
+        </motion.nav>
+    );
+};
+
+// --- Helper Components for Mobile ---
+
+const MobileNavItem = ({ icon: Icon, title, index, selected, onClick }: { icon: React.ElementType; index: number; title: string; selected: boolean; onClick: () => void }) => (
+    <button
+        onClick={onClick}
+        className={cn(
+            'flex-1 cursor-pointer flex flex-col items-center justify-center gap-1.5 h-full transition-all duration-200 active:scale-95 font-figtree py-0.5',
+            selected ? 'text-primary bg-primary-extra-light' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
+            index === 0 ? 'rounded-l-[18px]' : index === 3 ? 'rounded-r-[18px]' : 'rounded-none'
+        )}
+    >
+        <div className={cn('rounded-xl transition-all w-7 h-7 @min-[330px]/nav:w-7.5 @min-[330px]/nav:h-7.5 @min-[450px]/nav:w-6 @min-[450px]/nav:h-6 grid place-items-center')}>
+            <Icon className='w-full h-full' strokeWidth={selected ? 2.5 : 2} />
+        </div>
+        <span className='text-[13px] font-bold tracking-wide hidden @min-[450px]/nav:block'>{title}</span>
+    </button>
+);
+
+const MobileDrawerItem = ({ icon: Icon, title, selected, onClick }: { icon: React.ElementType; title: string; selected?: boolean; onClick: () => void }) => (
+    <button
+        onClick={onClick}
+        className={cn(
+            'w-full flex items-center cursor-pointer gap-4 px-4 py-3 rounded-xl transition-all duration-200',
+            selected ? 'text-primary bg-primary-extra-light font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary'
+        )}
+    >
+        <Icon strokeWidth={2} className='w-5 h-5' />
+        <span className='font-figtree'>{title}</span>
+    </button>
+);
+
+// --- Existing Helper Components ---
+
+const MenuItem = ({ icon: Icon, label, onClick, isDestructive = false }: { icon: React.ElementType; label: string; onClick: () => void; isDestructive?: boolean }) => (
+    <button
+        className={cn(
+            'w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer',
+            isDestructive ? 'text-red-600 hover:bg-red-50' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary'
+        )}
+        onClick={onClick}
+    >
+        <Icon strokeWidth={2} className={cn('w-4 h-4', isDestructive && 'text-red-500')} />
+        <span className='font-figtree font-medium'>{label}</span>
+    </button>
+);
+
+const SidebarItem = ({
+    icon: Icon,
+    title,
+    selected,
+    onClick,
+    open,
+    notifs,
+    stagger,
+}: {
+    icon: React.ElementType;
+    title: string;
+    onClick: () => void;
+    selected: boolean;
+    open: boolean;
+    notifs?: number;
+    stagger?: number;
+}) => {
+    return (
+        <motion.button
+            layout
+            onClick={onClick}
+            className={cn(
+                'relative flex h-11 items-center rounded-xl transition-all duration-200 group cursor-pointer',
+                selected ? 'bg-primary-extra-light text-primary' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
+                open ? 'w-full' : 'ml-[5px] w-11'
+            )}
+        >
+            <motion.div layout className='flex items-center justify-center min-w-11 h-11'>
+                <Icon />
+            </motion.div>
+
+            {open && (
+                <motion.span
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + (stagger ? stagger : 0) }}
+                    className='font-figtree whitespace-nowrap text-nowrap text-sm font-medium'
+                >
+                    {title}
+                </motion.span>
+            )}
+
+            {notifs && open && (
+                <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className='ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white'
+                >
+                    {notifs}
+                </motion.span>
+            )}
+        </motion.button>
+    );
+};
+
+const dropupVariants: Variants = {
+    closed: {
+        opacity: 0,
+        y: 0,
+        transition: { duration: 0.3, ease: 'easeInOut' },
+    },
+    open: {
+        opacity: 1,
+        y: -10,
+        transition: { duration: 0.3, ease: 'easeInOut' },
+    },
+};
+
+export default DashboardSidebar;

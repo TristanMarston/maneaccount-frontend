@@ -4,13 +4,13 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
-const Logo = ({ href = '/', position = 'navbar', color = 'default' }: { href?: string; position?: 'navbar' | 'footer'; color?: 'default' | 'background' }) => {
+const Logo = ({ href = '/', position = 'navbar', color = 'default', className = '' }: { href?: string; position?: 'navbar' | 'footer'; color?: 'default' | 'background'; className?: string; }) => {
     return (
-        <Link href={href} className='flex items-center gap-1 font-figtree'>
+        <Link href={href} className={cn('flex items-center gap-1 font-figtree', className)}>
             {color === 'default' ? (
                 <>
                     <Image
-                        src='mane-account-M.svg'
+                        src='/mane-account-M.svg'
                         alt='M'
                         className='svg-filter text-primary fill-current w-10 h-7 xxs:w-11 xxs:h-8 sm:w-12 sm:h-9 min-[450px]:w-13 min-[450px]:h-10'
                         width={50}
@@ -25,7 +25,7 @@ const Logo = ({ href = '/', position = 'navbar', color = 'default' }: { href?: s
                         ane
                     </p>
                     <Image
-                        src='mane-account-A.svg'
+                        src='/mane-account-A.svg'
                         alt='A'
                         className='svg-filter text-primary fill-current w-7 h-7 xxs:w-8 xxs:h-8 sm:w-9 sm:h-9 min-[450px]:w-10 min-[450px]:h-10'
                         width={50}

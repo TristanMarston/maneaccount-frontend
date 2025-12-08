@@ -45,16 +45,16 @@ const MobileMenu = ({ isOpen, setIsOpen, links }: { isOpen: boolean; setIsOpen: 
                                 <div className='w-full h-[0.5px] bg-primary rounded-full' />
                             </Fragment>
                         ))}
-                        <div className='flex items-center justify-end font-figtree font-bold text-base gap-3'>
-                            <Link href='/sign-in' className='w-full text-nowrap grid place-items-center rounded-[10px] py-2 text-lg text-primary primary-border-hover'>
+                        <div className='flex flex-col md:flex-row items-center justify-end font-figtree font-bold text-base gap-3'>
+                            <Link href='/login?mode=signin' className='w-full text-nowrap grid place-items-center rounded-[10px] py-2 text-lg xl:text-xl text-primary primary-border-hover'>
                                 Sign In
                             </Link>
-                            {/* <Link
-                                href='/get-started'
-                                className='w-full text-nowrap grid place-items-center rounded-[10px] py-2 text-lg bg-primary-light text-background primary-border-hover'
+                            <Link
+                                href='/login?mode=signup'
+                                className='w-full text-nowrap grid place-items-center rounded-[10px] py-2 text-lg xl:text-xl bg-primary-light text-background primary-border-hover'
                             >
-                                Get Started
-                            </Link> */}
+                                Start For Free
+                            </Link>
                         </div>
                     </motion.div>
                 )}

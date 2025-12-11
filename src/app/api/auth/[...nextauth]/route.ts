@@ -3,9 +3,10 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 import bcryptjs from 'bcryptjs';
 import { cookies } from 'next/headers';
+import { generateUniquePublicID } from '@/app/actions/getPublicID';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -80,11 +81,35 @@ export const authOptions: AuthOptions = {
                     console.error('Error setting role during OAuth:', error);
                 }
             }
+
+            if (user.email) {
+                try {
+                    const dbUser = await prisma.user.findUnique({
+                        where: { email: user.email },
+                    });
+
+                    if (dbUser && !dbUser.publicID) {
+                        const newID = await generateUniquePublicID(dbUser.name, dbUser.email);
+
+                        await prisma.user.update({
+                            where: { email: user.email },
+                            data: { publicID: newID },
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error generating public ID:', error);
+                }
+            }
         },
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, trigger, user, session }) {
+            if (trigger === 'update' && session) {
+                if (session.name && session.name.length > 0) token.name = session.name;
+                if (session.image && session.image.length > 0) token.image = session.image;
+            }
             if (user) {
+                token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
             }

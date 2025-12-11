@@ -291,7 +291,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                     }
                 />
             </Modal>
-            <Modal isOpen={isCropping && imageFile !== null} setIsOpen={setIsCropping} className='rounded-[18px] primary-border-bold relative overflow-visible'>
+            <Modal isOpen={isCropping && imageFile !== null} setIsOpen={setIsCropping} closeOnOutsideClick={false} className='rounded-[18px] primary-border-bold relative overflow-visible'>
                 {isCropping && imageFile && (
                     <ImageCropper
                         file={imageFile}

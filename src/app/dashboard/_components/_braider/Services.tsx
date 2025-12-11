@@ -109,8 +109,8 @@ const Services = ({ userEmail }: { userEmail: string }) => {
             <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 @lg/services:px-16 @lg/services:py-12 space-y-4 @sm/services:space-y-8 @container/services'>
                 <header className='flex gap-6 flex-col justify-start items-start @sm/services:gap-0 @sm/services:flex-row @sm/services:justify-between @sm/services:items-center'>
                     <div>
-                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Services & Pricing</h1>
-                        <p className='text-gray-500 font-figtree mt-1.5'>Manage the services you offer to clients.</p>
+                        <h1 className='text-[33px] @min-[300px]/services:text-4xl font-lusitana font-bold text-gray-900'>Services & Pricing</h1>
+                        <p className='text-gray-500 font-figtree mt-1.5 text-[15px] @min-[300px]/services:text-base'>Manage the services you offer to clients.</p>
                     </div>
                     <button
                         onClick={() => setServiceModalOpen(true)}

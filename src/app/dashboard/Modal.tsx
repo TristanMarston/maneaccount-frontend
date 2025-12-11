@@ -8,11 +8,13 @@ const Modal = ({
     setIsOpen,
     className = '',
     children,
+    closeOnOutsideClick = true,
 }: {
     isOpen: boolean;
     setIsOpen: React.Dispatch<React.SetStateAction<boolean>> | ((open: boolean) => void);
     className?: string;
     children: React.ReactNode;
+    closeOnOutsideClick?: boolean;
 }) => {
     return (
         <AnimatePresence>
@@ -21,8 +23,13 @@ const Modal = ({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={() => setIsOpen(false)}
-                    className='bg-slate-900/10 backdrop-blur p-6 min-[450px]:p-8 fixed inset-0 z-50 grid place-items-center overflow-y-scroll cursor-pointer'
+                    onClick={() => {
+                        if (closeOnOutsideClick) setIsOpen(false);
+                    }}
+                    className={cn(
+                        'bg-slate-900/10 backdrop-blur p-6 min-[450px]:p-8 fixed inset-0 z-50 grid place-items-center overflow-y-scroll',
+                        closeOnOutsideClick ? 'cursor-pointer' : ''
+                    )}
                 >
                     <motion.div
                         initial={{ scale: 0, rotate: '12.5deg' }}

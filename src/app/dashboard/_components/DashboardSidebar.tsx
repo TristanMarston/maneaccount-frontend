@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 import { Session } from 'next-auth';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import Modal from '../Modal';
+import SettingsModal from '../SettingsModal';
 
 type Page = {
     title: string;
@@ -49,25 +51,28 @@ const pages: Page[] = [
 const DashboardSidebar = ({
     dashboard,
     session,
+    update,
     loading,
     name,
+    image,
     selectedPage,
     setSelectedPage,
 }: {
     dashboard: string;
     session: Session | null;
+    update: (data?: any) => Promise<Session | null>;
     loading: boolean;
     name: string;
+    image: string;
     selectedPage: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
 }) => {
-    // Desktop State
     const [open, setOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    // Dropdown State (Desktop)
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
     const userDropdownRef = useRef<HTMLDivElement>(null);
     const userButtonRef = useRef<HTMLDivElement>(null);
@@ -127,8 +132,8 @@ const DashboardSidebar = ({
                             >
                                 <div className='p-5 border-b border-gray-100 bg-gray-50/50'>
                                     <div className='flex items-center gap-3'>
-                                        {session?.user.image ? (
-                                            <Image className='w-10 h-10 rounded-full border border-white shadow-sm' src={session.user.image} alt='profile' width={50} height={50} />
+                                        {image && image.length > 0 ? (
+                                            <Image className='w-10 h-10 rounded-full border border-white shadow-sm' src={image} alt='profile' width={50} height={50} />
                                         ) : (
                                             <div className='h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm'>
                                                 {name ? name.charAt(0).toUpperCase() : ''}
@@ -170,7 +175,14 @@ const DashboardSidebar = ({
                                         <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2'>Account</p>
                                         <MobileDrawerItem icon={User} title='View Profile' onClick={() => {}} />
                                         <MobileDrawerItem icon={CreditCard} title='Billing' onClick={() => {}} />
-                                        <MobileDrawerItem icon={Settings} title='Settings' onClick={() => {}} />
+                                        <MobileDrawerItem
+                                            icon={Settings}
+                                            title='Settings'
+                                            onClick={() => {
+                                                setMobileMenuOpen(false);
+                                                setSettingsModalOpen(true);
+                                            }}
+                                        />
                                         <MobileDrawerItem icon={HelpCircle} title='Help Center' onClick={() => {}} />
                                     </div>
 
@@ -205,158 +217,183 @@ const DashboardSidebar = ({
                         <MobileNavItem icon={MoreHorizontal} index={3} title='More' selected={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
                     </div>
                 </div>
+                <Modal
+                    isOpen={settingsModalOpen}
+                    setIsOpen={setSettingsModalOpen}
+                    closeOnOutsideClick={false}
+                    className='max-w-xl p-7 rounded-[18px] primary-border-bold relative dashboard-sm:hidden'
+                >
+                    <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
+                </Modal>
             </>
         );
     }
 
     // --- RENDER DESKTOP VIEW (>= 650px) ---
     return (
-        <motion.nav
-            layout
-            initial={false}
-            animate={{ width: open ? 240 : 80 }}
-            transition={{ duration: 0.3 }}
-            className={cn(
-                'sticky top-0 h-screen shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden'
-            )}
-        >
-            <div className='flex flex-col h-full'>
-                {/* Header */}
-                <div className='flex h-20 items-center justify-start border-b border-gray-50/50 scale-95'>
-                    <motion.div className={cn('flex items-center transition-all duration-300 justify-start', open ? 'w-full ml-2' : 'w-10 ml-4.5')}>
-                        <Image
-                            key='m-image'
-                            src='/mane-account-M.svg'
-                            alt='M'
-                            className={cn('svg-filter text-primary fill-current min-w-10 h-7 relative left-0.5')}
-                            width={50}
-                            height={50}
-                        />
-                        <AnimatePresence>
-                            {open && (
-                                <motion.span
-                                    layout
-                                    initial={{ opacity: 0, y: 12 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.1 }}
-                                    className='flex items-center gap-1 whitespace-nowrap'
-                                >
-                                    <p className='text-primary font-lustria pt-2.5 text-[26px]'>ane</p>
-                                    <Image key='a-image' src='/mane-account-A.svg' alt='A' className='svg-filter text-primary fill-current w-7 h-7' width={50} height={50} />
-                                    <p className='text-primary font-lustria pt-2.5 text-[26px]'>ccount</p>
-                                </motion.span>
-                            )}
-                        </AnimatePresence>
-                    </motion.div>
-                </div>
-
-                <div className='w-[90%] mx-auto h-px -mt-2 bg-primary' />
-
-                {/* Desktop Menu Items */}
-                <div className='flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar'>
-                    {filteredPages.map((page, index) => (
-                        <SidebarItem
-                            key={page.title + index}
-                            icon={page.icon}
-                            title={page.title}
-                            onClick={() => setSelectedPage(page.title)}
-                            selected={selectedPage === page.title}
-                            open={open}
-                            stagger={index * 0.025}
-                        />
-                    ))}
-                </div>
-
-                {/* Footer */}
-                <div className='border-t border-gray-50 p-3'>
-                    <SidebarItem
-                        icon={() => (
-                            <motion.div
-                                initial='open'
-                                animate={open ? 'open' : 'closed'}
-                                variants={{
-                                    open: { rotate: 0, transition: { duration: 0.3, type: 'spring', bounce: 0.5 } },
-                                    closed: { rotate: 180, transition: { duration: 0.3, type: 'spring', bounce: 0.5 } },
-                                }}
-                            >
-                                <ChevronsLeft />
-                            </motion.div>
-                        )}
-                        title='Collapse'
-                        onClick={handleToggle}
-                        selected={false}
-                        open={open}
-                    />
-
-                    <div className='relative'>
-                        <div
-                            className={cn('mt-4 flex items-center gap-2 rounded-xl bg-primary-extra-light p-2 cursor-pointer hover:brightness-[1.025] transition-all')}
-                            ref={userButtonRef}
-                            onClick={() => setUserDropdownOpen((prev) => !prev)}
-                        >
-                            {session?.user.image ? (
-                                <Image className='w-9 h-9 rounded-full' src={session.user.image} alt='profile' width={50} height={50} />
-                            ) : (
-                                <div className='h-9 w-9 rounded-full bg-primary/80 text-background flex items-center justify-center text-sm font-bold shrink-0'>
-                                    {name ? name.charAt(0).toUpperCase() : ''}
-                                </div>
-                            )}
+        <>
+            <motion.nav
+                layout
+                initial={false}
+                animate={{ width: open ? 240 : 80 }}
+                transition={{ duration: 0.3 }}
+                className={cn(
+                    'sticky top-0 h-full rounded-l-[18px] shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden'
+                )}
+            >
+                <div className='flex flex-col h-full'>
+                    {/* Header */}
+                    <div className='flex h-20 items-center justify-start border-b border-gray-50/50 scale-95'>
+                        <motion.div className={cn('flex items-center transition-all duration-300 justify-start', open ? 'w-full ml-2' : 'w-10 ml-4.5')}>
+                            <Image
+                                key='m-image'
+                                src='/mane-account-M.svg'
+                                alt='M'
+                                className={cn('svg-filter text-primary fill-current min-w-10 h-7 relative left-0.5')}
+                                width={50}
+                                height={50}
+                            />
                             <AnimatePresence>
                                 {open && (
-                                    <motion.div
-                                        initial={{ opacity: 0, width: 0 }}
-                                        animate={{ opacity: 1, width: 'auto' }}
-                                        exit={{ opacity: 0, width: 0 }}
-                                        className='font-figtree overflow-hidden'
+                                    <motion.span
+                                        layout
+                                        initial={{ opacity: 0, y: 12 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 }}
+                                        className='flex items-center gap-1 whitespace-nowrap'
                                     >
-                                        <div className='flex flex-col pl-1'>
-                                            <span className='text-xs font-semibold text-gray-700 whitespace-nowrap'>{name}</span>
-                                            <span className='text-[11px] text-gray-400 capitalize whitespace-nowrap'>{dashboard}</span>
+                                        <p className='text-primary font-lustria pt-2.5 text-[26px]'>ane</p>
+                                        <Image key='a-image' src='/mane-account-A.svg' alt='A' className='svg-filter text-primary fill-current w-7 h-7' width={50} height={50} />
+                                        <p className='text-primary font-lustria pt-2.5 text-[26px]'>ccount</p>
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
+                        </motion.div>
+                    </div>
+
+                    <div className='w-[90%] mx-auto h-px -mt-2 bg-primary' />
+
+                    {/* Desktop Menu Items */}
+                    <div className='flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar'>
+                        {filteredPages.map((page, index) => (
+                            <SidebarItem
+                                key={page.title + index}
+                                icon={page.icon}
+                                title={page.title}
+                                onClick={() => setSelectedPage(page.title)}
+                                selected={selectedPage === page.title}
+                                open={open}
+                                stagger={index * 0.025}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Footer */}
+                    <div className='border-t border-gray-50 p-3'>
+                        <SidebarItem
+                            icon={() => (
+                                <motion.div
+                                    initial='open'
+                                    animate={open ? 'open' : 'closed'}
+                                    variants={{
+                                        open: { rotate: 0, transition: { duration: 0.3, type: 'spring', bounce: 0.5 } },
+                                        closed: { rotate: 180, transition: { duration: 0.3, type: 'spring', bounce: 0.5 } },
+                                    }}
+                                >
+                                    <ChevronsLeft />
+                                </motion.div>
+                            )}
+                            title='Collapse'
+                            onClick={handleToggle}
+                            selected={false}
+                            open={open}
+                        />
+
+                        <div className='relative'>
+                            <div
+                                className={cn('mt-4 flex items-center gap-2 rounded-xl bg-primary-extra-light p-2 cursor-pointer hover:brightness-[1.025] transition-all')}
+                                ref={userButtonRef}
+                                onClick={() => setUserDropdownOpen((prev) => !prev)}
+                            >
+                                {image && image.length > 0 ? (
+                                    <Image className='w-9 h-9 rounded-full' src={image} alt='profile' width={50} height={50} />
+                                ) : (
+                                    <div className='h-9 w-9 rounded-full bg-primary/80 text-background flex items-center justify-center text-sm font-bold shrink-0'>
+                                        {name ? name.charAt(0).toUpperCase() : ''}
+                                    </div>
+                                )}
+                                <AnimatePresence>
+                                    {open && (
+                                        <motion.div
+                                            initial={{ opacity: 0, width: 0 }}
+                                            animate={{ opacity: 1, width: 'auto' }}
+                                            exit={{ opacity: 0, width: 0 }}
+                                            className='font-figtree overflow-hidden'
+                                        >
+                                            <div className='flex flex-col pl-1'>
+                                                <span className='text-xs font-semibold text-gray-700 whitespace-nowrap'>{name}</span>
+                                                <span className='text-[11px] text-gray-400 capitalize whitespace-nowrap'>{dashboard}</span>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                            <AnimatePresence>
+                                {userDropdownOpen && (
+                                    <motion.div
+                                        className={cn('absolute bottom-[calc(100%+8px)] w-[215px] left-0 bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-50')}
+                                        variants={dropupVariants}
+                                        ref={userDropdownRef}
+                                        initial='closed'
+                                        animate='open'
+                                        exit='closed'
+                                    >
+                                        <div className='p-1'>
+                                            <div className='px-3 py-3 border-b border-gray-50 mb-1 font-figtree'>
+                                                <div className='flex items-center gap-2'>
+                                                    <p className='text-sm font-semibold text-gray-900 truncate'>{name}</p>
+                                                    <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary'>Pro</span>
+                                                </div>
+                                                <div className='flex items-center gap-1'>
+                                                    <Mail className='w-3 h-3 text-gray-500' />
+                                                    <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className='space-y-0.5'>
+                                                <MenuItem icon={User} onClick={() => {}} label='View Profile' />
+                                                <MenuItem icon={CreditCard} onClick={() => {}} label='Billing' />
+                                                <MenuItem
+                                                    icon={Settings}
+                                                    onClick={() => {
+                                                        setUserDropdownOpen(false);
+                                                        setSettingsModalOpen(true);
+                                                    }}
+                                                    label='Settings'
+                                                />
+                                                <MenuItem icon={HelpCircle} onClick={() => {}} label='Help Center' />
+                                            </div>
+
+                                            <div className='mt-1 border-t border-gray-50 pt-1'>
+                                                <MenuItem icon={LogOut} onClick={() => signOut({ callbackUrl: '/login?mode=signin' })} label='Sign Out' isDestructive />
+                                            </div>
                                         </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
-                        <AnimatePresence>
-                            {userDropdownOpen && (
-                                <motion.div
-                                    className={cn('absolute bottom-[calc(100%+8px)] w-[215px] left-0 bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-50')}
-                                    variants={dropupVariants}
-                                    ref={userDropdownRef}
-                                    initial='closed'
-                                    animate='open'
-                                    exit='closed'
-                                >
-                                    <div className='p-1'>
-                                        <div className='px-3 py-3 border-b border-gray-50 mb-1 font-figtree'>
-                                            <div className='flex items-center gap-2'>
-                                                <p className='text-sm font-semibold text-gray-900 truncate'>{name}</p>
-                                                <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary'>Pro</span>
-                                            </div>
-                                            <div className='flex items-center gap-1'>
-                                                <Mail className='w-3 h-3 text-gray-500' />
-                                                <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className='space-y-0.5'>
-                                            <MenuItem icon={User} onClick={() => {}} label='View Profile' />
-                                            <MenuItem icon={CreditCard} onClick={() => {}} label='Billing' />
-                                            <MenuItem icon={Settings} onClick={() => {}} label='Settings' />
-                                            <MenuItem icon={HelpCircle} onClick={() => {}} label='Help Center' />
-                                        </div>
-
-                                        <div className='mt-1 border-t border-gray-50 pt-1'>
-                                            <MenuItem icon={LogOut} onClick={() => signOut({ callbackUrl: '/login?mode=signin' })} label='Sign Out' isDestructive />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
                     </div>
                 </div>
-            </div>
-        </motion.nav>
+            </motion.nav>
+            <Modal
+                isOpen={settingsModalOpen}
+                setIsOpen={setSettingsModalOpen}
+                closeOnOutsideClick={false}
+                className='max-w-xl p-7 rounded-[18px] primary-border-bold relative hidden dashboard-sm:block'
+            >
+                <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
+            </Modal>
+        </>
     );
 };
 

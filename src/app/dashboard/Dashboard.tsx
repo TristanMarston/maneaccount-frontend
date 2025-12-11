@@ -1,18 +1,23 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import BraiderDashboard from './_components/_braider/BraiderDashboard';
 import SubcontractorDashboard from './_components/_subcontractor/SubcontractorDashboard';
 import OwnerDashboard from './_components/_owner/OwnerDashboard';
+import { GradientBackground } from '../_components/GradientBackground';
 
 export type UserRole = 'client' | 'subcontractor' | 'braider' | 'admin' | '';
 
 const Dashboard = () => {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
-    const { data: session, status } = useSession({
+    const {
+        data: session,
+        status,
+        update,
+    } = useSession({
         required: true,
         onUnauthenticated() {
             router.push('/login?mode=signin');
@@ -30,15 +35,18 @@ const Dashboard = () => {
     }, [session, status]);
 
     return !loading && session && role.length > 0 ? (
-        <>
+        <GradientBackground
+            gradient='from-primary-dark/50 via-primary/50 to-primary-light/50'
+            className='flex flex-col items-center justify-center fixed inset-0 h-dvh overflow-hidden dashboard-sm:p-3 3xl:p-4'
+        >
             {role === 'braider' ? (
-                <BraiderDashboard session={session} loading={loading} />
+                <BraiderDashboard session={session} loading={loading} update={update} />
             ) : role === 'subcontractor' ? (
-                <SubcontractorDashboard session={session} loading={loading} />
+                <SubcontractorDashboard session={session} loading={loading} update={update} />
             ) : (
-                role === 'client' && <OwnerDashboard session={session} loading={loading} />
+                role === 'client' && <OwnerDashboard session={session} loading={loading} update={update} />
             )}
-        </>
+        </GradientBackground>
     ) : (
         <span className='loader'></span>
     );

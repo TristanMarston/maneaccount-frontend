@@ -8,16 +8,18 @@ import DashboardHome from '../DashboardHome';
 import { Session } from 'next-auth';
 import Services from './Services';
 
-const BraiderDashboard = ({ session, loading }: { session: Session | null; loading: boolean }) => {
+const BraiderDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
     const [name, setName] = useState('');
     const [role, setRole] = useState<UserRole>('braider');
     const [email, setEmail] = useState('');
+    const [image, setImage] = useState('');
 
     useEffect(() => {
         if (session?.user) {
             setName(session.user.name || 'User');
             setEmail(session.user.email || '');
+            setImage(session.user.image || '');
 
             if (session.user.role) {
                 setRole(session.user.role as UserRole);
@@ -74,12 +76,9 @@ const BraiderDashboard = ({ session, loading }: { session: Session | null; loadi
         );
 
     return (
-        <div className='w-full min-h-screen flex bg-stone-50/50'>
-            {/* Sidebar with state control */}
-            <DashboardSidebar dashboard='braider' name={name} session={session} loading={loading} selectedPage={selectedPage} setSelectedPage={setSelectedPage} />
-
-            {/* Main Content Area */}
-            <main className='flex-1 h-screen overflow-y-auto'>{renderContent()}</main>
+        <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-lg'>
+            <DashboardSidebar dashboard='braider' name={name} image={image} session={session} update={update} loading={loading} selectedPage={selectedPage} setSelectedPage={setSelectedPage} />
+            <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px]'>{renderContent()}</main>
         </div>
     );
 };

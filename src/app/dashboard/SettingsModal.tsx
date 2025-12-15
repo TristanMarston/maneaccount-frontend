@@ -209,7 +209,12 @@ const SettingsModal = ({
                     </div>
 
                     {/* Main Content Area */}
-                    <div className='flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] relative'>
+                    <div
+                        className={cn(
+                            'flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] relative',
+                            isLoading ? 'py-16!' : ''
+                        )}
+                    >
                         {isLoading ? (
                             <div className='absolute inset-0 flex items-center justify-center'>
                                 <span className='loader-primary'></span>

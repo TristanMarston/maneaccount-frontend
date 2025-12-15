@@ -202,13 +202,11 @@ const SettingsModal = ({
                 </div>
 
                 <div className='flex flex-col @min-[520px]/settings:flex-row flex-1 overflow-hidden mt-4'>
-                    {/* Navigation (Tabs) */}
                     <div className='w-auto bg-gray-50 border @min-[520px]/settings:rounded-l-[18px] rounded-t-[18px] border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[270px]/settings:flex-row @min-[520px]:flex-col gap-2 shrink-0'>
                         <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
                         <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
                     </div>
 
-                    {/* Main Content Area */}
                     <div
                         className={cn(
                             'flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] relative',
@@ -221,10 +219,8 @@ const SettingsModal = ({
                             </div>
                         ) : (
                             <form id='settings-form' onSubmit={handleSubmit} className='max-w-xl space-y-8'>
-                                {/* --- PROFILE TAB --- */}
                                 {activeTab === 'profile' && (
                                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className='space-y-8 @container/profile'>
-                                        {/* Photo */}
                                         <div className='flex flex-col @min-[260px]/profile:flex-row items-center gap-6'>
                                             <div className='relative group cursor-pointer shrink-0'>
                                                 <div className='w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100'>
@@ -262,7 +258,6 @@ const SettingsModal = ({
                                             </div>
                                         </div>
 
-                                        {/* Public ID */}
                                         <div className='space-y-2'>
                                             <div className='ml-1'>
                                                 <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Public ID</label>
@@ -301,7 +296,6 @@ const SettingsModal = ({
                                                 </div>
                                             </div>
 
-                                            {/* Availability Message */}
                                             <AnimatePresence>
                                                 {isIDAvailable === false && (
                                                     <motion.p
@@ -319,10 +313,8 @@ const SettingsModal = ({
                                     </motion.div>
                                 )}
 
-                                {/* --- ACCOUNT TAB --- */}
                                 {activeTab === 'account' && (
                                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className='space-y-8 @container/account'>
-                                        {/* Email Section with Verification */}
                                         <div className='flex flex-col gap-2 w-full'>
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Email Address</label>
                                             <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[225px]/account:p-4 font-figtree'>
@@ -360,7 +352,6 @@ const SettingsModal = ({
                                             </div>
                                         </div>
 
-                                        {/* Phone */}
                                         <div className='flex flex-col gap-2 w-full'>
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Phone Number</label>
                                             <div className='relative'>
@@ -376,7 +367,6 @@ const SettingsModal = ({
                                             </div>
                                         </div>
 
-                                        {/* Account Type (Read Only) */}
                                         <div className='p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex gap-3 font-figtree m-0'>
                                             <Shield className='text-blue-500 shrink-0' size={20} />
                                             <div className='space-y-1'>
@@ -389,7 +379,6 @@ const SettingsModal = ({
 
                                         <hr className='border-gray-100 my-6' />
 
-                                        {/* Delete Account */}
                                         <button
                                             onClick={() => setDeleteAccountModal(true)}
                                             type='button'
@@ -537,6 +526,7 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
                             }}
                             type='text'
                             maxLength={1}
+                            inputMode='numeric'
                             value={code[index] || ''}
                             onChange={(e) => handleChange(e, index)}
                             onKeyDown={(e) => handleKeyDown(e, index)}

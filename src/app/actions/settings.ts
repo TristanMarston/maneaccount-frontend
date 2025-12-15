@@ -107,6 +107,7 @@ export async function getUserSettings() {
             name: true,
             email: true,
             image: true,
+            emailVerified: true,
             publicID: true,
             role: true,
             phoneNumber: true,

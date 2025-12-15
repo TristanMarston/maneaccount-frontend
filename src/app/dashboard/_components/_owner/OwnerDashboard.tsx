@@ -7,6 +7,8 @@ import { UserRole } from '../../Dashboard';
 import DashboardHome from '../DashboardHome';
 import { Session } from 'next-auth';
 import Horses from './Horses';
+import Relations from '../Relations';
+import { getPublicID } from '@/app/actions/getPublicID';
 
 const OwnerDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -14,6 +16,7 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
     const [role, setRole] = useState<UserRole>('client');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
+    const [publicID, setPublicID] = useState('');
 
     useEffect(() => {
         if (session?.user) {
@@ -27,12 +30,25 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
         }
     }, [session]);
 
+    useEffect(() => {
+        const fetchPublicID = async () => {
+            if (email.length > 0) {
+                const publicID = await getPublicID(email);
+                if (typeof publicID === 'string' && publicID.length > 0) setPublicID(publicID);
+            }
+        };
+
+        fetchPublicID();
+    }, [email]);
+
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
                 return <DashboardHome role={role} name={name} />;
             case 'Horses':
                 return <Horses userEmail={email} />;
+            case 'Braiders':
+                return <Relations userEmail={email} role='client' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Calendar':
                 return (
                     <div className='p-8'>
@@ -54,7 +70,16 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
     return (
         <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-lg'>
             {/* Sidebar with state control */}
-            <DashboardSidebar dashboard='client' name={name} image={image} session={session} update={update} loading={loading} selectedPage={selectedPage} setSelectedPage={setSelectedPage} />
+            <DashboardSidebar
+                dashboard='client'
+                name={name}
+                image={image}
+                session={session}
+                update={update}
+                loading={loading}
+                selectedPage={selectedPage}
+                setSelectedPage={setSelectedPage}
+            />
 
             {/* Main Content Area */}
             <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px]'>{renderContent()}</main>

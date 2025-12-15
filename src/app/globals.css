@@ -132,6 +132,12 @@
     box-shadow: 2.5px 2.5px 0 0 var(--primary);
 }
 
+.primary-border-important {
+    border-width: 1.9px !important;
+    border-color: var(--primary) !important;
+    box-shadow: 2.5px 2.5px 0 0 var(--primary) !important;
+}
+
 .primary-border-bold {
     border-width: 3px;
     border-color: var(--primary);
@@ -152,8 +158,18 @@
     box-shadow: none;
 }
 
-.paper-aspect-ratio {
-    aspect-ratio: 11 / 8.5;
+.red-border-hover {
+    border-width: 1.9px;
+    border-color: #fb2c36;
+    box-shadow: 2.5px 2.5px 0 0 #fb2c36;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 250ms;
+}
+
+.red-border-hover:hover {
+    translate: 2.5px 2.5px 0;
+    box-shadow: none;
 }
 
 .loader {

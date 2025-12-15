@@ -15,6 +15,7 @@ import {
     MoreHorizontal,
     Settings,
     User,
+    Scissors,
     UserPlus,
     Users,
     X,
@@ -41,6 +42,7 @@ const HorseIcon = () => <Icon className='w-full h-full dashboard-sm:max-w-6 dash
 const pages: Page[] = [
     { title: 'Dashboard', path: '/dashboard/', icon: Home, accountTypes: ['client', 'subcontractor', 'braider', 'admin'] },
     { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['client'] },
+    { title: 'Braiders', path: '/dashboard/braiders', icon: Scissors, accountTypes: ['client'] },
     { title: 'Calendar', path: '/dashboard/calendar', icon: Calendar, accountTypes: ['braider', 'subcontractor', 'client'] },
     { title: 'Clients', path: '/dashboard/clients', icon: Users, accountTypes: ['braider', 'subcontractor'] },
     { title: 'Team', path: '/dashboard/team', icon: UserPlus, accountTypes: ['braider', 'subcontractor'] },
@@ -221,7 +223,7 @@ const DashboardSidebar = ({
                     isOpen={settingsModalOpen}
                     setIsOpen={setSettingsModalOpen}
                     closeOnOutsideClick={false}
-                    className='max-w-xl p-7 rounded-[18px] primary-border-bold relative dashboard-sm:hidden'
+                    className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative dashboard-sm:hidden'
                 >
                     <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
                 </Modal>
@@ -389,7 +391,7 @@ const DashboardSidebar = ({
                 isOpen={settingsModalOpen}
                 setIsOpen={setSettingsModalOpen}
                 closeOnOutsideClick={false}
-                className='max-w-xl p-7 rounded-[18px] primary-border-bold relative hidden dashboard-sm:block'
+                className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative hidden dashboard-sm:block'
             >
                 <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
             </Modal>

@@ -1,8 +1,8 @@
 'use client';
 
-import { X, Camera, Check, AlertCircle, Loader2, User, Shield, AtSign, ZoomOut, ZoomIn, Move, CircleAlert, Phone } from 'lucide-react';
+import { X, Camera, Check, AlertCircle, Loader2, User, Shield, AtSign, ZoomOut, ZoomIn, Move, CircleAlert, Phone, Mail } from 'lucide-react';
 import { Session } from 'next-auth';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
@@ -12,6 +12,7 @@ import { failToast, successToast } from '../context';
 import Modal from './Modal';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { requestVerificationEmail, verifyToken } from '../actions/verification';
 
 function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -33,6 +34,8 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
+type Tab = 'profile' | 'account';
+
 const SettingsModal = ({
     setOpen,
     session,
@@ -44,10 +47,16 @@ const SettingsModal = ({
 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>('profile');
 
     const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [publicID, setPublicID] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [emailVerified, setEmailVerified] = useState<Date | null>(null);
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [verificationStep, setVerificationStep] = useState<'idle' | 'sent'>('idle');
+    const [verificationCode, setVerificationCode] = useState('');
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -55,7 +64,6 @@ const SettingsModal = ({
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
 
     const originalInfo = useRef<{ name: string; publicID: string; image: string; phoneNumber: string }>({ name: '', publicID: '', image: '', phoneNumber: '' });
-
     const [deleteAccountModal, setDeleteAccountModal] = useState(false);
 
     const debouncedPublicID = useDebounce(publicID, 500);
@@ -66,7 +74,6 @@ const SettingsModal = ({
         const loadData = async () => {
             const data = await getUserSettings();
             if (data) {
-                // Format the phone number coming from DB (digits only) to display format
                 const formattedPhone = data.phoneNumber ? formatPhoneNumber(data.phoneNumber) : '';
 
                 originalInfo.current = {
@@ -78,6 +85,8 @@ const SettingsModal = ({
 
                 setName(data.name || '');
                 setPublicID(data.publicID || '');
+                setEmailVerified(data.emailVerified);
+                setEmail(data.email || '');
                 setPhoneNumber(formattedPhone);
                 setImagePreview(data.image);
             }
@@ -127,6 +136,31 @@ const SettingsModal = ({
         setPhoneNumber(formatted);
     };
 
+    const handleVerificationRequest = async () => {
+        setIsVerifying(true);
+        const res = await requestVerificationEmail();
+        if (res.success) {
+            successToast('Code sent!');
+            setVerificationStep('sent');
+        } else {
+            failToast(res.error || 'Failed to send email');
+        }
+        setIsVerifying(false);
+    };
+
+    const handleVerifyCode = async () => {
+        setIsVerifying(true);
+        const res = await verifyToken(verificationCode);
+        if (res.success) {
+            successToast('Email verified successfully!');
+            setEmailVerified(new Date());
+            setVerificationStep('idle');
+        } else {
+            failToast(res.error || 'Verification failed');
+        }
+        setIsVerifying(false);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -167,140 +201,203 @@ const SettingsModal = ({
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
                 </div>
 
-                <div className='flex-1 overflow-y-auto mt-2 p-2 @min-[275px]/settings:p-4 @min-[475px]/settings:p-8'>
-                    {isLoading ? (
-                        <div className='w-full h-full flex items-center justify-center'>
-                            <span className='loader-primary'></span>
-                        </div>
-                    ) : (
-                        <div className='flex flex-col gap-6 @min-[315px]/settings:gap-8'>
-                            <div className='flex flex-col items-center'>
-                                <div className='relative group cursor-pointer'>
-                                    <div className='w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100'>
-                                        {imagePreview ? (
-                                            <Image src={imagePreview} alt='Profile' fill className='object-cover rounded-full' />
-                                        ) : (
-                                            <div className='w-full h-full flex items-center justify-center bg-primary/10 text-primary text-3xl font-bold'>
-                                                {name.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className='absolute inset-0 flex items-center justify-center bg-black/30 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full'>
-                                        <Camera size={24} />
-                                    </div>
-                                    <input type='file' accept='image/*' onChange={handleImageChange} className='absolute inset-0 opacity-0 cursor-pointer' />
-                                </div>
-                                <p className='text-xs text-gray-400 mt-3 font-figtree'>Click to change photo</p>
+                <div className='flex flex-col @min-[520px]/settings:flex-row flex-1 overflow-hidden mt-4'>
+                    {/* Navigation (Tabs) */}
+                    <div className='w-auto bg-gray-50 border @min-[520px]/settings:rounded-l-[18px] rounded-t-[18px] border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[270px]/settings:flex-row @min-[520px]:flex-col gap-2 shrink-0'>
+                        <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
+                        <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className='flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] relative'>
+                        {isLoading ? (
+                            <div className='absolute inset-0 flex items-center justify-center'>
+                                <span className='loader-primary'></span>
                             </div>
-                            <form id='settings-form' onSubmit={handleSubmit} className='space-y-4 @min-[315px]/settings:space-y-6 max-w-md mx-auto w-full font-figtree'>
-                                {/* Name */}
-                                <div className='flex flex-col gap-2 w-full'>
-                                    <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Display Name</label>
-                                    <div className='relative'>
-                                        <User className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', name.length > 0 ? 'text-black' : 'text-gray-400')} />
-                                        <input
-                                            className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
-                                            name='name'
-                                            value={name}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                                            placeholder='Your Name'
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Phone Number */}
-                                <div className='flex flex-col gap-2 w-full'>
-                                    <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Phone Number</label>
-                                    <div className='relative'>
-                                        <Phone className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', phoneNumber.length > 0 ? 'text-black' : 'text-gray-400')} />
-                                        <input
-                                            className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
-                                            name='phoneNumber'
-                                            value={phoneNumber}
-                                            onChange={handlePhoneChange}
-                                            placeholder='(555) 123-4567'
-                                            maxLength={14}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Public ID */}
-                                <div className='space-y-2'>
-                                    <div className='ml-1'>
-                                        <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Public ID</label>
-                                        <p className='text-xs font-semibold text-gray-500 ml-1'>This will be used for connecting with others on the platform.</p>
-                                    </div>
-
-                                    <div className='relative'>
-                                        <AtSign className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', publicID.length > 0 ? 'text-black' : 'text-gray-400')} />
-                                        <input
-                                            value={publicID}
-                                            onChange={(e) => {
-                                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
-                                                setPublicID(val);
-                                            }}
-                                            className={cn(
-                                                'w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors',
-                                                isIDAvailable === false
-                                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-                                                    : isIDAvailable === true
-                                                    ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
-                                                    : 'border-gray-200 focus:border-primary focus:ring-primary/10'
-                                            )}
-                                            placeholder='username'
-                                            required
-                                            minLength={3}
-                                        />
-
-                                        <div className='absolute right-4 top-1/2 -translate-y-1/2'>
-                                            {isCheckingID ? (
-                                                <Loader2 size={18} className='animate-spin text-gray-400' />
-                                            ) : isIDAvailable === true ? (
-                                                <Check size={18} className='text-green-500' />
-                                            ) : isIDAvailable === false ? (
-                                                <X size={18} className='text-red-500' />
-                                            ) : null}
+                        ) : (
+                            <form id='settings-form' onSubmit={handleSubmit} className='max-w-xl space-y-8'>
+                                {/* --- PROFILE TAB --- */}
+                                {activeTab === 'profile' && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className='space-y-8 @container/profile'>
+                                        {/* Photo */}
+                                        <div className='flex flex-col @min-[260px]/profile:flex-row items-center gap-6'>
+                                            <div className='relative group cursor-pointer shrink-0'>
+                                                <div className='w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100'>
+                                                    {imagePreview ? (
+                                                        <Image src={imagePreview} alt='Profile' fill className='object-cover rounded-full' />
+                                                    ) : (
+                                                        <div className='w-full h-full flex items-center justify-center bg-primary/10 text-primary text-3xl font-bold'>
+                                                            {name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className='absolute inset-0 flex items-center justify-center bg-black/30 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full'>
+                                                    <Camera size={20} />
+                                                </div>
+                                                <input type='file' accept='image/*' onChange={handleImageChange} className='absolute inset-0 opacity-0 cursor-pointer' />
+                                            </div>
+                                            <div className='text-center @min-[260px]/profile:text-left'>
+                                                <h3 className='font-bold font-figtree text-xl text-gray-900'>Profile Picture</h3>
+                                                <p className='text-sm text-gray-500 font-figtree'>Click the image to upload a new photo.</p>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    {/* Availability Message */}
-                                    <AnimatePresence>
-                                        {isIDAvailable === false && (
-                                            <motion.p
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className='text-xs text-red-500 flex items-center gap-1 ml-1'
-                                            >
-                                                <AlertCircle size={12} />
-                                                That ID is already taken.
-                                            </motion.p>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
+                                        <div className='flex flex-col gap-2 w-full'>
+                                            <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Display Name</label>
+                                            <div className='relative'>
+                                                <User className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', name.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                                <input
+                                                    className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                                    name='name'
+                                                    value={name}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+                                                    placeholder='Your Name'
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
 
-                                {/* Read Only Info */}
-                                <div className='p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex gap-3'>
-                                    <Shield className='text-blue-500 shrink-0' size={20} />
-                                    <div className='space-y-1'>
-                                        <p className='text-sm font-bold text-blue-900'>Account Type</p>
-                                        <p className='text-xs text-blue-700'>
-                                            You are currently signed in as a <span className='uppercase font-bold'>{session?.user?.role || 'User'}</span>.
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setDeleteAccountModal(true)}
-                                    type='button'
-                                    className='w-full bg-red-50 text-red-500 border rounded-xl border-red-200 px-4 py-2 flex gap-2 cursor-pointer hover:bg-red-100 transition-colors'
-                                >
-                                    <CircleAlert className='w-6 h-6' />
-                                    Delete Account
-                                </button>
+                                        {/* Public ID */}
+                                        <div className='space-y-2'>
+                                            <div className='ml-1'>
+                                                <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Public ID</label>
+                                                <p className='text-xs font-semibold text-gray-500 ml-1'>This will be used for connecting with others on the platform.</p>
+                                            </div>
+
+                                            <div className='relative'>
+                                                <AtSign className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', publicID.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                                <input
+                                                    value={publicID}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                                        setPublicID(val);
+                                                    }}
+                                                    className={cn(
+                                                        'w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors',
+                                                        isIDAvailable === false
+                                                            ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                                            : isIDAvailable === true
+                                                              ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
+                                                              : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                    )}
+                                                    placeholder='username'
+                                                    required
+                                                    minLength={3}
+                                                />
+
+                                                <div className='absolute right-4 top-1/2 -translate-y-1/2'>
+                                                    {isCheckingID ? (
+                                                        <Loader2 size={18} className='animate-spin text-gray-400' />
+                                                    ) : isIDAvailable === true ? (
+                                                        <Check size={18} className='text-green-500' />
+                                                    ) : isIDAvailable === false ? (
+                                                        <X size={18} className='text-red-500' />
+                                                    ) : null}
+                                                </div>
+                                            </div>
+
+                                            {/* Availability Message */}
+                                            <AnimatePresence>
+                                                {isIDAvailable === false && (
+                                                    <motion.p
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className='text-xs text-red-500 flex items-center gap-1 ml-1'
+                                                    >
+                                                        <AlertCircle size={12} />
+                                                        That ID is already taken.
+                                                    </motion.p>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* --- ACCOUNT TAB --- */}
+                                {activeTab === 'account' && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className='space-y-8 @container/account'>
+                                        {/* Email Section with Verification */}
+                                        <div className='flex flex-col gap-2 w-full'>
+                                            <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Email Address</label>
+                                            <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[225px]/account:p-4 font-figtree'>
+                                                <div className='flex flex-col @min-[365px]/account:flex-row @min-[365px]/account:items-center justify-between gap-4 w-full'>
+                                                    <div className='flex items-center gap-3'>
+                                                        <div
+                                                            className={cn(
+                                                                'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
+                                                                emailVerified ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'
+                                                            )}
+                                                        >
+                                                            <Mail size={18} />
+                                                        </div>
+                                                        <div className='min-w-0 flex-1'>
+                                                            <p className='font-semibold text-gray-900 truncate min-w-0 flex-1'>{email}</p>
+                                                            <p className={cn('text-xs font-bold', emailVerified ? 'text-green-600' : 'text-amber-600')}>
+                                                                {emailVerified ? 'Verified' : 'Unverified'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    {!emailVerified && verificationStep === 'idle' && (
+                                                        <button
+                                                            type='button'
+                                                            onClick={handleVerificationRequest}
+                                                            disabled={isVerifying}
+                                                            className='px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50'
+                                                        >
+                                                            {isVerifying ? 'Sending...' : 'Verify'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {!emailVerified && verificationStep === 'sent' && (
+                                                    <InputOTP code={verificationCode} setCode={setVerificationCode} onSubmit={handleVerifyCode} />
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Phone */}
+                                        <div className='flex flex-col gap-2 w-full'>
+                                            <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Phone Number</label>
+                                            <div className='relative'>
+                                                <Phone className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', phoneNumber.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                                <input
+                                                    className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                                    name='phoneNumber'
+                                                    value={phoneNumber}
+                                                    onChange={handlePhoneChange}
+                                                    placeholder='(555) 123-4567'
+                                                    maxLength={14}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Account Type (Read Only) */}
+                                        <div className='p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex gap-3 font-figtree m-0'>
+                                            <Shield className='text-blue-500 shrink-0' size={20} />
+                                            <div className='space-y-1'>
+                                                <p className='text-sm font-bold text-blue-900'>Account Type</p>
+                                                <p className='text-xs text-blue-700'>
+                                                    You are currently signed in as a <span className='uppercase font-bold'>{session?.user?.role || 'User'}</span>.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <hr className='border-gray-100 my-6' />
+
+                                        {/* Delete Account */}
+                                        <button
+                                            onClick={() => setDeleteAccountModal(true)}
+                                            type='button'
+                                            className='w-full bg-red-50 text-red-500 font-figtree border rounded-xl border-red-200 px-4 py-2 flex gap-2 cursor-pointer hover:bg-red-100 transition-colors'
+                                        >
+                                            <CircleAlert className='w-6 h-6' />
+                                            Delete Account
+                                        </button>
+                                    </motion.div>
+                                )}
                             </form>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
                 <div className='grid grid-cols-1 @min-[275px]/settings:grid-cols-2 mt-4 gap-3 @min-[275px]:gap-2.5 @min-[315px]/settings:gap-4'>
                     <button
@@ -355,6 +452,122 @@ const SettingsModal = ({
         </>
     );
 };
+
+const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Dispatch<React.SetStateAction<string>>; onSubmit: () => void }) => {
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+    const focusInput = (index: number) => {
+        if (inputRefs.current[index]) {
+            inputRefs.current[index]?.focus();
+            inputRefs.current[index]?.select();
+        }
+    };
+
+    // Handle Input Change
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+        const value = e.target.value;
+        if (!/^\d*$/.test(value)) return;
+        if (code.length < index) return;
+
+        // Create a new version of the code string
+        const codeArray = code.split('').concat(Array(6).fill('')).slice(0, 6); // Ensure at least length 6
+        codeArray[index] = value.slice(-1); // Take only the last character entered
+
+        const newCode = codeArray.join('');
+        setCode(newCode);
+
+        if (value && index < 5 && code.length >= index) {
+            focusInput(index + 1);
+        }
+    };
+
+    // Handle Keyboard Navigation (Arrows, Backspace)
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (index < 5) focusInput(index + 1);
+        }
+
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (index > 0) focusInput(index - 1);
+        }
+
+        if (e.key === 'Backspace') {
+            if (!code[index] && index > 0) {
+                e.preventDefault();
+                focusInput(index - 1);
+
+                const codeArray = code.split('');
+                codeArray[index - 1] = '';
+                setCode(codeArray.join(''));
+            }
+        }
+
+        if (e.key === 'Enter' && onSubmit) {
+            onSubmit();
+        }
+    };
+
+    // Handle Paste (UX Best Practice)
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').replaceAll(/–/g, '').slice(0, 6);
+        if (/^\d+$/.test(pastedData)) {
+            setCode(pastedData);
+            const nextIndex = Math.min(pastedData.length, 5);
+            focusInput(nextIndex === 6 ? 5 : nextIndex);
+        }
+    };
+
+    return (
+        <div className='flex flex-col items-start @min-[465px]/account:flex-row @min-[465px]:items-center gap-2 @min-[290px]/account:gap-4 mt-4'>
+            <div className='flex items-center pb-0 gap-1 @min-[365px]/account:gap-2'>
+                {Array.from({ length: 6 }).map((_, index) => (
+                    <Fragment key={index}>
+                        <input
+                            key={index}
+                            ref={(el) => {
+                                inputRefs.current[index] = el;
+                            }}
+                            type='text'
+                            maxLength={1}
+                            value={code[index] || ''}
+                            onChange={(e) => handleChange(e, index)}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
+                            onPaste={handlePaste}
+                            className='w-full aspect-square @min-[250px]/account:w-8 @min-[250px]/account:h-8 @min-[290px]/account:w-9 @min-[290px]/account:h-9 @min-[315px]/account:w-10 @min-[315px]/account:h-10 @min-[365px]/account:w-11 @min-[365px]/account:h-11 text-center text-[17px] @min-[250px]/account:text-lg @min-[315px]/account:text-xl font-figtree font-semibold border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary-extra-light outline-none transition-all'
+                            aria-label={`Digit ${index + 1}`}
+                        />
+                        {index === 2 && <div className='w-4 h-[3px] bg-gray-500 rounded-full hidden @min-[270px]/account:block' />}
+                    </Fragment>
+                ))}
+            </div>
+
+            <button
+                type='button'
+                onClick={onSubmit}
+                className='px-3 py-1.5 @min-[290px]/account:px-4 @min-[290px]/account:py-2 w-full @min-[465px]/account:h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] @min-[290px]/account:text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors'
+            >
+                Submit
+            </button>
+        </div>
+    );
+};
+
+const NavTab = ({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) => (
+    <button
+        onClick={onClick}
+        type='button'
+        className={cn(
+            'flex items-center gap-3 px-3 @min-[340px]/settings:pl-4 @min-[340px]/settings:pr-12 py-2 rounded-xl transition-all w-full text-left font-figtree cursor-pointer',
+            active ? 'bg-white shadow-sm text-primary border border-gray-200 font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary-dark font-normal'
+        )}
+    >
+        <Icon size={18} className={active ? 'stroke-[2.5px]' : ''} />
+        {label}
+    </button>
+);
 
 const DeleteAccountModal = ({ setOpen, verification }: { setOpen: React.Dispatch<React.SetStateAction<boolean>>; verification: string }) => {
     const [typedVerification, setTypedVerification] = useState('');

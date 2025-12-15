@@ -5,7 +5,7 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { PrismaClient } from '@prisma/client';
 import bcryptjs from 'bcryptjs';
 import { cookies } from 'next/headers';
-import { generateUniquePublicID } from '@/app/actions/getPublicID';
+import { generateUniquePublicID } from '@/app/actions/generatePublicID';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };

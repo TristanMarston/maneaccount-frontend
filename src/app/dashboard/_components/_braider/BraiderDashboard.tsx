@@ -7,6 +7,9 @@ import { UserRole } from '../../Dashboard';
 import DashboardHome from '../DashboardHome';
 import { Session } from 'next-auth';
 import Services from './Services';
+import Team from '../Team';
+import { getPublicID } from '@/app/actions/getPublicID';
+import Relations from '../Relations';
 
 const BraiderDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -14,6 +17,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
     const [role, setRole] = useState<UserRole>('braider');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
+    const [publicID, setPublicID] = useState('');
 
     useEffect(() => {
         if (session?.user) {
@@ -26,6 +30,17 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
             }
         }
     }, [session]);
+
+    useEffect(() => {
+        const fetchPublicID = async () => {
+            if (email.length > 0) {
+                const publicID = await getPublicID(email);
+                if (typeof publicID === 'string' && publicID.length > 0) setPublicID(publicID);
+            }
+        };
+
+        fetchPublicID();
+    }, [email]);
 
     const renderContent = () => {
         switch (selectedPage) {
@@ -44,11 +59,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
                     </div>
                 );
             case 'Clients':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Clients View Coming Soon</h1>
-                    </div>
-                );
+                return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Invoices':
                 return (
                     <div className='p-8'>
@@ -58,11 +69,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
             case 'Pricing':
                 return <Services userEmail={email} />;
             case 'Team':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Team View Coming Soon</h1>
-                    </div>
-                );
+                return <Team userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             default:
                 return <DashboardHome role={role} name={name} />;
         }
@@ -77,7 +84,16 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
 
     return (
         <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-lg'>
-            <DashboardSidebar dashboard='braider' name={name} image={image} session={session} update={update} loading={loading} selectedPage={selectedPage} setSelectedPage={setSelectedPage} />
+            <DashboardSidebar
+                dashboard='braider'
+                name={name}
+                image={image}
+                session={session}
+                update={update}
+                loading={loading}
+                selectedPage={selectedPage}
+                setSelectedPage={setSelectedPage}
+            />
             <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px]'>{renderContent()}</main>
         </div>
     );

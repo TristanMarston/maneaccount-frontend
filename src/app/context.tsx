@@ -22,7 +22,7 @@ export const failToast = (message: string) => {
     toast.error(message, {
         duration: 10000,
         position: 'top-center',
-        className: 'font-figtree text-white font-semibold text-lg w-full !max-w-fit',
+        className: 'font-figtree primary-border-important p-[8px_16px_8px_20px] !rounded-[14px] font-semibold text-lg w-full !max-w-fit',
     });
 };
 
@@ -30,6 +30,6 @@ export const successToast = (message: string) => {
     toast.success(message, {
         duration: 10000,
         position: 'top-center',
-        className: 'font-figtree text-white font-semibold text-lg w-full max-w-fit',
+        className: 'font-figtree primary-border-important p-[8px_16px_8px_20px] !rounded-[14px] font-semibold text-lg w-full !max-w-fit',
     });
 };

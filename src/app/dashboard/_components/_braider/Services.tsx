@@ -140,7 +140,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
                 ) : (
                     <div className='grid @min-[550px]/services:grid-cols-2 @4xl/services:grid-cols-3 gap-4'>
                         {services.map((service, i) => (
-                            <div key={service.id} className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group relative'>
+                            <div key={service.id} className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm group relative'>
                                 <div className='flex justify-between items-start mb-4'>
                                     <span className='inline-flex rounded-full items-center font-figtree gap-1 px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600'>
                                         <Tag size={12} />

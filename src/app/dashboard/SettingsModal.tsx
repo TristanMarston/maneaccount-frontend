@@ -196,7 +196,7 @@ const SettingsModal = ({
 
     return (
         <>
-            <div className='@container/settings'>
+            <div className='@container/settings pr-0.5'>
                 <div className='flex justify-between items-center'>
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
                 </div>
@@ -404,7 +404,7 @@ const SettingsModal = ({
                         )}
                     </div>
                 </div>
-                <div className='grid grid-cols-1 @min-[275px]/settings:grid-cols-2 mt-4 gap-3 @min-[275px]:gap-2.5 @min-[315px]/settings:gap-4'>
+                <div className='grid grid-cols-1 pb-1 @min-[275px]/settings:grid-cols-2 mt-4 gap-3 @min-[275px]:gap-2.5 @min-[315px]/settings:gap-4'>
                     <button
                         onClick={() => setOpen(false)}
                         className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'

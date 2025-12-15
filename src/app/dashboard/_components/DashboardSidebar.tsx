@@ -223,7 +223,7 @@ const DashboardSidebar = ({
                     isOpen={settingsModalOpen}
                     setIsOpen={setSettingsModalOpen}
                     closeOnOutsideClick={false}
-                    className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative dashboard-sm:hidden'
+                    className='max-w-4xl p-6 lg:p-7 max-h-[90vh] rounded-[18px] primary-border-bold relative dashboard-sm:hidden overflow-y-scroll'
                 >
                     <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
                 </Modal>
@@ -391,7 +391,7 @@ const DashboardSidebar = ({
                 isOpen={settingsModalOpen}
                 setIsOpen={setSettingsModalOpen}
                 closeOnOutsideClick={false}
-                className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative hidden dashboard-sm:block'
+                className='max-w-4xl p-6 lg:p-7 max-h-[90vh] rounded-[18px] primary-border-bold relative hidden dashboard-sm:block overflow-y-scroll'
             >
                 <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
             </Modal>

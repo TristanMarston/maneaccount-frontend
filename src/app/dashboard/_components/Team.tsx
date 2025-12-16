@@ -494,17 +494,16 @@ const InviteModal = ({
     };
 
     const updateHeight = (inviteMode: 'id' | 'qr') => {
-        setTimeout(() => {
-            if (inviteMode === 'id') {
-                if (idRef.current) setIDHeight(idRef.current.scrollHeight);
-            } else if (inviteMode === 'qr') {
-                if (qrRef.current) setQRHeight(qrRef.current.scrollHeight);
-            }
-        }, 125);
+        if (inviteMode === 'id') {
+            if (idRef.current) setIDHeight(idRef.current.scrollHeight);
+        } else if (inviteMode === 'qr') {
+            if (qrRef.current) setQRHeight(qrRef.current.scrollHeight);
+        }
     };
 
     useEffect(() => {
         updateHeight(inviteMode);
+        setTimeout(() => updateHeight(inviteMode), 150);
         window.addEventListener('resize', () => updateHeight(inviteMode));
 
         return () => window.removeEventListener('resize', () => updateHeight(inviteMode));

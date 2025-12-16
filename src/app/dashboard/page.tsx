@@ -7,12 +7,21 @@ import { Toaster } from 'react-hot-toast';
 const page = () => {
     return (
         <div>
-            <Toaster />
+            <Toaster
+                toastOptions={{
+                    success: {
+                        iconTheme: {
+                            primary: '#69a190',
+                            secondary: '#ffffff',
+                        },
+                    },
+                }}
+            />
             <SessionProvider>
                 <Dashboard />
             </SessionProvider>
         </div>
-    )
-}
+    );
+};
 
 export default page;

@@ -7,6 +7,7 @@ import bcryptjs from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { generateUniquePublicID } from '@/app/actions/generatePublicID';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { establishConnection } from '@/app/actions/join';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -86,6 +87,13 @@ export const authOptions: AuthOptions = {
                 try {
                     const dbUser = await prisma.user.findUnique({
                         where: { email: user.email },
+                        select: {
+                            id: true,
+                            role: true,
+                            publicID: true,
+                            name: true,
+                            email: true,
+                        },
                     });
 
                     if (dbUser && !dbUser.publicID) {
@@ -99,6 +107,12 @@ export const authOptions: AuthOptions = {
                 } catch (error) {
                     console.error('Error generating public ID:', error);
                 }
+
+                const cookieStore = await cookies();
+                const joinCookie = cookieStore.get('join_request_user');
+                const targetPublicID = joinCookie?.value;
+
+                if (targetPublicID) establishConnection(user.email);
             }
         },
     },

@@ -4,7 +4,7 @@ import { getProviders, signIn, useSession } from 'next-auth/react';
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Toaster } from 'react-hot-toast';
-import { Eye, EyeOff, Scissors, Users, Building2, LucideProps } from 'lucide-react'; // Added icons
+import { Eye, EyeOff, Scissors, Users, Building2, LucideProps, Briefcase } from 'lucide-react'; // Added icons
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import { GradientBackground } from '../_components/GradientBackground';
@@ -38,6 +38,7 @@ const SignInPage = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const passedMode = searchParams.get('mode');
+    const validRoles = searchParams.get('validRoles')?.split(',') || ['client', 'braider', 'subcontractor'];
     const [mode, setMode] = useState<'signin' | 'signup'>(passedMode === 'signin' || passedMode === 'signup' ? passedMode : 'signup');
 
     const [formData, setFormData] = useState<FormData>({
@@ -53,7 +54,8 @@ const SignInPage = () => {
     }, []);
 
     useEffect(() => {
-        router.push(`/login?mode=${mode}`);
+        console.log(validRoles);
+        router.push(`/login?mode=${mode}&validRoles=${validRoles.join(',')}`);
     }, [mode]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +123,10 @@ const SignInPage = () => {
     return (
         <>
             <Toaster />
-            <GradientBackground gradient='from-primary-dark/50 via-primary/50 to-primary-light/50' className='flex flex-col items-center justify-center fixed inset-0 h-dvh overflow-hidden py-10'>
+            <GradientBackground
+                gradient='from-primary-dark/50 via-primary/50 to-primary-light/50'
+                className='flex flex-col items-center justify-center fixed inset-0 h-dvh overflow-hidden py-10'
+            >
                 <AnimatePresence>
                     {providers ? (
                         <motion.div
@@ -138,9 +143,16 @@ const SignInPage = () => {
                                     {[
                                         { id: 'braider', label: 'Braider', icon: Scissors },
                                         { id: 'subcontractor', label: 'Subcontractor', icon: Users },
-                                        { id: 'client', label: 'Client', icon: Building2 },
+                                        { id: 'client', label: 'Client', icon: Briefcase },
                                     ].map((type) => (
-                                        <ShiftButton key={type.id} role={type.id as UserRole} selectedRole={formData.role} setSelectedRole={setFormData} icon={type.icon} />
+                                        <ShiftButton
+                                            key={type.id}
+                                            disabled={validRoles.indexOf(type.id) === -1}
+                                            role={type.id as UserRole}
+                                            selectedRole={formData.role}
+                                            setSelectedRole={setFormData}
+                                            icon={type.icon}
+                                        />
                                     ))}
                                 </div>
                             )}
@@ -150,7 +162,6 @@ const SignInPage = () => {
                                     <button
                                         key={provider.name}
                                         onClick={() => {
-                                            console.log('Form Data Role:', formData.role);
                                             if (formData.role !== undefined && mode === 'signup') handleGoogleSignIn(provider.id);
                                             else if (formData.role === undefined && mode === 'signup') failToast('Please select a role to sign up.');
                                             else if (mode === 'signin') signIn(provider.id, { callbackUrl: '/dashboard' });
@@ -253,17 +264,21 @@ const ShiftButton = (props: {
     selectedRole: UserRole | undefined;
     setSelectedRole: React.Dispatch<React.SetStateAction<FormData>>;
     icon: React.ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & React.RefAttributes<SVGSVGElement>>;
+    disabled: boolean;
 }) => {
-    const { role, selectedRole, setSelectedRole } = props;
+    const { role, selectedRole, setSelectedRole, disabled } = props;
 
     return (
         <button
-            className={cn('bg-primary rounded-[10px] cursor-pointer w-full')}
-            onClick={() =>
-                setSelectedRole((data) => {
-                    return { ...data, role: role };
-                })
-            }
+            disabled={disabled}
+            className={cn('bg-primary rounded-[10px] cursor-pointer w-full disabled:opacity-30 disabled:cursor-not-allowed disabled:pointer-events-none')}
+            onClick={() => {
+                if (!disabled) {
+                    setSelectedRole((data) => {
+                        return { ...data, role: role };
+                    });
+                }
+            }}
         >
             <motion.div
                 variants={rowHoverVariants}

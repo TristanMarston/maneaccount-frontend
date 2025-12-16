@@ -7,6 +7,7 @@ import BraiderDashboard from './_components/_braider/BraiderDashboard';
 import SubcontractorDashboard from './_components/_subcontractor/SubcontractorDashboard';
 import OwnerDashboard from './_components/_owner/OwnerDashboard';
 import { GradientBackground } from '../_components/GradientBackground';
+import { establishConnection } from '../actions/join';
 
 export type UserRole = 'client' | 'subcontractor' | 'braider' | 'admin' | '';
 
@@ -26,11 +27,22 @@ const Dashboard = () => {
     const [role, setRole] = useState<UserRole>('');
 
     useEffect(() => {
+        const validateConnection = async (email: string) => {
+            const cookieStore = document.cookie;
+            const joinValue = `; ${cookieStore}`;
+            const joinCookie = joinValue.split(`; ${'join_request_user'}`);
+            const targetPublicID = joinCookie.length === 2 ? joinCookie.pop()?.split(';').shift() : undefined;
+            console.log(targetPublicID);
+
+            if (targetPublicID) establishConnection(email);
+        };
+
         if (status === 'authenticated' && session) {
             setLoading(false);
             const userRole = session.user?.role;
             if (userRole === 'admin') router.push('/admin');
             else if (userRole.length > 0) setRole(userRole as UserRole);
+            if (session.user?.email) validateConnection(session.user.email);
         }
     }, [session, status]);
 

@@ -2,7 +2,8 @@
 
 import { SessionProvider } from 'next-auth/react';
 import SignInPage from './SignInPage';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 const page = () => {
     return (

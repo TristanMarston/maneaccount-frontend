@@ -202,14 +202,14 @@ const SettingsModal = ({
                 </div>
 
                 <div className='flex flex-col @min-[520px]/settings:flex-row flex-1 overflow-hidden mt-4'>
-                    <div className='w-auto bg-gray-50 border @min-[520px]/settings:rounded-l-[18px] rounded-t-[18px] border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[270px]/settings:flex-row @min-[520px]:flex-col gap-2 shrink-0'>
+                    <div className='w-auto bg-gray-50 border rounded-t-[18px] @min-[520px]/settings:rounded-l-[18px] @min-[520px]/settings:rounded-t-none border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[270px]/settings:flex-row @min-[520px]:flex-col gap-2 shrink-0'>
                         <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
                         <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
                     </div>
 
                     <div
                         className={cn(
-                            'flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] relative',
+                            'flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] @min-[520px]/settings:rounded-bl-none relative',
                             isLoading ? 'py-16!' : ''
                         )}
                     >
@@ -531,10 +531,10 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
                             onChange={(e) => handleChange(e, index)}
                             onKeyDown={(e) => handleKeyDown(e, index)}
                             onPaste={handlePaste}
-                            className='w-full aspect-square @min-[250px]/account:w-8 @min-[250px]/account:h-8 @min-[290px]/account:w-9 @min-[290px]/account:h-9 @min-[315px]/account:w-10 @min-[315px]/account:h-10 @min-[365px]/account:w-11 @min-[365px]/account:h-11 text-center text-[17px] @min-[250px]/account:text-lg @min-[315px]/account:text-xl font-figtree font-semibold border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary-extra-light outline-none transition-all'
+                            className='w-full aspect-square @min-[315px]/account:h-10 @min-[365px]/account:w-11 @min-[365px]/account:h-11 text-center text-[17px] @min-[250px]/account:text-lg @min-[315px]/account:text-xl font-figtree font-semibold border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary-extra-light outline-none transition-all'
                             aria-label={`Digit ${index + 1}`}
                         />
-                        {index === 2 && <div className='w-4 h-[3px] bg-gray-500 rounded-full hidden @min-[270px]/account:block' />}
+                        {index === 2 && <div className='min-w-4 h-[3px] bg-gray-500 rounded-full hidden @min-[270px]/account:block' />}
                     </Fragment>
                 ))}
             </div>

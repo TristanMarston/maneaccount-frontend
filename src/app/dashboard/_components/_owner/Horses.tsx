@@ -327,7 +327,7 @@ const HorseModal = ({
     return (
         <>
             <div className='@container/horse'>
-                <h1 className='text-3xl @min-[250px]/horse:text-4xl font-lusitana font-bold text-gray-900 capitalize'>{type === 'add' ? 'Add a' : 'Edit'} Horse</h1>
+                <h1 className='text-3xl @min-[250px]/horse:text-4xl font-lusitana font-bold text-gray-900'>{type === 'add' ? 'Add a' : 'Edit'} Horse</h1>
                 <form onSubmit={handleSubmit} className='relative mt-6'>
                     <div className='flex flex-col @xs/horse:grid @xs/horse:grid-cols-[1.5fr_1fr_1fr] @lg/horse:grid-cols-3 gap-4 @xs/horse:gap-8'>
                         <div className='flex flex-col gap-2 items-center text-center font-figtree'>

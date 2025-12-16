@@ -58,7 +58,7 @@ const SettingsModal = ({
     const [verificationStep, setVerificationStep] = useState<'idle' | 'sent'>('idle');
     const [verificationCode, setVerificationCode] = useState('');
 
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
@@ -88,7 +88,7 @@ const SettingsModal = ({
                 setEmailVerified(data.emailVerified);
                 setEmail(data.email || '');
                 setPhoneNumber(formattedPhone);
-                setImagePreview(data.image);
+                setImagePreview(data.image || '');
             }
             setIsLoading(false);
         };
@@ -224,7 +224,7 @@ const SettingsModal = ({
                                         <div className='flex flex-col @min-[260px]/profile:flex-row items-center gap-6'>
                                             <div className='relative group cursor-pointer shrink-0'>
                                                 <div className='w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100'>
-                                                    {imagePreview ? (
+                                                    {imagePreview && imagePreview.length > 0 ? (
                                                         <Image src={imagePreview} alt='Profile' fill className='object-cover rounded-full' />
                                                     ) : (
                                                         <div className='w-full h-full flex items-center justify-center bg-primary/10 text-primary text-3xl font-bold'>
@@ -412,7 +412,7 @@ const SettingsModal = ({
                                 originalInfo.current.image === imagePreview)
                         }
                         type='submit'
-                        className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                        className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                     >
                         {isSaving && <Loader2 size={16} className='animate-spin' />}
                         Save Changes
@@ -457,15 +457,13 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
         }
     };
 
-    // Handle Input Change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
         const value = e.target.value;
         if (!/^\d*$/.test(value)) return;
         if (code.length < index) return;
 
-        // Create a new version of the code string
-        const codeArray = code.split('').concat(Array(6).fill('')).slice(0, 6); // Ensure at least length 6
-        codeArray[index] = value.slice(-1); // Take only the last character entered
+        const codeArray = code.split('').concat(Array(6).fill('')).slice(0, 6);
+        codeArray[index] = value.slice(-1);
 
         const newCode = codeArray.join('');
         setCode(newCode);
@@ -475,7 +473,6 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
         }
     };
 
-    // Handle Keyboard Navigation (Arrows, Backspace)
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
         if (e.key === 'ArrowRight') {
             e.preventDefault();
@@ -503,7 +500,6 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
         }
     };
 
-    // Handle Paste (UX Best Practice)
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
         e.preventDefault();
         const pastedData = e.clipboardData.getData('text').replaceAll(/–/g, '').slice(0, 6);
@@ -618,7 +614,7 @@ const DeleteAccountModal = ({ setOpen, verification }: { setOpen: React.Dispatch
                         setOpen(false);
                     }}
                     disabled={typedVerification.toLowerCase() !== verification.toLowerCase()}
-                    className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/delete-account:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
+                    className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/delete-account:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
                 >
                     Delete Account
                 </button>

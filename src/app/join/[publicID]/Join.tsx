@@ -24,6 +24,7 @@ const Join = ({ inviterID }: { inviterID: string }) => {
     const [loading, setLoading] = useState(true);
     const [inviter, setInviter] = useState<Inviter>();
     const [existingConnection, setExistingConnection] = useState(false);
+    const [addingOneself, setAddingOneself] = useState(false);
     const { data: session, status } = useSession();
 
     useEffect(() => {
@@ -35,6 +36,12 @@ const Join = ({ inviterID }: { inviterID: string }) => {
                     const targetID = await getIDByPublicID(publicID);
 
                     if (userID && userID.success && userID.success.id && targetID && targetID.success && targetID.success.id) {
+                        if (userID.success.id === targetID.success.id) {
+                            setAddingOneself(true);
+                            setLoading(false);
+                            return;
+                        }
+
                         const existing = await getConnection(userID.success.id, targetID.success.id);
                         if (existing.success) setExistingConnection(true);
                         setLoading(false);
@@ -74,6 +81,18 @@ const Join = ({ inviterID }: { inviterID: string }) => {
                 <div className='text-center font-figtree'>
                     <h1 className='text-2xl font-bold text-gray-900'>Connection Already Exists</h1>
                     <p className='text-gray-500 mt-2'>It appears that the person you&apos;re trying to connect with has already added you.</p>
+                    <a href='/dashboard' className='mt-4 inline-block text-primary font-bold hover:underline'>
+                        Go to Dashboard
+                    </a>
+                </div>
+            </div>
+        );
+    } else if (addingOneself) {
+        return (
+            <div className='flex items-center justify-center min-h-screen bg-stone-50 font-figtree'>
+                <div className='text-center font-figtree'>
+                    <h1 className='text-2xl font-bold text-gray-900'>Cannot Add Yourself</h1>
+                    <p className='text-gray-500 mt-2'>It appears that you&apos;re trying to add youself.</p>
                     <a href='/dashboard' className='mt-4 inline-block text-primary font-bold hover:underline'>
                         Go to Dashboard
                     </a>

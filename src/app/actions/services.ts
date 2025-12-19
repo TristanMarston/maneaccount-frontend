@@ -43,11 +43,9 @@ export async function addService(formData: any) {
     const name = formData.name as string;
     const category = formData.category as string;
     const price = parseFloat(formData.price as string);
-    const duration = parseFloat(formData.duration as string);
+    const duration = formData.duration ? parseFloat(formData.duration as string) : null;
 
-    console.log(price);
-
-    if (!name || !price || !duration) {
+    if (!name || !price) {
         return { error: 'Missing required fields' };
     }
 
@@ -56,9 +54,9 @@ export async function addService(formData: any) {
             data: {
                 user: { connect: { email: session.user.email } },
                 name,
-                category: category || 'General',
+                category: category || 'Unspecified',
                 priceUSD: price,
-                duration,
+                duration: duration,
             },
         });
 
@@ -78,6 +76,8 @@ export async function editService(data: any, serviceId: string) {
     if (!session || !session.user?.email) {
         return { error: 'Unauthorized' };
     }
+
+    if (data.duration === 'null') data.duration = null;
 
     try {
         const service = await prisma.service.findUnique({
@@ -109,7 +109,6 @@ export async function deleteService(serviceId: string) {
     }
 
     try {
-        // Verify ownership before deleting
         const service = await prisma.service.findUnique({
             where: { id: serviceId },
             include: { user: true },

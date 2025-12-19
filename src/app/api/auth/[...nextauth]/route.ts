@@ -121,6 +121,7 @@ export const authOptions: AuthOptions = {
             if (trigger === 'update' && session) {
                 if (session.name && session.name.length > 0) token.name = session.name;
                 if (session.image && session.image.length > 0) token.image = session.image;
+                if (session.role && session.role.length > 0) token.role = session.role;
             }
             if (user) {
                 token.name = user.name;

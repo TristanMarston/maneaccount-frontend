@@ -45,15 +45,16 @@ model Service {
   name         String
   category     String
   priceUSD     Float
-  duration     Int
+  duration     Int?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Horse {
   id            String   @id @default(cuid())
   userId        String
-  name          String
-  gender        Gender   @default(stallion)
+  showName      String
+  barnName      String
+  gender        Gender?
   color         String? 
   profileImage  String?
   notes         String? 
@@ -102,6 +103,7 @@ model User {
   role            Role      @default(braider)
   services        Service[]
   horses          Horse[]
+  shows           Show[]
 
   sentConnections     Connection[] @relation("sender")
   receivedConnections Connection[] @relation("receiver")
@@ -109,6 +111,35 @@ model User {
   createdAt       DateTime  @default(now())
   accounts        Account[]
   sessions        Session[]
+}
+
+model Show {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  
+  country     String
+  state       String?
+  city        String
+
+  startDate   DateTime
+  endDate     DateTime
+  
+  days        ShowDay[]
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ShowDay {
+  id        String   @id @default(cuid())
+  showId    String
+  date      DateTime
+  startTime String   
+  endTime   String   
+
+  show      Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {

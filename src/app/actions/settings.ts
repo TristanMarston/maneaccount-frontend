@@ -148,3 +148,90 @@ export async function deleteAccount() {
         return { error: 'Failed to delete account' };
     }
 }
+
+export async function deleteAccountByID(id: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email || session?.user?.role !== 'admin') return { error: 'Unauthorized' };
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) return { error: 'User not found' };
+
+        if (user.image && user.image.includes(process.env.NEXT_PUBLIC_SUPABASE_URL!)) {
+            try {
+                const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+                const split: string[] = user.image.split('/');
+                const root = split[split.length - 1];
+                await supabaseAdmin.storage.from('avatars').remove([root]);
+            } catch (storageError) {
+                console.error('Error cleaning up user image:', storageError);
+            }
+        }
+
+        await prisma.user.delete({
+            where: { id },
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Delete account error:', error);
+        return { error: 'Failed to delete account' };
+    }
+}
+
+export async function switchAccountRole() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true, role: true },
+        });
+
+        if (!user) return { error: 'User not found' };
+
+        if (user.role === 'braider') {
+            await prisma.connection.deleteMany({
+                where: {
+                    OR: [{ senderId: user.id }, { receiverId: user.id }],
+                },
+            });
+
+            await prisma.service.deleteMany({
+                where: { userId: user.id },
+            });
+
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { role: 'subcontractor' },
+            });
+
+            revalidatePath('/dashboard');
+            return { success: true, newRole: 'subcontractor' };
+        } else if (user.role === 'subcontractor') {
+            await prisma.connection.deleteMany({
+                where: {
+                    OR: [{ senderId: user.id }, { receiverId: user.id }],
+                },
+            });
+
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { role: 'braider' },
+            });
+
+            revalidatePath('/dashboard');
+            return { success: true, newRole: 'braider' };
+        }
+
+        return { error: 'Invalid role switch. Only Braiders and Subcontractors can switch.' };
+    } catch (error) {
+        console.error('Switch role error:', error);
+        return { error: 'Failed to switch role' };
+    }
+}

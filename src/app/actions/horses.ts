@@ -41,13 +41,14 @@ export async function addHorse(formData: any) {
         return { error: 'Unauthorized' };
     }
 
-    const name = formData.name as string;
+    const showName = formData.showName as string;
+    const barnName = formData.barnName as string;
     const gender = formData.gender as string;
     const color = formData.color as string;
     const profileImage = formData.profileImage as File;
     const notes = formData.notes as string;
 
-    if (!name) {
+    if (!showName || !barnName) {
         return { error: 'Missing required fields' };
     }
 
@@ -82,8 +83,9 @@ export async function addHorse(formData: any) {
         await prisma.horse.create({
             data: {
                 user: { connect: { email: session.user.email } },
-                name,
-                gender: (gender as Gender) || 'gelding',
+                showName,
+                barnName,
+                gender: gender ? (gender as Gender) : null,
                 color: color || '',
                 notes: notes || '',
                 profileImage: profileImageUrl || '',
@@ -101,7 +103,7 @@ export async function addHorse(formData: any) {
 export async function editHorse(data: any, horseId: string) {
     const session = await getServerSession(authOptions);
 
-    if (!data.name && !data.gender && !data.color && !data.notes && !data.profileImage) return { error: 'Send a field to update' };
+    if (!data.showName && !data.barnName && !data.gender && !data.color && !data.notes && !data.profileImage) return { error: 'Send a field to update' };
 
     const profileImage = data.profileImage;
 
@@ -124,7 +126,7 @@ export async function editHorse(data: any, horseId: string) {
             if (horse.profileImage && horse.profileImage.length > 0) {
                 const split: string[] = horse.profileImage.split('/');
                 const root = split[split.length - 1];
-                const { data: removeData, error: removeError } = await supabaseAdmin.storage.from('horse-photos').remove([root]);
+                await supabaseAdmin.storage.from('horse-photos').remove([root]);
             }
 
             const filename = `${session.user.email}-${Date.now()}.jpg`;
@@ -187,7 +189,7 @@ export async function deleteHorse(horseId: string) {
 
             const split: string[] = horse.profileImage.split('/');
             const root = split[split.length - 1];
-            const { data: removeData, error: removeError } = await supabaseAdmin.storage.from('horse-photos').remove([root]);
+            await supabaseAdmin.storage.from('horse-photos').remove([root]);
         }
 
         revalidatePath('/dashboard');

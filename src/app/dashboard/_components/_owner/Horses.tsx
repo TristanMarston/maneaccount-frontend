@@ -14,21 +14,23 @@ type Gender = 'mare' | 'gelding' | 'stallion' | 'filly' | 'colt';
 
 type Horse = {
     id: string;
-    name: string;
-    gender: Gender;
+    showName: string;
+    barnName: string;
+    gender?: Gender | null;
     color?: string | null;
     profileImage?: string | null;
     notes?: string | null;
 };
 
 type FormData = {
-    name: string;
-    gender: string;
+    showName: string;
+    barnName: string;
+    gender: string | null;
     color: string;
     notes: string;
 };
 
-const genderOptions = ['Mare', 'Gelding', 'Stallion', 'Filly', 'Colt'];
+const genderOptions = ['Mare', 'Gelding', 'Stallion', 'Filly', 'Colt', 'Unselected'];
 
 const Horses = ({ userEmail }: { userEmail: string }) => {
     const [horses, setHorses] = useState<Horse[]>([]);
@@ -36,8 +38,9 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
     const [checkModal, setCheckModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
 
     const [formData, setFormData] = useState<FormData>({
-        name: '',
-        gender: 'Gelding',
+        showName: '',
+        barnName: '',
+        gender: null,
         color: '',
         notes: '',
     });
@@ -47,8 +50,8 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
         profileImage: '',
         croppedBlob: null,
     });
-    const [editModalData, setEditModalData] = useState<FormData>({ name: '', gender: 'Gelding', color: '', notes: '' });
-    const [previousData, setPreviousData] = useState<FormData>({ name: '', gender: 'Gelding', color: '', notes: '' });
+    const [editModalData, setEditModalData] = useState<FormData>({ showName: '', barnName: '', gender: null, color: '', notes: '' });
+    const [previousData, setPreviousData] = useState<FormData>({ showName: '', barnName: '', gender: null, color: '', notes: '' });
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
@@ -90,19 +93,19 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
         e.preventDefault();
 
         try {
-            const { name, gender, color, notes } = formData;
+            const { showName, barnName, gender, color, notes } = formData;
 
-            const data: any = { name, gender: gender.toLowerCase(), color, notes };
+            const data: any = { showName, barnName, gender: gender ? gender.toLowerCase() : null, color, notes };
             if (finalImageBlob) data.profileImage = finalImageBlob;
 
-            if (!name || !gender) {
+            if (!showName || !barnName) {
                 failToast('Please fill in all required fields.');
                 return;
             }
             const result = await addHorse(data);
 
             if (result && !result.error) {
-                successToast(`${formData.name} added to the stable`);
+                successToast(`${formData.showName} added to the stable`);
                 setHorseModalOpen(false);
                 resetForm();
 
@@ -119,11 +122,12 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
 
     const handlePatch = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { name, gender, color, notes } = editModalData;
+        const { showName, barnName, gender, color, notes } = editModalData;
 
         const returnData: any = {};
-        if (name !== previousData.name) returnData.name = name;
-        if (gender !== previousData.gender) returnData.gender = gender.toLowerCase();
+        if (showName !== previousData.showName) returnData.showName = showName;
+        if (barnName !== previousData.barnName) returnData.barnName = barnName;
+        if (gender !== previousData.gender && gender !== null) returnData.gender = gender.toLowerCase();
         if (color !== previousData.color) returnData.color = color;
         if (notes !== previousData.notes) returnData.notes = notes;
         if (editModal.croppedBlob) returnData.profileImage = editModal.croppedBlob;
@@ -138,7 +142,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                 profileImage: '',
                 croppedBlob: null,
             });
-            setEditModalData({ name: '', gender: 'Gelding', color: '', notes: '' });
+            setEditModalData({ showName: '', barnName: '', gender: null, color: '', notes: '' });
             setImageFile(null);
             setImagePreview(null);
             setFinalImageBlob(null);
@@ -151,7 +155,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
     };
 
     const resetForm = () => {
-        setFormData({ name: '', gender: 'Gelding', color: '', notes: '' });
+        setFormData({ showName: '', barnName: '', gender: null, color: '', notes: '' });
         setImageFile(null);
         setImagePreview(null);
         setFinalImageBlob(null);
@@ -192,15 +196,16 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                     </div>
                 ) : (
                     <div className='grid grid-cols-1 @min-[825px]/horses:grid-cols-2 @min-[1250px]/horses:grid-cols-3 gap-6'>
-                        {horses.map((horse: Horse, i) => (
+                        {horses.map((horse: Horse) => (
                             <HorseCard
                                 key={horse.id}
                                 horse={horse}
-                                onDelete={() => setCheckModal({ open: true, id: horse.id, name: horse.name })}
+                                onDelete={() => setCheckModal({ open: true, id: horse.id, name: horse.barnName })}
                                 onEdit={() => {
                                     const data = {
-                                        name: horse.name,
-                                        gender: `${horse.gender[0].toUpperCase()}${horse.gender.substring(1)}`,
+                                        showName: horse.showName,
+                                        barnName: horse.barnName,
+                                        gender: horse.gender ? `${horse.gender[0].toUpperCase()}${horse.gender.substring(1)}` : null,
                                         color: horse.color === null || horse.color === undefined ? '' : horse.color,
                                         notes: horse.notes === null || horse.notes === undefined ? '' : horse.notes,
                                     };
@@ -291,7 +296,12 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                     }
                 />
             </Modal>
-            <Modal isOpen={isCropping && imageFile !== null} setIsOpen={setIsCropping} closeOnOutsideClick={false} className='rounded-[18px] primary-border-bold relative overflow-visible'>
+            <Modal
+                isOpen={isCropping && imageFile !== null}
+                setIsOpen={setIsCropping}
+                closeOnOutsideClick={false}
+                className='rounded-[18px] primary-border-bold relative overflow-visible'
+            >
                 {isCropping && imageFile && (
                     <ImageCropper
                         file={imageFile}
@@ -347,11 +357,11 @@ const HorseModal = ({
 
                         <div className='col-span-2 grid grid-cols-1 @lg/horse:grid-cols-2 gap-4'>
                             <div className='flex flex-col gap-2'>
-                                <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Horse Name</label>
+                                <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Barn Name</label>
                                 <input
-                                    className='w-full outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
-                                    name='name'
-                                    value={data.name}
+                                    className='w-full placeholder:text-gray-500 outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                    name='barnName'
+                                    value={data.barnName}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                         const { name, value } = e.target;
                                         setData((prev) => {
@@ -361,27 +371,49 @@ const HorseModal = ({
                                             };
                                         });
                                     }}
-                                    placeholder='Name'
+                                    placeholder='Barn Name'
                                     required
                                 />
                             </div>
 
                             <div className='flex flex-col gap-2'>
-                                <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Gender</label>
-                                <CategorySelect
-                                    value={data.gender}
-                                    onChange={(val) =>
+                                <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Show Name</label>
+                                <input
+                                    className='w-full placeholder:text-gray-500 outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                    name='showName'
+                                    value={data.showName}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        const { name, value } = e.target;
                                         setData((prev) => {
-                                            return { ...prev, gender: val };
-                                        })
-                                    }
+                                            return {
+                                                ...prev,
+                                                [name]: value,
+                                            };
+                                        });
+                                    }}
+                                    placeholder='Show Name'
+                                    required
                                 />
                             </div>
 
-                            <div className='flex-col gap-2 col-span-2 hidden @lg/horse:flex'>
+                            <div className='flex-col gap-2 hidden @lg/horse:flex'>
+                                <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Gender</label>
+                                <CategorySelect
+                                    value={data.gender ? data.gender : 'Unselected'}
+                                    onChange={(val) => {
+                                        if (val) {
+                                            setData((prev) => {
+                                                return { ...prev, gender: val };
+                                            });
+                                        }
+                                    }}
+                                />
+                            </div>
+
+                            <div className='flex-col gap-2 hidden @lg/horse:flex'>
                                 <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Color / Markings</label>
                                 <input
-                                    className='w-full outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                    className='w-full placeholder:text-gray-500 outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
                                     name='color'
                                     value={data.color}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -399,9 +431,23 @@ const HorseModal = ({
                         </div>
 
                         <div className='flex-col gap-2 col-span-3 flex @lg/horse:hidden'>
+                            <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Gender</label>
+                            <CategorySelect
+                                value={data.gender ? data.gender : 'Unselected'}
+                                onChange={(val) => {
+                                    if (val) {
+                                        setData((prev) => {
+                                            return { ...prev, gender: val };
+                                        });
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        <div className='flex-col gap-2 col-span-3 flex @lg/horse:hidden @xs/horse:-mt-4 @lg/horse:mt-0'>
                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Color / Markings</label>
                             <input
-                                className='w-full outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                className='w-full placeholder:text-gray-500 outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
                                 name='color'
                                 value={data.color}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -420,7 +466,7 @@ const HorseModal = ({
                         <div className='flex flex-col gap-2 col-span-3 @xs/horse:-mt-4 @lg/horse:mt-0'>
                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Notes (Optional)</label>
                             <textarea
-                                className='w-full outline-none max-h-32 h-18 min-h-[42px] shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                className='w-full placeholder:text-gray-500 outline-none max-h-32 h-18 min-h-[42px] shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
                                 name='notes'
                                 value={data.notes}
                                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -641,20 +687,23 @@ const HorseCard = ({ horse, onDelete, onEdit }: { horse: Horse; onDelete: () => 
 
     return (
         <div className='bg-white p-6 rounded-3xl border border-gray-100 shadow-sm transition-all group relative overflow-visible @container/horse-card-parent'>
-            <div className='flex flex-col items-start gap-4 @container/horse-card @min-[325px]/horse-card-parent:flex-row'>
+            <div className='flex flex-col items-start gap-4 @container/horse-card @min-[450px]/horse-card-parent:flex-row'>
                 <div className='relative w-32 h-32 rounded-2xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100'>
                     {horse.profileImage ? (
-                        <Image src={horse.profileImage} alt={horse.name} fill className='object-cover' />
+                        <Image src={horse.profileImage} alt={horse.barnName} fill className='object-cover' />
                     ) : (
-                        <div className='w-full font-figtree h-full flex items-center justify-center text-gray-400 font-bold text-xl bg-gray-50'>
-                            {horse.name.substring(0, 2).toUpperCase()}
+                        <div className='w-full font-figtree h-full flex items-center justify-center text-gray-400 font-bold text-3xl bg-gray-50'>
+                            {horse.barnName.substring(0, 2).toUpperCase()}
                         </div>
                     )}
                 </div>
 
                 <div className='flex-1 min-w-0 w-full'>
                     <div className='flex justify-between items-start'>
-                        <h3 className='font-figtree text-2xl font-bold text-gray-900 truncate pr-2'>{horse.name}</h3>
+                        <div className='flex flex-col gap-1 flex-1 min-w-0'>
+                            <h3 className='font-figtree text-2xl font-bold text-gray-900 truncate pr-2'>{horse.barnName}</h3>
+                            <h3 className='font-figtree text-base font-light text-gray-600 truncate pr-2'>Show Name • {horse.showName}</h3>
+                        </div>
                         <span className='gap-2 hidden @xs/horse-card:flex'>
                             <button onClick={onEdit} className='text-gray-300 cursor-pointer hover:text-primary transition-colors p-1'>
                                 <Pencil className='w-5 h-5' />
@@ -672,7 +721,7 @@ const HorseCard = ({ horse, onDelete, onEdit }: { horse: Horse; onDelete: () => 
                     </div>
 
                     <div className='flex flex-wrap gap-2 mt-2 font-figtree'>
-                        <GenderBadge gender={horse.gender} />
+                        {horse.gender && <GenderBadge gender={horse.gender} />}
                         {horse.color && (
                             <span className='inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200'>
                                 {horse.color}
@@ -757,7 +806,7 @@ const GenderBadge = ({ gender }: { gender: Gender }) => {
     return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${styles[gender]}`}>{labels[gender]}</span>;
 };
 
-const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
+const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: string | null) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -772,8 +821,7 @@ const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: st
     }, []);
 
     const handleSelect = (option: string) => {
-        onChange(option);
-
+        onChange(option === 'Unselected' ? null : option);
         setIsOpen(false);
     };
 
@@ -786,7 +834,7 @@ const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: st
                     isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300'
                 } bg-white`}
             >
-                <span className={value ? 'text-gray-900' : 'text-gray-400'}>{value || 'Select Category'}</span>
+                <span className={value && value !== 'Unselected' ? 'text-gray-900' : 'text-gray-500'}>{value || 'Select Category'}</span>
                 <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 

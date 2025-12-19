@@ -5,7 +5,7 @@ import { AnimatePresence, motion, Variants } from 'motion/react';
 import Image from 'next/image';
 import { useState } from 'react';
 
-type ViewOption = 'braiders' | 'subcontractors' | 'barns';
+type ViewOption = 'braiders' | 'subcontractors' | 'owners';
 
 const Solutions = () => {
     const [selectedView, setSelectedView] = useState<ViewOption>('braiders');
@@ -19,9 +19,9 @@ const Solutions = () => {
             alt: 'Mobile view for Subcontractors showing assigned horses',
             src: 'https://placehold.co/1200x675/png?text=Subcontractor+Mobile+List',
         },
-        barns: {
-            alt: 'Desktop view for Barn Managers showing horse lists',
-            src: 'https://placehold.co/1200x675/png?text=Barn+Manager+Portal',
+        owners: {
+            alt: 'Desktop view for Horse Owners showing horse lists',
+            src: 'https://placehold.co/1200x675/png?text=Owner+Dashboard+View',
         },
     };
 
@@ -51,14 +51,14 @@ const Solutions = () => {
                                 A platform for everyone <br className='hidden min-[620px]:block 3xl:hidden' /> in the barn.
                             </h2>
                             <p className='font-figtree text-primary-dark text-sm sm:text-[15px] lg:text-base min-[540px]:text-[17px] min-[880px]:text-lg max-w-2xl'>
-                                Whether you're managing the business, braiding the horses, or organizing the barn list, ManeAccount adapts to your specific workflow.
+                                Whether you're managing the business, braiding the horses, or organizing your shows, ManeAccount adapts to your specific workflow.
                             </p>
                         </div>
 
                         <div className='max-w-3xl grid grid-cols-1 xl:grid-cols-3 w-full gap-4 xl:gap-3 3xl:gap-6 mb-10 xl:mb-16'>
                             <ShiftButton type='braiders' selectedView={selectedView} setSelectedView={setSelectedView} />
                             <ShiftButton type='subcontractors' selectedView={selectedView} setSelectedView={setSelectedView} />
-                            <ShiftButton type='barns' selectedView={selectedView} setSelectedView={setSelectedView} />
+                            <ShiftButton type='owners' selectedView={selectedView} setSelectedView={setSelectedView} />
                         </div>
 
                         <div className='w-full max-w-4xl mx-auto perspective-[1000px]'>

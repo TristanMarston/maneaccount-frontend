@@ -10,7 +10,7 @@ const Hero = () => {
     const videoSections = [
         { title: 'For Braiders', description: 'Manage your schedule & get paid.', wideMobile: true },
         { title: 'For Subcontractors', description: 'Pick up work & track income.', wideMobile: false },
-        { title: 'For Barns', description: 'Coordinate your team seamlessly.', wideMobile: false },
+        { title: 'For Owners', description: 'Manage all your horses in one place.', wideMobile: false },
     ];
 
     useEffect(() => {
@@ -32,7 +32,10 @@ const Hero = () => {
                         <button className='rounded-[10px] px-4 py-2 font-figtree font-semibold bg-background text-primary primary-border-hover text-xs xs:text-sm min-[380px]:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
                             See How It Works
                         </button>
-                        <Link href='/login?mode=signup' className='rounded-[10px] px-4 py-2 font-figtree font-semibold bg-primary-light text-background primary-border-hover text-xs xs:text-sm min-[380px]:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
+                        <Link
+                            href='/login?mode=signup'
+                            className='rounded-[10px] px-4 py-2 font-figtree font-semibold bg-primary-light text-background primary-border-hover text-xs xs:text-sm min-[380px]:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'
+                        >
                             Start For Free
                         </Link>
                     </div>

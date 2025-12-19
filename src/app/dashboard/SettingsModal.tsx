@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-import { checkPublicIDAvailability, updateProfile, getUserSettings, deleteAccount } from '@/app/actions/settings';
+import { checkPublicIDAvailability, updateProfile, getUserSettings, deleteAccount, switchAccountRole } from '@/app/actions/settings';
 import { cn } from '@/lib/utils';
 import { failToast, successToast } from '../context';
 import Modal from './Modal';
@@ -57,13 +57,16 @@ const SettingsModal = ({
     const [isVerifying, setIsVerifying] = useState(false);
     const [verificationStep, setVerificationStep] = useState<'idle' | 'sent'>('idle');
     const [verificationCode, setVerificationCode] = useState('');
+    const [role, setRole] = useState<'braider' | 'subcontractor' | 'client' | 'admin'>('client');
+    const [roleModal, setRoleModal] = useState(false);
+    const [closeModal, setCloseModal] = useState(false);
 
     const [imagePreview, setImagePreview] = useState<string>('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
 
-    const originalInfo = useRef<{ name: string; publicID: string; image: string; phoneNumber: string }>({ name: '', publicID: '', image: '', phoneNumber: '' });
+    const originalInfo = useRef<{ name: string; publicID: string; image: string; phoneNumber: string; role: string }>({ name: '', publicID: '', image: '', phoneNumber: '', role: '' });
     const [deleteAccountModal, setDeleteAccountModal] = useState(false);
 
     const debouncedPublicID = useDebounce(publicID, 500);
@@ -81,6 +84,7 @@ const SettingsModal = ({
                     publicID: data.publicID || '',
                     image: data.image || '',
                     phoneNumber: formattedPhone,
+                    role: data.role,
                 };
 
                 setName(data.name || '');
@@ -89,6 +93,7 @@ const SettingsModal = ({
                 setEmail(data.email || '');
                 setPhoneNumber(formattedPhone);
                 setImagePreview(data.image || '');
+                setRole(data.role);
             }
             setIsLoading(false);
         };
@@ -169,26 +174,49 @@ const SettingsModal = ({
             return;
         }
 
+        if (
+            originalInfo.current.name === name &&
+            originalInfo.current.publicID === publicID &&
+            originalInfo.current.phoneNumber === phoneNumber &&
+            originalInfo.current.image === imagePreview &&
+            originalInfo.current.role === role
+        ) {
+            failToast('Update at least one field to save changes');
+            return;
+        }
+
         setIsSaving(true);
+        let switchResult = null;
 
         const formData: any = {};
         if (name !== originalInfo.current.name) formData.name = name;
         if (publicID !== originalInfo.current.publicID) formData.publicID = publicID;
         if (phoneNumber !== originalInfo.current.phoneNumber) formData.phoneNumber = phoneNumber;
+        if (role !== originalInfo.current.role) switchResult = await switchAccountRole();
+
         if (finalImageBlob) formData.image = finalImageBlob;
 
-        const result = await updateProfile(formData);
+        if (Object.keys(formData).length > 0) {
+            const result = await updateProfile(formData);
 
-        if (result.success) {
+            if (result.success) {
+                successToast('Profile updated!');
+                const updateData: any = {};
+                if (formData.name && formData.name.length > 0) updateData.name = formData.name;
+                if (result.image && result.image.length > 0) updateData.image = result.image;
+                await update(updateData);
+
+                setOpen(false);
+            } else {
+                failToast(result.error || 'Failed to update');
+            }
+        } else if (switchResult && switchResult.success && switchResult.newRole) {
             successToast('Profile updated!');
-            const updateData: any = {};
-            if (formData.name && formData.name.length > 0) updateData.name = formData.name;
-            if (result.image && result.image.length > 0) updateData.image = result.image;
-            await update(updateData);
+            await update({ role: switchResult.newRole });
 
             setOpen(false);
         } else {
-            failToast(result.error || 'Failed to update');
+            failToast('Failed to update');
         }
 
         setIsSaving(false);
@@ -314,7 +342,12 @@ const SettingsModal = ({
                                 )}
 
                                 {activeTab === 'account' && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className='space-y-8 @container/account'>
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className='space-y-6 @container/account font-figtree'
+                                    >
                                         <div className='flex flex-col gap-2 w-full'>
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Email Address</label>
                                             <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[225px]/account:p-4 font-figtree'>
@@ -330,7 +363,7 @@ const SettingsModal = ({
                                                         </div>
                                                         <div className='min-w-0 flex-1'>
                                                             <p className='font-semibold text-gray-900 truncate min-w-0 flex-1'>{email}</p>
-                                                            <p className={cn('text-xs font-bold', emailVerified ? 'text-green-600' : 'text-amber-600')}>
+                                                            <p className={cn('text-[12.5px] font-bold uppercase', emailVerified ? 'text-green-600' : 'text-amber-600')}>
                                                                 {emailVerified ? 'Verified' : 'Unverified'}
                                                             </p>
                                                         </div>
@@ -353,6 +386,33 @@ const SettingsModal = ({
                                         </div>
 
                                         <div className='flex flex-col gap-2 w-full'>
+                                            <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Account Type</label>
+                                            <div className='bg-blue-50 shadow-sm border border-blue-100 rounded-xl p-3 @min-[225px]/account:p-4 font-figtree'>
+                                                <div className='flex flex-col @min-[365px]/account:flex-row @min-[365px]/account:items-center justify-between gap-4 w-full'>
+                                                    <div className='flex items-center gap-3'>
+                                                        <div className='w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-blue-500 bg-blue-100'>
+                                                            <Shield size={18} />
+                                                        </div>
+                                                        <div className='min-w-0 flex-1'>
+                                                            <p className='font-semibold text-gray-900 truncate min-w-0 flex-1'>{name}</p>
+                                                            <p className='text-[12.5px] font-bold uppercase text-blue-500'>{role}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {role !== 'client' && originalInfo.current.role === role && (
+                                                        <button
+                                                            type='button'
+                                                            onClick={() => setRoleModal(true)}
+                                                            className='px-4 py-2 bg-white border border-blue-200 text-blue-700 font-bold text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50'
+                                                        >
+                                                            Change
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className='flex flex-col gap-2 w-full'>
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Phone Number</label>
                                             <div className='relative'>
                                                 <Phone className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', phoneNumber.length > 0 ? 'text-black' : 'text-gray-400')} />
@@ -364,16 +424,6 @@ const SettingsModal = ({
                                                     placeholder='(555) 123-4567'
                                                     maxLength={14}
                                                 />
-                                            </div>
-                                        </div>
-
-                                        <div className='p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex gap-3 font-figtree m-0'>
-                                            <Shield className='text-blue-500 shrink-0' size={20} />
-                                            <div className='space-y-1'>
-                                                <p className='text-sm font-bold text-blue-900'>Account Type</p>
-                                                <p className='text-xs text-blue-700'>
-                                                    You are currently signed in as a <span className='uppercase font-bold'>{session?.user?.role || 'User'}</span>.
-                                                </p>
                                             </div>
                                         </div>
 
@@ -395,7 +445,17 @@ const SettingsModal = ({
                 </div>
                 <div className='grid grid-cols-1 pb-1 @min-[275px]/settings:grid-cols-2 mt-4 gap-3 @min-[275px]:gap-2.5 @min-[315px]/settings:gap-4'>
                     <button
-                        onClick={() => setOpen(false)}
+                        onClick={() => {
+                            if (
+                                originalInfo.current.name === name &&
+                                originalInfo.current.publicID === publicID &&
+                                originalInfo.current.phoneNumber === phoneNumber &&
+                                originalInfo.current.image === imagePreview &&
+                                originalInfo.current.role === role
+                            ) {
+                                setOpen(false);
+                            } else setCloseModal(true);
+                        }}
                         className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
                     >
                         Cancel
@@ -409,7 +469,8 @@ const SettingsModal = ({
                             (originalInfo.current.name === name &&
                                 originalInfo.current.publicID === publicID &&
                                 originalInfo.current.phoneNumber === phoneNumber &&
-                                originalInfo.current.image === imagePreview)
+                                originalInfo.current.image === imagePreview &&
+                                originalInfo.current.role === role)
                         }
                         type='submit'
                         className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
@@ -419,7 +480,20 @@ const SettingsModal = ({
                     </button>
                 </div>
             </div>
-            <X onClick={() => setOpen(false)} className='absolute right-6 top-6 text-gray-500 cursor-pointer hover:scale-105 transition-all' />
+            <X
+                onClick={() => {
+                    if (
+                        originalInfo.current.name === name &&
+                        originalInfo.current.publicID === publicID &&
+                        originalInfo.current.phoneNumber === phoneNumber &&
+                        originalInfo.current.image === imagePreview &&
+                        originalInfo.current.role === role
+                    ) {
+                        setOpen(false);
+                    } else setCloseModal(true);
+                }}
+                className='absolute right-6 top-6 text-gray-500 cursor-pointer hover:scale-105 transition-all'
+            />
             <Modal
                 isOpen={isCropping && imageFile !== null}
                 setIsOpen={setIsCropping}
@@ -442,6 +516,66 @@ const SettingsModal = ({
                     setOpen={setDeleteAccountModal}
                     verification={originalInfo.current.publicID.length > 0 ? originalInfo.current.publicID : 'I confirm that I wish to delete this account'}
                 />
+            </Modal>
+            <Modal isOpen={roleModal} setIsOpen={setRoleModal} className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative'>
+                <div className='@container/change-role'>
+                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
+                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                        {originalInfo.current.role === 'subcontractor' ? (
+                            <span>
+                                You are currently a subcontractor. By switching to braider, you will gain client management features but{' '}
+                                <span className='font-bold'>lose access to subcontractor functionalities and user connections.</span> You may switch back at any time.
+                            </span>
+                        ) : (
+                            originalInfo.current.role === 'braider' && (
+                                <span>
+                                    You are currently a braider. By switching to subcontractor, you will{' '}
+                                    <span className='font-bold'>lose client management features and any existing user connections.</span> You may switch back at any time.
+                                </span>
+                            )
+                        )}
+                    </p>
+                    <div className='grid grid-cols-1 @min-[285px]/change-role:grid-cols-2 mt-4 gap-3 @min-[285px]:gap-2.5 @min-[315px]/change-role:gap-4'>
+                        <button
+                            onClick={() => setRoleModal(false)}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/change-role:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => {
+                                setRole((prev) => (prev === 'braider' ? 'subcontractor' : prev === 'subcontractor' ? 'braider' : prev));
+                                setRoleModal(false);
+                            }}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/change-role:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
+                        >
+                            I Understand
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+            <Modal isOpen={closeModal} setIsOpen={setCloseModal} className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative'>
+                <div className='@container/unsaved-changes'>
+                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>You have unsaved changes.</h1>
+                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>Are you sure you want to discard your changes and close the settings?</p>
+                    <div className='grid grid-cols-1 @min-[285px]/unsaved-changes:grid-cols-2 mt-4 gap-3 @min-[285px]:gap-2.5 @min-[315px]/unsaved-changes:gap-4'>
+                        <button
+                            onClick={() => setCloseModal(false)}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/unsaved-changes:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                        >
+                            Go Back
+                        </button>
+                        <button
+                            onClick={() => {
+                                setCloseModal(false);
+                                setOpen(false);
+                            }}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/unsaved-changes:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
+                        >
+                            Discard Changes
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </>
     );

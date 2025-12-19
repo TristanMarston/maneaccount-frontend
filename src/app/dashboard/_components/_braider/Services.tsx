@@ -16,14 +16,14 @@ type Service = {
     name: string;
     category: string;
     priceUSD: number;
-    duration: number;
+    duration?: number | null;
 };
 
 type ServiceFormData = {
     name: string;
     category: string;
     priceUSD: string;
-    duration: number;
+    duration?: number | null;
 };
 
 const Services = ({ userEmail }: { userEmail: string }) => {
@@ -32,13 +32,13 @@ const Services = ({ userEmail }: { userEmail: string }) => {
 
     const [serviceModalOpen, setServiceModalOpen] = useState(false);
     const [checkModal, setCheckModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
-    const [formData, setFormData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: 0 });
+    const [formData, setFormData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
     const [editModal, setEditModal] = useState<{ open: boolean; id: string }>({
         open: false,
         id: '',
     });
-    const [editModalData, setEditModalData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: 0 });
-    const [previousData, setPreviousData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: 0 });
+    const [editModalData, setEditModalData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
+    const [previousData, setPreviousData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
 
     useEffect(() => {
         const loadServices = async () => {
@@ -55,8 +55,8 @@ const Services = ({ userEmail }: { userEmail: string }) => {
         const { name, category, duration } = formData;
         const price = parseFloat(formData.priceUSD);
 
-        if (!name || !price || !category || !duration) {
-            failToast('Please fill in all fields.');
+        if (!name || !price || !category) {
+            failToast('Please fill in all required fields.');
             return;
         }
 
@@ -67,7 +67,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
         if (result.success) {
             successToast('Service added successfully');
             setServiceModalOpen(false);
-            setFormData({ name: '', category: 'Basic Braids', priceUSD: '', duration: 0 });
+            setFormData({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
 
             const updated = await getServices(userEmail);
             setServices(updated);
@@ -84,7 +84,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
         const returnData: any = {};
         if (name !== previousData.name) returnData.name = name;
         if (category !== previousData.category) returnData.category = category;
-        if (duration !== previousData.duration) returnData.duration = duration;
+        if (duration !== previousData.duration) returnData.duration = duration ? duration : 'null';
         if (price !== parseFloat(previousData.priceUSD)) returnData.priceUSD = price;
 
         const result = await editService(returnData, editModal.id);
@@ -95,7 +95,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
                 open: false,
                 id: '',
             });
-            setEditModalData({ name: '', category: 'Basic Braids', priceUSD: '', duration: 0 });
+            setEditModalData({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
 
             const updated = await getServices(userEmail);
             setServices(updated);
@@ -178,14 +178,18 @@ const Services = ({ userEmail }: { userEmail: string }) => {
                                         {service.priceUSD.toString().indexOf('.') === -1
                                             ? `${service.priceUSD}.00`
                                             : service.priceUSD.toString().indexOf('.') !== -1 && service.priceUSD.toString().split('.')[1].length === 1
-                                            ? `${service.priceUSD}0`
-                                            : service.priceUSD.toString()}
+                                              ? `${service.priceUSD}0`
+                                              : service.priceUSD.toString()}
                                     </div>
-                                    <div className='w-px h-4 bg-gray-200' />
-                                    <div className='flex items-center gap-1.5 text-gray-500 text-sm'>
-                                        <Clock size={16} />
-                                        {service.duration} min
-                                    </div>
+                                    {service.duration && (
+                                        <>
+                                            <div className='w-px h-4 bg-gray-200' />
+                                            <div className='flex items-center gap-1.5 text-gray-500 text-sm'>
+                                                <Clock size={16} />
+                                                {service.duration} min
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -336,12 +340,12 @@ const ServiceModal = ({
                     <div className='flex flex-col gap-2 w-full'>
                         <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Duration in minutes</label>
                         <div className='relative'>
-                            <Clock className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', data.duration > 0 ? 'text-black' : 'text-gray-400')} />
+                            <Clock className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', data.duration && data.duration > 0 ? 'text-black' : 'text-gray-400')} />
                             <input
                                 className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
                                 name='duration'
                                 inputMode='numeric'
-                                value={data.duration === 0 ? '' : data.duration}
+                                value={data.duration ? data.duration : ''}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     const val = e.target.value.replace(/\D/g, '');
                                     const numVal = val === '' ? 0 : parseInt(val, 10);
@@ -350,7 +354,6 @@ const ServiceModal = ({
                                     });
                                 }}
                                 placeholder='0'
-                                required
                             />
                         </div>
                     </div>

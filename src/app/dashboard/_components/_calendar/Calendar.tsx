@@ -1,31 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { createPortal } from 'react-dom';
-import {
-    Calendar as CalendarIcon,
-    ChevronLeft,
-    ChevronRight,
-    Plus,
-    MapPin,
-    Clock,
-    List,
-    Grid3X3,
-    Columns,
-    X,
-    Trash2,
-    PlusCircle,
-    ChevronsRight,
-    ChevronsLeft,
-    ChevronDown,
-    Check,
-    MinusCircle,
-    LayersPlus,
-    MoreHorizontal,
-    Ellipsis,
-    Pencil,
-} from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock, List, Grid3X3, Columns, X, Trash2, PlusCircle, MoreHorizontal, Ellipsis, Pencil } from 'lucide-react';
 import {
     format,
     addMonths,
@@ -42,12 +19,10 @@ import {
     startOfWeek as startOfWeekFns,
     addDays,
 } from 'date-fns';
-import { createShow, deleteShow, getShows, updateShow } from '@/app/actions/calendar';
-import { toast } from 'react-hot-toast';
+import { deleteShow, getShows } from '@/app/actions/calendar';
 import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import DatePicker from '../DatePicker';
 import { failToast, successToast, usaStates } from '@/app/context';
 import AddShowForm, { getParts } from './AddShowForm';
 
@@ -77,6 +52,9 @@ const ShowDetailsModal = ({
     onDelete: (show: Show) => void;
     onDayClick?: (day: Date) => void;
 }) => {
+    const modalRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(modalRef, [], () => onClose());
+
     return (
         <AnimatePresence>
             {show && (
@@ -92,7 +70,8 @@ const ShowDetailsModal = ({
                         animate={{ scale: 1, rotate: '0deg' }}
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
-                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border @container/show-details'
+                        ref={modalRef}
+                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[95%] overflow-y-auto @container/show-details'
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-start bg-gray-50/50'>
                             <div className='min-w-0'>
@@ -190,6 +169,9 @@ const DayDetailsModal = ({
     onEventClick: (show: Show) => void;
     getShowsForDay: (day: Date) => Show[];
 }) => {
+    const modalRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(modalRef, [], () => onClose());
+
     return (
         <AnimatePresence>
             {day && (
@@ -205,7 +187,8 @@ const DayDetailsModal = ({
                         animate={{ scale: 1, rotate: '0deg' }}
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
-                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border @container/day-details'
+                        ref={modalRef}
+                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[95%] overflow-y-auto @container/day-details'
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50'>
                             <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate min-w-0'>{format(day, 'MMMM d, yyyy')}</h3>

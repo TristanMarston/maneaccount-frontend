@@ -31,12 +31,27 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
     useOnClickOutside(startDateDropdownRef, [], () => setStartDateSelectorOpen(false));
     useOnClickOutside(endDateDropdownRef, [], () => setEndDateSelectorOpen(false));
 
-    const [stepTwoActionItemHover, setStepTwoActionItemHover] = useState<{ copy: boolean; skip: boolean }[]>(
+    const [stepTwoActionItemsVisible, setStepTwoActionItemsVisible] = useState<{ copy: boolean; skip: boolean }[]>(
         initialData ? initialData.days.map(() => ({ copy: false, skip: false })) : []
     );
 
     const [rangeStart, setRangeStart] = useState<Date | null>(initialData ? new Date(initialData.startDate) : null);
     const [rangeEnd, setRangeEnd] = useState<Date | null>(initialData ? new Date(initialData.endDate) : null);
+
+    const skipRef = useRef<HTMLButtonElement>(null);
+    const copyRef = useRef<HTMLButtonElement>(null);
+    useOnClickOutside(copyRef, [], () =>
+        setStepTwoActionItemsVisible((prev) => {
+            const items = [...prev].map(() => ({ copy: false, skip: false }));
+            return items;
+        })
+    );
+    useOnClickOutside(skipRef, [], () =>
+        setStepTwoActionItemsVisible((prev) => {
+            const items = [...prev].map(() => ({ copy: false, skip: false }));
+            return items;
+        })
+    );
 
     const handleNext = () => {
         if (step === 1) {
@@ -51,7 +66,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                     ...prev,
                     schedule: days.map((d) => ({ date: d, startTime: '08:30', endTime: '17:00', skipped: false })),
                 }));
-                setStepTwoActionItemHover(days.map(() => ({ copy: false, skip: false })));
+                setStepTwoActionItemsVisible(days.map(() => ({ copy: false, skip: false })));
             }
             setStep(2);
         } else {
@@ -322,7 +337,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                             <span className={cn('w-12 block @min-[400px]/add-show:hidden text-sm font-bold text-gray-700', day.skipped ? 'opacity-30' : '')}>
                                                 {format(day.date, 'MMM d')}
                                             </span>
-                                            <motion.button
+                                            <button
                                                 type='button'
                                                 onClick={() => {
                                                     setFormData((prev) => {
@@ -333,42 +348,56 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                                         return { ...prev, schedule: newSched };
                                                     });
                                                 }}
-                                                onMouseEnter={() => {
-                                                    setStepTwoActionItemHover((prev) => {
+                                                className={cn(
+                                                    'hidden @min-[320px]/add-show:block @min-[400px]/add-show:hidden @min-[560px]/add-show:block z-10 relative font-figtree text-gray-500 cursor-pointer text-sm items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300',
+                                                    day.skipped ? 'opacity-30' : ''
+                                                )}
+                                            >
+                                                <LayersPlus className='w-4.5 h-4.5 @min-[320px]/add-show:w-4 @min-[320px]/add-show:h-4 @min-[400px]/add-show:w-4.5 @min-[400px]/add-show:h-4.5 @min-[560px]/add-show:w-4 @min-[560px]/add-show:h-4 text-gray-400' />
+                                                <span>Copy to All</span>
+                                            </button>
+                                            <button
+                                                type='button'
+                                                onClick={() => {
+                                                    setStepTwoActionItemsVisible((prev) => {
                                                         const items = [...prev];
                                                         items[idx].copy = true;
                                                         return items;
                                                     });
                                                 }}
-                                                onMouseLeave={() => {
-                                                    setStepTwoActionItemHover((prev) => {
-                                                        const items = [...prev].map(() => ({ copy: false, skip: false }));
-                                                        return items;
-                                                    });
-                                                }}
+                                                ref={copyRef}
                                                 className={cn(
-                                                    'z-10 relative font-figtree text-gray-500 cursor-pointer text-sm flex items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300',
+                                                    'flex @min-[320px]/add-show:hidden @min-[400px]/add-show:flex @min-[560px]/add-show:hidden z-10 relative font-figtree text-gray-500 cursor-pointer text-sm items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300',
                                                     day.skipped ? 'opacity-30' : ''
                                                 )}
                                             >
                                                 <LayersPlus className='w-4.5 h-4.5 @min-[320px]/add-show:w-4 @min-[320px]/add-show:h-4 @min-[400px]/add-show:w-4.5 @min-[400px]/add-show:h-4.5 @min-[560px]/add-show:w-4 @min-[560px]/add-show:h-4 text-gray-400' />
-                                                <span className='hidden @min-[320px]/add-show:block @min-[400px]/add-show:hidden @min-[560px]/add-show:block'>Copy to All</span>
                                                 <AnimatePresence>
-                                                    {stepTwoActionItemHover[idx].copy && (
+                                                    {stepTwoActionItemsVisible[idx].copy && (
                                                         <motion.div
                                                             initial={{ opacity: 0, y: 10 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             exit={{ opacity: 0, y: 10 }}
                                                             transition={{ duration: 0.2 }}
-                                                            onMouseEnter={() => {
-                                                                setStepTwoActionItemHover((prev) => {
-                                                                    const items = [...prev].map(() => ({ copy: false, skip: false }));
-                                                                    return items;
+                                                            onClick={() => {
+                                                                setFormData((prev) => {
+                                                                    const newSched = prev.schedule.map((dayMap) => {
+                                                                        if (!dayMap.skipped) return { ...dayMap, startTime: day.startTime, endTime: day.endTime };
+                                                                        return dayMap;
+                                                                    });
+                                                                    return { ...prev, schedule: newSched };
                                                                 });
+
+                                                                setTimeout(() => {
+                                                                    setStepTwoActionItemsVisible((prev) => {
+                                                                        const items = [...prev].map(() => ({ copy: false, skip: false }));
+                                                                        return items;
+                                                                    });
+                                                                }, 50);
                                                             }}
                                                             className={cn(
                                                                 'absolute flex @min-[320px]/add-show:hidden @min-[400px]/add-show:flex justify-center items-center gap-1 @min-[560px]/add-show:hidden w-28 z-100 left-0 right-auto @min-[320px]/add-show:left-auto @min-[320px]/add-show:right-0 text-gray-500 border-gray-300 border text-sm bg-gray-50 rounded-xl px-2 py-1 text-semibold shadow-xl',
-                                                                idx !== stepTwoActionItemHover.length - 1 ? 'bottom-[calc(-100%-6px)]' : 'top-[calc(-100%-6px)]'
+                                                                idx !== stepTwoActionItemsVisible.length - 1 ? 'bottom-[calc(-100%-6px)]' : 'top-[calc(-100%-6px)]'
                                                             )}
                                                         >
                                                             <LayersPlus className='w-4.5 h-4.5 text-gray-400' />
@@ -376,53 +405,62 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                                         </motion.div>
                                                     )}
                                                 </AnimatePresence>
-                                            </motion.button>
-                                            <motion.button
+                                            </button>
+                                            <button
                                                 type='button'
                                                 onClick={() => {
                                                     const newSched = [...formData.schedule];
                                                     newSched[idx].skipped = !newSched[idx].skipped;
                                                     setFormData({ ...formData, schedule: newSched });
                                                 }}
-                                                onMouseEnter={() => {
-                                                    setStepTwoActionItemHover((prev) => {
-                                                        const items = [...prev];
-                                                        items[idx].skip = true;
-                                                        return items;
-                                                    });
-                                                }}
-                                                onMouseLeave={() => {
-                                                    setStepTwoActionItemHover((prev) => {
-                                                        const items = [...prev].map(() => ({ copy: false, skip: false }));
-                                                        return items;
-                                                    });
-                                                }}
-                                                className='font-figtree relative text-gray-500 cursor-pointer text-sm flex items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300'
+                                                className='hidden @min-[320px]/add-show:flex @min-[400px]/add-show:hidden @min-[560px]/add-show:flex font-figtree relative text-gray-500 cursor-pointer text-sm items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300'
                                             >
                                                 {day.skipped ? (
                                                     <PlusCircle className='w-4.5 h-4.5 @min-[320px]/add-show:w-4 @min-[320px]/add-show:h-4 @min-[400px]/add-show:w-4.5 @min-[400px]/add-show:h-4.5 @min-[560px]/add-show:w-4 @min-[560px]/add-show:h-4 text-gray-400' />
                                                 ) : (
                                                     <MinusCircle className='w-4.5 h-4.5 @min-[320px]/add-show:w-4 @min-[320px]/add-show:h-4 @min-[400px]/add-show:w-4.5 @min-[400px]/add-show:h-4.5 @min-[560px]/add-show:w-4 @min-[560px]/add-show:h-4 text-gray-400' />
                                                 )}
-                                                <span className='hidden @min-[320px]/add-show:block @min-[400px]/add-show:hidden @min-[560px]/add-show:block'>
-                                                    {day.skipped ? 'Keep' : 'Skip'} Day
-                                                </span>
+                                                <span>{day.skipped ? 'Keep' : 'Skip'} Day</span>
+                                            </button>
+                                            <button
+                                                type='button'
+                                                onClick={() => {
+                                                    setStepTwoActionItemsVisible((prev) => {
+                                                        const items = [...prev];
+                                                        items[idx].skip = true;
+                                                        return items;
+                                                    });
+                                                }}
+                                                ref={skipRef}
+                                                className='flex @min-[320px]/add-show:hidden @min-[400px]/add-show:flex @min-[560px]/add-show:hidden font-figtree relative text-gray-500 cursor-pointer text-sm items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300'
+                                            >
+                                                {day.skipped ? (
+                                                    <PlusCircle className='w-4.5 h-4.5 @min-[320px]/add-show:w-4 @min-[320px]/add-show:h-4 @min-[400px]/add-show:w-4.5 @min-[400px]/add-show:h-4.5 @min-[560px]/add-show:w-4 @min-[560px]/add-show:h-4 text-gray-400' />
+                                                ) : (
+                                                    <MinusCircle className='w-4.5 h-4.5 @min-[320px]/add-show:w-4 @min-[320px]/add-show:h-4 @min-[400px]/add-show:w-4.5 @min-[400px]/add-show:h-4.5 @min-[560px]/add-show:w-4 @min-[560px]/add-show:h-4 text-gray-400' />
+                                                )}
                                                 <AnimatePresence>
-                                                    {stepTwoActionItemHover[idx].skip && (
+                                                    {stepTwoActionItemsVisible[idx].skip && (
                                                         <motion.div
                                                             initial={{ opacity: 0, y: 10 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             exit={{ opacity: 0, y: 10 }}
                                                             transition={{ duration: 0.2 }}
-                                                            onMouseEnter={() => {
-                                                                setStepTwoActionItemHover((prev) => {
-                                                                    const items = [...prev].map(() => ({ copy: false, skip: false }));
-                                                                    return items;
-                                                                });
+                                                            onClick={() => {
+                                                                const newSched = [...formData.schedule];
+                                                                newSched[idx].skipped = !newSched[idx].skipped;
+                                                                setFormData({ ...formData, schedule: newSched });
+
+                                                                setTimeout(() => {
+                                                                    setStepTwoActionItemsVisible((prev) => {
+                                                                        const items = [...prev].map(() => ({ copy: false, skip: false }));
+                                                                        return items;
+                                                                    });
+                                                                }, 50);
                                                             }}
                                                             className={cn(
                                                                 'absolute flex justify-center @min-[320px]/add-show:hidden @min-[400px]/add-show:flex items-center gap-1 @min-[560px]/add-show:hidden w-26 z-100 left-0 right-auto @min-[320px]/add-show:left-auto @min-[320px]/add-show:right-0 text-gray-500 border-gray-300 border text-sm bg-gray-50 rounded-xl px-2 py-1 text-semibold shadow-xl',
-                                                                idx !== stepTwoActionItemHover.length - 1 ? 'bottom-[calc(-100%-6px)]' : 'top-[calc(-100%-6px)]'
+                                                                idx !== stepTwoActionItemsVisible.length - 1 ? 'bottom-[calc(-100%-6px)]' : 'top-[calc(-100%-6px)]'
                                                             )}
                                                         >
                                                             {day.skipped ? <PlusCircle className='w-4.5 h-4.5 text-gray-400' /> : <MinusCircle className='w-4.5 h-4.5 text-gray-400' />}
@@ -430,7 +468,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                                         </motion.div>
                                                     )}
                                                 </AnimatePresence>
-                                            </motion.button>
+                                            </button>
                                         </div>
                                     </div>
                                 ))}

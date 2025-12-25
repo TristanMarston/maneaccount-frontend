@@ -10,6 +10,7 @@ import Services from './Services';
 import Team from '../Team';
 import { getPublicID } from '@/app/actions/getPublicID';
 import Relations from '../Relations';
+import Calendar from '../_calendar/Calendar';
 
 const BraiderDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -53,11 +54,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
                     </div>
                 );
             case 'Calendar':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Calendar View Coming Soon</h1>
-                    </div>
-                );
+                return <Calendar role={role} userEmail={email} />;
             case 'Clients':
                 return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Invoices':
@@ -94,7 +91,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
             />
-            <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px]'>{renderContent()}</main>
+            <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>
     );
 };

@@ -163,7 +163,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
 
     return (
         <>
-            <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 @lg/horses:px-16 @lg/horses:py-12 space-y-4 @sm/horses:space-y-8 @container/horses'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 @container/horses'>
                 <header className='flex flex-col justify-start items-start gap-6 @sm/horses:gap-0 @sm/horses:flex-row @sm/horses:justify-between @sm/horses:items-center'>
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>My Stable</h1>

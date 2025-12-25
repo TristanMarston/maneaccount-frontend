@@ -172,6 +172,11 @@
     box-shadow: none;
 }
 
+.sudden-gradient {
+    background: white;
+    background: linear-gradient(90deg, white 70%, transparent 100%);
+}
+
 .loader {
     position: relative;
     display: flex;

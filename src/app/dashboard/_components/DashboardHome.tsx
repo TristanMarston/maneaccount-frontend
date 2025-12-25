@@ -18,16 +18,14 @@ const DashboardHome = ({ role, name }: DashboardHomeProps) => {
     const normalizedRole = (role || 'braider').toLowerCase();
 
     return (
-        <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 @lg/home:px-16 @lg/home:py-12 space-y-4 @sm/home:space-y-8 @container/home'>
+        <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 space-y-4 @container/home'>
             {/* Header Section */}
             <header className='flex flex-col md:flex-row md:items-center justify-between gap-4'>
                 <div>
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>
                         {greeting}, {name.split(' ')[0]}.
                     </h1>
-                    <p className='text-gray-500 font-figtree mt-1'>
-                        Here's what's happening in your stable today.
-                    </p>
+                    <p className='text-gray-500 font-figtree mt-1'>Here's what's happening in your stable today.</p>
                 </div>
 
                 {/* <motion.button

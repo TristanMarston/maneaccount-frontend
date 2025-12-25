@@ -133,11 +133,13 @@ model Show {
 }
 
 model ShowDay {
-  id        String   @id @default(cuid())
-  showId    String
-  date      DateTime
-  startTime String   
-  endTime   String   
+  id                 String   @id @default(cuid())
+  showId             String
+  date               DateTime
+  startTime          String   
+  endTime            String   
+  skipped            Boolean  @default(false)
+  googleEventId      String?
 
   show      Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
 }

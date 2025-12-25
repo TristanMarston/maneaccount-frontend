@@ -122,7 +122,7 @@ const DashboardSidebar = ({
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 onClick={() => setMobileMenuOpen(false)}
-                                className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-60'
+                                className='fixed inset-0 bg-black/40 backdrop-blur-[2px] z-71'
                             />
 
                             <motion.div
@@ -130,7 +130,7 @@ const DashboardSidebar = ({
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: '100%', opacity: 0 }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                className='fixed bottom-6 left-4 right-4 bg-white rounded-3xl z-70 shadow-2xl border border-gray-100 overflow-hidden max-h-[75vh] flex flex-col'
+                                className='fixed bottom-6 left-4 right-4 bg-white rounded-3xl z-80 shadow-2xl border border-gray-100 overflow-hidden max-h-[75vh] flex flex-col'
                             >
                                 <div className='p-5 border-b border-gray-100 bg-gray-50/50'>
                                     <div className='flex items-center gap-3'>
@@ -201,7 +201,7 @@ const DashboardSidebar = ({
                     )}
                 </AnimatePresence>
 
-                <div className='fixed bottom-6 h-16 z-50 w-full flex justify-center px-8 min-[450px]:px-12 @container/nav'>
+                <div className='fixed bottom-6 h-16 z-70 w-full flex justify-center px-6 cm:px-8 min-[550px]:px-10 @container/nav'>
                     <div className='bg-white/95 w-full backdrop-blur-md rounded-[18px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200/50 flex items-center justify-between dashboard-sm:hidden'>
                         {mobilePrimaryPages.map((page, index) => (
                             <MobileNavItem

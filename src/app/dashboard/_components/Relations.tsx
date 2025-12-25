@@ -113,7 +113,7 @@ const Relations = ({
 
     return (
         <>
-            <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 @lg/relations:px-16 @lg/relations:py-12 space-y-8 @container/relations'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/relations'>
                 <header className='flex gap-6 mb-6 flex-col justify-start items-start @min-[490px]/relations:gap-0 @min-[490px]/relations:flex-row @min-[490px]/relations:justify-between @min-[490px]/relations:items-center'>
                     <div>
                         <h1 className='text-3xl @min-[280px]/relations:text-[33px] @min-[310px]/relations:text-4xl font-lusitana font-bold text-gray-900'>{pluralLabel}</h1>

@@ -27,7 +27,7 @@ const Modal = ({
                         if (closeOnOutsideClick) setIsOpen(false);
                     }}
                     className={cn(
-                        'bg-slate-900/10 backdrop-blur p-6 min-[450px]:p-8 fixed inset-0 z-50 grid place-items-center overflow-y-scroll',
+                        'bg-slate-900/10 backdrop-blur p-6 min-[450px]:p-8 fixed inset-0 z-70 grid place-items-center overflow-y-scroll',
                         closeOnOutsideClick ? 'cursor-pointer' : ''
                     )}
                 >

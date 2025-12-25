@@ -32,7 +32,6 @@ const Dashboard = () => {
             const joinValue = `; ${cookieStore}`;
             const joinCookie = joinValue.split(`; ${'join_request_user'}`);
             const targetPublicID = joinCookie.length === 2 ? joinCookie.pop()?.split(';').shift() : undefined;
-            console.log(targetPublicID);
 
             if (targetPublicID) establishConnection(email);
         };

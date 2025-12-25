@@ -26,7 +26,6 @@ type TeamMember = {
     joinedAt: Date;
 };
 
-// Similar type for pending, slightly fewer fields strictly required but useful
 type PendingMember = TeamMember & { sentAt: Date };
 
 const Team = ({
@@ -111,7 +110,7 @@ const Team = ({
 
     return (
         <>
-            <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 @lg/team:px-16 @lg/team:py-12 space-y-8 @container/team'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/team'>
                 <header className='flex gap-6 mb-6 flex-col justify-start items-start @min-[490px]/team:gap-0 @min-[490px]/team:flex-row @min-[490px]/team:justify-between @min-[490px]/team:items-center'>
                     <div>
                         <h1 className='text-3xl @min-[280px]/team:text-[33px] @min-[310px]/team:text-4xl font-lusitana font-bold text-gray-900'>

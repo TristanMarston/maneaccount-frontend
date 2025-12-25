@@ -9,6 +9,7 @@ import { Session } from 'next-auth';
 import Horses from './Horses';
 import Relations from '../Relations';
 import { getPublicID } from '@/app/actions/getPublicID';
+import Calendar from '../_calendar/Calendar';
 
 const OwnerDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -50,11 +51,7 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
             case 'Braiders':
                 return <Relations userEmail={email} role='client' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Calendar':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Calendar View Coming Soon</h1>
-                    </div>
-                );
+                return <Calendar role={role} userEmail={email} />;
             default:
                 return <DashboardHome role={role} name={name} />;
         }
@@ -82,7 +79,7 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
             />
 
             {/* Main Content Area */}
-            <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px]'>{renderContent()}</main>
+            <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>
     );
 };

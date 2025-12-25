@@ -27,6 +27,14 @@ export const authOptions: AuthOptions = {
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID || '',
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+            // authorization: {
+            //     params: {
+            //         scope: 'openid email profile https://www.googleapis.com/auth/calendar',
+            //         prompt: 'consent',
+            //         access_type: 'offline',
+            //         response_type: 'code',
+            //     },
+            // },
         }),
         CredentialsProvider({
             name: 'Credentials',
@@ -124,6 +132,7 @@ export const authOptions: AuthOptions = {
                 if (session.role && session.role.length > 0) token.role = session.role;
             }
             if (user) {
+                token.sub = user.id;
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
@@ -132,6 +141,7 @@ export const authOptions: AuthOptions = {
         },
         async session({ session, token }) {
             if (session?.user && token) {
+                session.user.id = token.sub as string;
                 (session.user as any).role = token.role;
                 (session.user as any).image = token.image;
             }

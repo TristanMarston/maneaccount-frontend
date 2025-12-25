@@ -106,7 +106,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
 
     return (
         <>
-            <div className='w-full px-8 min-[450px]:px-12 pt-8 pb-28 dashboard-sm:py-8 @lg/services:px-16 @lg/services:py-12 space-y-4 @sm/services:space-y-8 @container/services'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 @container/services'>
                 <header className='flex gap-6 flex-col justify-start items-start @sm/services:gap-0 @sm/services:flex-row @sm/services:justify-between @sm/services:items-center'>
                     <div>
                         <h1 className='text-[33px] @min-[300px]/services:text-4xl font-lusitana font-bold text-gray-900'>Services & Pricing</h1>

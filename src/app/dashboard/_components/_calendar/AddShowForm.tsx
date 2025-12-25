@@ -349,7 +349,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                                     });
                                                 }}
                                                 className={cn(
-                                                    'hidden @min-[320px]/add-show:block @min-[400px]/add-show:hidden @min-[560px]/add-show:block z-10 relative font-figtree text-gray-500 cursor-pointer text-sm items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300',
+                                                    'hidden @min-[320px]/add-show:flex @min-[400px]/add-show:hidden @min-[560px]/add-show:flex z-10 relative font-figtree text-gray-500 cursor-pointer text-sm items-center justify-start gap-2 outline-none shadow-sm border p-1.5 @min-[320px]/add-show:px-2.5 @min-[320px]/add-show:py-1 @min-[400px]/add-show:p-1.5 @min-[560px]/add-show:px-2.5 @min-[560px]/add-show:py-1 rounded-[10px] transition-all border-gray-200 hover:border-gray-300',
                                                     day.skipped ? 'opacity-30' : ''
                                                 )}
                                             >

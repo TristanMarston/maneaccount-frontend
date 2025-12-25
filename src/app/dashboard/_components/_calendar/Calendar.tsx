@@ -291,12 +291,12 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
                                 <span className='hidden @min-[320px]/calendar:block'>Add Show</span>
                             </button>
                         </div>
-                        <MonthNavigation navigate={navigate} currentDate={currentDate} className='flex @min-[400px]/calendar:hidden py-[5px] w-full' />
+                        {view !== 'list' && <MonthNavigation navigate={navigate} currentDate={currentDate} className='flex @min-[400px]/calendar:hidden py-[5px] w-full' />}
                     </div>
 
                     <div className='hidden @min-[400px]/calendar:flex items-start gap-3 h-full'>
                         <ViewSwitcher view={view} setView={setView} className='hidden @min-[550px]/calendar:grid' />
-                        <MonthNavigation navigate={navigate} currentDate={currentDate} className='hidden @min-[400px]/calendar:flex' />
+                        {view !== 'list' && <MonthNavigation navigate={navigate} currentDate={currentDate} className='hidden @min-[400px]/calendar:flex' />}
 
                         {role.toLowerCase() === 'braider' && (
                             <button

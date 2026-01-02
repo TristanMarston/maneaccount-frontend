@@ -8,6 +8,7 @@ import { UserRole } from '../../Dashboard';
 import Team from '../Team';
 import { getPublicID } from '@/app/actions/getPublicID';
 import Calendar from '../_calendar/Calendar';
+import Tasks from '../_tasks/Tasks';
 
 const SubcontractorDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -16,6 +17,7 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<UserRole>('');
     const [publicID, setPublicID] = useState('');
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
     useEffect(() => {
         if (session) {
@@ -43,25 +45,15 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
-                return <DashboardHome role={role} name={name} />;
+                return <DashboardHome role={role} name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Calendar':
-                return <Calendar role={role} userEmail={email} />;
-            case 'Clients':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Clients View Coming Soon</h1>
-                    </div>
-                );
-            case 'Invoices':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Invoices View Coming Soon</h1>
-                    </div>
-                );
+                return <Calendar role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
+            case 'Tasks':
+                return <Tasks role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Team':
                 return <Team userEmail={email} role='subcontractor' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             default:
-                return <DashboardHome role={role} name={name} />;
+                return <DashboardHome role={role} name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
         }
     };
 
@@ -76,6 +68,8 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
                 loading={loading}
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
+                settingsModalOpen={settingsModalOpen}
+                setSettingsModalOpen={setSettingsModalOpen}
             />
             <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>

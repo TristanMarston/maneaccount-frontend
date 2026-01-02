@@ -177,14 +177,14 @@ const Relations = ({
                                             <div className='grid grid-cols-2 @min-[330px]/relations:flex gap-2 font-figtree font-semibold'>
                                                 <button
                                                     onClick={() => handleRemove(req.connectionID, true)}
-                                                    className='flex gap-2 items-center justify-center p-1.5 @min-[330px]/relations:p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors'
+                                                    className='flex cursor-pointer gap-2 items-center justify-center p-1.5 @min-[330px]/relations:p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors'
                                                 >
                                                     <X className='w-5 h-5' strokeWidth={3} />
                                                     <span className='block @min-[330px]/relations:hidden'>Deny</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleAccept(req.connectionID)}
-                                                    className='flex gap-2 items-center justify-center p-1.5 @min-[330px]/relations:p-2.5 rounded-xl bg-primary-light text-white hover:bg-primary transition-colors shadow-sm'
+                                                    className='flex cursor-pointer gap-2 items-center justify-center p-1.5 @min-[330px]/relations:p-2.5 rounded-xl bg-primary-light text-white hover:bg-primary transition-colors shadow-sm'
                                                 >
                                                     <Check className='w-5 h-5' strokeWidth={3} />
                                                     <span className='block @min-[330px]/relations:hidden'>Accept</span>
@@ -227,7 +227,6 @@ const Relations = ({
                     </div>
                 )}
 
-                {/* Clients/Braiders Grid */}
                 {loading ? (
                     <div className='grid grid-cols-1 @min-[800px]/relations:grid-cols-2 @min-[1200px]/relations:grid-cols-3 gap-6 animate-pulse'>
                         {[1, 2, 3, 4].map((i) => (
@@ -331,15 +330,13 @@ const Relations = ({
                                     Remove
                                 </button>
 
-                                {isClient ? (
-                                    <button className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[290px]/relation-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[290px]/relation-card:py-2 transition-colors'>
+                                {isClient && (
+                                    <button
+                                        onClick={() => setSelectedPage('Tasks')}
+                                        className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[290px]/relation-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[290px]/relation-card:py-2 transition-colors'
+                                    >
                                         <Briefcase className='w-5 h-5' />
                                         Request Service
-                                    </button>
-                                ) : (
-                                    <button className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[290px]/relation-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[290px]/relation-card:py-2 transition-colors'>
-                                        <Briefcase className='w-5 h-5' />
-                                        Send Invoice
                                     </button>
                                 )}
                             </div>

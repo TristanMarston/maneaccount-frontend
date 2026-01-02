@@ -42,12 +42,21 @@ export async function updateProfile(formData: any) {
     const publicID = formData.publicID as string | null;
     const imageFile = formData.image as File | null;
     const phoneNumber = formData.phoneNumber as string | null;
+    const venmo = formData.venmo as string | null;
+    const zelle = formData.zelle as string | null;
+    const venmoEnabled = formData.venmoEnabled as boolean | null;
+    const zelleEnabled = formData.zelleEnabled as 'email' | 'phone' | 'link' | 'disabled' | null;
 
-    if (!name && !publicID && !imageFile && !phoneNumber) return { error: 'Name, User ID, or Profile Image is required' };
+    if (!name && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !zelleEnabled) return { error: 'Update at least one field' };
 
     const updateData: any = {};
     if (name) updateData.name = name;
     if (phoneNumber) updateData.phoneNumber = phoneNumber.replace(/\D/g, '');
+    if (venmo !== null) updateData.venmo = venmo;
+    if (zelle !== null) updateData.zelle = zelle;
+    if (venmoEnabled !== null) updateData.venmoEnabled = venmoEnabled;
+    if (zelleEnabled !== null) updateData.zelleEnabled = zelleEnabled;
+
     if (publicID) {
         const sanitizedID = publicID.toLowerCase().replace(/[^a-z0-9]/g, '');
         const isAvailable = await checkPublicIDAvailability(sanitizedID);
@@ -111,6 +120,10 @@ export async function getUserSettings() {
             publicID: true,
             role: true,
             phoneNumber: true,
+            venmo: true,
+            zelle: true,
+            venmoEnabled: true,
+            zelleEnabled: true,
         },
     });
 }

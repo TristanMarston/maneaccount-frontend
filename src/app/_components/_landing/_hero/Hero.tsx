@@ -42,8 +42,8 @@ const Hero = () => {
                 </section>
 
                 <div className='w-full hero-xl:w-1/2 flex justify-center hero-xl:justify-end'>
-                    <div className='relative w-full max-w-[600px] aspect-video rounded-2xl overflow-hidden shadow-xl primary-border-bold bg-gray-100'>
-                        <Image src='https://placehold.co/1000x600/png?text=Braided+Horse+Image' alt='Beautifully braided horse mane' fill className='object-cover' priority />
+                    <div className='relative w-full max-w-[600px] aspect-16/13 rounded-2xl overflow-hidden shadow-xl primary-border-bold bg-gray-100'>
+                        <Image src='/maneaccount-hero.png' alt='Beautifully braided horse mane' fill className='object-cover' priority />
                     </div>
                 </div>
             </div>

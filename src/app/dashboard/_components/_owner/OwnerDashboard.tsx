@@ -10,6 +10,8 @@ import Horses from './Horses';
 import Relations from '../Relations';
 import { getPublicID } from '@/app/actions/getPublicID';
 import Calendar from '../_calendar/Calendar';
+import Tasks from '../_tasks/Tasks';
+import Invoices from '../_invoices/Invoices';
 
 const OwnerDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -18,6 +20,7 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
     const [publicID, setPublicID] = useState('');
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
     useEffect(() => {
         if (session?.user) {
@@ -45,15 +48,19 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
-                return <DashboardHome role={role} name={name} />;
+                return <DashboardHome role={role} name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Horses':
                 return <Horses userEmail={email} />;
             case 'Braiders':
                 return <Relations userEmail={email} role='client' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Calendar':
-                return <Calendar role={role} userEmail={email} />;
+                return <Calendar role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
+            case 'Services':
+                return <Tasks role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
+            case 'Invoices':
+                return <Invoices role={role} userEmail={email} setView={setSelectedPage} setSettingsModalOpen={setSettingsModalOpen} />;
             default:
-                return <DashboardHome role={role} name={name} />;
+                return <DashboardHome role={role} name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
         }
     };
 
@@ -66,7 +73,6 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
 
     return (
         <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-lg'>
-            {/* Sidebar with state control */}
             <DashboardSidebar
                 dashboard='client'
                 name={name}
@@ -76,9 +82,10 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
                 loading={loading}
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
+                settingsModalOpen={settingsModalOpen}
+                setSettingsModalOpen={setSettingsModalOpen}
             />
 
-            {/* Main Content Area */}
             <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>
     );

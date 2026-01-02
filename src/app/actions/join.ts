@@ -139,7 +139,7 @@ export async function establishConnection(email: string) {
                         data: {
                             senderId: dbUser.id,
                             receiverId: targetUser.id,
-                            status: 'accepted',
+                            status: 'pending',
                         },
                     });
 

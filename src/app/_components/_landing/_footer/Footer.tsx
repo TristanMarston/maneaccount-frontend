@@ -27,7 +27,7 @@ const Footer = () => {
                 <div className='w-full max-w-max-width flex flex-col px-8'>
                     <div className='flex flex-col 4xl:flex-row justify-between items-start gap-12 4xl:gap-8 mb-16'>
                         <div className='flex flex-col gap-5 max-w-sm'>
-                            <Logo color='background' />
+                            <Logo color='background' position='footer' />
                             <p className='font-figtree text-white/80 text-[15px] leading-relaxed'>
                                 The all-in-one platform streamlining operations for horse braiders, subcontractors, and owners everywhere.
                             </p>

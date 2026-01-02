@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Camera, Check, AlertCircle, Loader2, User, Shield, AtSign, ZoomOut, ZoomIn, Move, CircleAlert, Phone, Mail } from 'lucide-react';
+import { X, Camera, Check, AlertCircle, Loader2, User, Shield, AtSign, ZoomOut, ZoomIn, Move, CircleAlert, Phone, Mail, CreditCard, QrCode } from 'lucide-react';
 import { Session } from 'next-auth';
 import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,7 +34,9 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-type Tab = 'profile' | 'account';
+type Tab = 'profile' | 'account' | 'payments';
+type ZelleOption = 'email' | 'phone' | 'link' | 'disabled';
+type ZelleUpsetOption = 'link' | 'phone' | 'email';
 
 const SettingsModal = ({
     setOpen,
@@ -61,12 +63,51 @@ const SettingsModal = ({
     const [roleModal, setRoleModal] = useState(false);
     const [closeModal, setCloseModal] = useState(false);
 
+    const [venmoLink, setVenmoLink] = useState('');
+    const [venmo, setVenmo] = useState('');
+    const [venmoEnabled, setVenmoEnabled] = useState(false);
+    const [venmoUpset, setVenmoUpset] = useState(false);
+    const [zelle, setZelle] = useState('');
+    const [zelleEnabled, setZelleEnabled] = useState<ZelleOption>('disabled');
+    const [zelleUpset, setZelleUpset] = useState<ZelleUpsetOption[]>([]);
+
     const [imagePreview, setImagePreview] = useState<string>('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
 
-    const originalInfo = useRef<{ name: string; publicID: string; image: string; phoneNumber: string; role: string }>({ name: '', publicID: '', image: '', phoneNumber: '', role: '' });
+    useEffect(() => {
+        if (venmo.length >= 5 && venmo.length <= 30) {
+            setVenmoLink(`https://venmo.com/u/${venmo}`);
+            setVenmoUpset(false);
+        }
+    }, [venmo]);
+
+    useEffect(() => {
+        if (zelle.includes('zellepay.com') || zelleEnabled === 'phone' || zelleEnabled === 'email' || zelleEnabled === 'disabled') setZelleUpset([]);
+    }, [zelle, zelleEnabled]);
+
+    const originalInfo = useRef<{
+        name: string;
+        publicID: string;
+        image: string;
+        phoneNumber: string;
+        role: string;
+        venmo: string;
+        zelle: string;
+        venmoEnabled: boolean;
+        zelleEnabled: ZelleOption;
+    }>({
+        name: '',
+        publicID: '',
+        image: '',
+        phoneNumber: '',
+        role: '',
+        venmo: '',
+        zelle: '',
+        venmoEnabled: false,
+        zelleEnabled: 'disabled',
+    });
     const [deleteAccountModal, setDeleteAccountModal] = useState(false);
 
     const debouncedPublicID = useDebounce(publicID, 500);
@@ -85,15 +126,26 @@ const SettingsModal = ({
                     image: data.image || '',
                     phoneNumber: formattedPhone,
                     role: data.role,
+                    venmo: data.venmo || '',
+                    zelle: data.zelle || '',
+                    venmoEnabled: data.venmoEnabled,
+                    zelleEnabled: data.zelleEnabled || 'disabled',
                 };
 
                 setName(data.name || '');
                 setPublicID(data.publicID || '');
+
                 setEmailVerified(data.emailVerified);
                 setEmail(data.email || '');
                 setPhoneNumber(formattedPhone);
                 setImagePreview(data.image || '');
                 setRole(data.role);
+
+                setVenmoLink(data.venmo || '');
+                setVenmo(data.venmo?.substring(data.venmo?.indexOf('/u/') + 3) || '');
+                setVenmoEnabled(data.venmoEnabled);
+                setZelle(data.zelle || '');
+                setZelleEnabled(data.zelleEnabled || 'disabled');
             }
             setIsLoading(false);
         };
@@ -179,9 +231,18 @@ const SettingsModal = ({
             originalInfo.current.publicID === publicID &&
             originalInfo.current.phoneNumber === phoneNumber &&
             originalInfo.current.image === imagePreview &&
-            originalInfo.current.role === role
+            originalInfo.current.role === role &&
+            originalInfo.current.venmo === venmoLink &&
+            originalInfo.current.zelle === zelle &&
+            originalInfo.current.venmoEnabled === venmoEnabled &&
+            originalInfo.current.zelleEnabled === zelleEnabled
         ) {
             failToast('Update at least one field to save changes');
+            return;
+        }
+
+        if (venmo.length < 5 || venmo.length > 30) {
+            failToast('Venmo username must be between 5 and 30 characters');
             return;
         }
 
@@ -192,6 +253,10 @@ const SettingsModal = ({
         if (name !== originalInfo.current.name) formData.name = name;
         if (publicID !== originalInfo.current.publicID) formData.publicID = publicID;
         if (phoneNumber !== originalInfo.current.phoneNumber) formData.phoneNumber = phoneNumber;
+        if (venmoLink !== originalInfo.current.venmo) formData.venmo = venmoLink;
+        if (zelle !== originalInfo.current.zelle) formData.zelle = zelle;
+        if (venmoEnabled !== originalInfo.current.venmoEnabled) formData.venmoEnabled = venmoEnabled;
+        if (zelleEnabled !== originalInfo.current.zelleEnabled) formData.zelleEnabled = zelleEnabled;
         if (role !== originalInfo.current.role) switchResult = await switchAccountRole();
 
         if (finalImageBlob) formData.image = finalImageBlob;
@@ -230,9 +295,15 @@ const SettingsModal = ({
                 </div>
 
                 <div className='flex flex-col @min-[520px]/settings:flex-row flex-1 overflow-hidden mt-4'>
-                    <div className='w-auto bg-gray-50 border rounded-t-[18px] @min-[520px]/settings:rounded-l-[18px] @min-[520px]/settings:rounded-t-none border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[270px]/settings:flex-row @min-[520px]:flex-col gap-2 shrink-0'>
+                    <div
+                        className={cn(
+                            'w-auto bg-gray-50 border rounded-t-[18px] @min-[520px]/settings:rounded-l-[18px] @min-[520px]/settings:rounded-t-none border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[430px]/settings:grid @min-[520px]:flex @min-[520px]:flex-col gap-2 shrink-0',
+                            role === 'braider' ? '@min-[430px]/settings:grid-cols-3' : '@min-[430px]/settings:grid-cols-2'
+                        )}
+                    >
                         <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
                         <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
+                        {role === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payments' />}
                     </div>
 
                     <div
@@ -248,7 +319,12 @@ const SettingsModal = ({
                         ) : (
                             <form id='settings-form' onSubmit={handleSubmit} className='max-w-xl space-y-8'>
                                 {activeTab === 'profile' && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className='space-y-8 @container/profile'>
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className='space-y-8 font-figtree @container/profile'
+                                    >
                                         <div className='flex flex-col @min-[260px]/profile:flex-row items-center gap-6'>
                                             <div className='relative group cursor-pointer shrink-0'>
                                                 <div className='w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100'>
@@ -297,7 +373,7 @@ const SettingsModal = ({
                                                 <input
                                                     value={publicID}
                                                     onChange={(e) => {
-                                                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                                        const val = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '');
                                                         setPublicID(val);
                                                     }}
                                                     className={cn(
@@ -308,9 +384,13 @@ const SettingsModal = ({
                                                               ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
                                                               : 'border-gray-200 focus:border-primary focus:ring-primary/10'
                                                     )}
-                                                    placeholder='username'
+                                                    placeholder='public-id'
+                                                    autoCorrect='off'
+                                                    autoComplete='off'
+                                                    spellCheck={false}
                                                     required
                                                     minLength={3}
+                                                    maxLength={30}
                                                 />
 
                                                 <div className='absolute right-4 top-1/2 -translate-y-1/2'>
@@ -423,6 +503,9 @@ const SettingsModal = ({
                                                     onChange={handlePhoneChange}
                                                     placeholder='(555) 123-4567'
                                                     maxLength={14}
+                                                    autoCorrect='off'
+                                                    autoComplete='off'
+                                                    spellCheck={false}
                                                 />
                                             </div>
                                         </div>
@@ -439,6 +522,244 @@ const SettingsModal = ({
                                         </button>
                                     </motion.div>
                                 )}
+
+                                {activeTab === 'payments' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className='space-y-6 @container/payments font-figtree'
+                                    >
+                                        <div className='flex flex-col gap-4'>
+                                            <div className='ml-1'>
+                                                <label className='text-sm font-bold text-gray-500 uppercase'>Payment Links</label>
+                                                <p className='text-xs font-semibold text-gray-500'>Add links to your Venmo or Zelle to easily receive payments from clients.</p>
+                                            </div>
+
+                                            <div className='flex flex-col gap-4'>
+                                                <div className='flex flex-col gap-2 w-full'>
+                                                    <div className='flex items-center flex-wrap gap-2'>
+                                                        <label className='text-xs font-bold ml-1 text-gray-500 uppercase flex items-center gap-1.5'>
+                                                            <Image src='/venmo-logo.png' alt='venmo' width={20} height={20} className='w-4 h-4' />
+                                                            Venmo
+                                                        </label>
+                                                        <button
+                                                            type='button'
+                                                            onClick={() => {
+                                                                if (venmoEnabled) setVenmoEnabled(false);
+                                                                else if (venmo.length >= 5 && venmo.length <= 30) setVenmoEnabled(true);
+                                                                else setVenmoUpset(true);
+                                                            }}
+                                                            className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
+                                                                venmoEnabled ? 'bg-[#008cff]' : 'bg-gray-300'
+                                                            }`}
+                                                        >
+                                                            <motion.div
+                                                                className='h-3 w-3 rounded-full bg-white shadow-sm'
+                                                                animate={{ x: venmoEnabled ? 16 : 0 }}
+                                                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                            />
+                                                        </button>
+                                                        <div className='uppercase text-nowrap text-xs font-semibold bg-blue-50 border shadow-sm text-[#008cff] border-blue-200 px-3 py-[3px] rounded-full'>
+                                                            Most Convenient
+                                                        </div>
+                                                    </div>
+
+                                                    <span className='text-sm ml-4 text-gray-500'>
+                                                        Type your Venmo <span className='font-semibold'>username</span> and we&apos;ll handle the rest.
+                                                    </span>
+                                                    <div className='relative ml-4'>
+                                                        <AtSign
+                                                            className={cn(
+                                                                'absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4',
+                                                                venmo && venmo.length > 0 ? 'text-black' : 'text-gray-400'
+                                                            )}
+                                                        />
+                                                        <input
+                                                            value={venmo}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '');
+                                                                if (val.length === 0) {
+                                                                    setVenmo('');
+                                                                    setVenmoEnabled(false);
+                                                                } else if (val.length <= 30) {
+                                                                    setVenmo(val);
+                                                                    if (val.length >= 5) setVenmoEnabled(true);
+                                                                    else setVenmoEnabled(false);
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                'w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors',
+                                                                venmo && venmo.length >= 5 && venmo.length <= 30
+                                                                    ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
+                                                                    : venmoUpset
+                                                                      ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                                                      : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                            )}
+                                                            placeholder='venmo-username'
+                                                            autoCorrect='off'
+                                                            autoComplete='off'
+                                                            spellCheck={false}
+                                                            minLength={5}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className='flex flex-col gap-4 w-full mt-2'>
+                                                    <div className='flex items-center gap-2'>
+                                                        <label className='text-xs font-bold ml-1 text-gray-500 uppercase flex items-center gap-1.5'>
+                                                            <Image src='/zelle-logo.png' alt='zelle' width={20} height={20} className='w-4 h-4' />
+                                                            Zelle
+                                                        </label>
+                                                        <button
+                                                            type='button'
+                                                            onClick={() => {
+                                                                if (zelleEnabled !== 'disabled') setZelleEnabled('disabled');
+                                                                else if (zelle.includes('zellepay.com')) setZelleEnabled('link');
+                                                                else setZelleUpset(['link', 'phone', 'email']);
+                                                            }}
+                                                            className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
+                                                                zelleEnabled !== 'disabled' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                            }`}
+                                                        >
+                                                            <motion.div
+                                                                className='h-3 w-3 rounded-full bg-white shadow-sm'
+                                                                animate={{ x: zelleEnabled !== 'disabled' ? 16 : 0 }}
+                                                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                            />
+                                                        </button>
+                                                    </div>
+
+                                                    <span className='text-sm ml-4 text-gray-500'>
+                                                        <div className='flex items-center relative min-h-[26px] gap-2'>
+                                                            <span
+                                                                className={cn(
+                                                                    'text-gray-500 absolute top-0 left-0 px-2 py-0.5 border border-gray-200 shadow-sm rounded-lg',
+                                                                    zelleUpset.includes('link') ? 'border-red-300' : ''
+                                                                )}
+                                                            >
+                                                                Option #1
+                                                            </span>
+                                                            <span className='ml-[90px]'>
+                                                                Paste your <span className='font-semibold'>Zelle QR Link</span> here.
+                                                            </span>
+                                                        </div>
+                                                        <span className='block text-xs text-gray-400 mt-1'>(Open your banking app &gt; Zelle &gt; QR Code &gt; Share/Copy Link)</span>
+                                                    </span>
+
+                                                    <div className='relative ml-4'>
+                                                        <QrCode
+                                                            className={cn(
+                                                                'absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4',
+                                                                zelle && zelle.length > 0 ? 'text-black' : 'text-gray-400'
+                                                            )}
+                                                        />
+                                                        <input
+                                                            value={zelle}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setZelle(val);
+                                                                if (val.includes('zellepay.com')) setZelleEnabled('link');
+                                                                else if (val.length === 0) setZelleEnabled('disabled');
+                                                            }}
+                                                            className={cn(
+                                                                'w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors',
+                                                                zelle && zelle.includes('zellepay.com')
+                                                                    ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
+                                                                    : zelleUpset.includes('link')
+                                                                      ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                                                      : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                            )}
+                                                            placeholder='https://enroll.zellepay.com/qr-codes?data=...'
+                                                            autoCorrect='off'
+                                                            autoComplete='off'
+                                                            spellCheck={false}
+                                                        />
+                                                    </div>
+
+                                                    <span className='text-sm ml-4 text-gray-500 mt-2'>
+                                                        <div className='flex items-center relative min-h-[26px] gap-2'>
+                                                            <span
+                                                                className={cn(
+                                                                    'text-gray-500 absolute top-0 left-0 px-2 py-0.5 border border-gray-200 shadow-sm rounded-lg',
+                                                                    zelleUpset.includes('phone') || zelleUpset.includes('email') ? 'border-red-300' : ''
+                                                                )}
+                                                            >
+                                                                Option #2
+                                                            </span>
+                                                            <span className='ml-[90px]'>Use email or phone number.</span>
+                                                        </div>
+                                                        <span className='block text-xs text-gray-400 mt-1'>(You must have Zelle set up in order to do this)</span>
+                                                    </span>
+
+                                                    <div className='grid grid-cols-1 gap-3 @min-[460px]/payments:grid-cols-2 @min-[460px]/payments:gap-2 ml-4'>
+                                                        {originalInfo.current.phoneNumber.length > 0 && (
+                                                            <div className='flex flex-col gap-2 w-full'>
+                                                                <div className='flex items-center gap-2'>
+                                                                    <label className='text-xs font-bold text-gray-500 uppercase'>Phone Number</label>
+                                                                    <button
+                                                                        type='button'
+                                                                        onClick={() => {
+                                                                            if (zelleEnabled === 'phone') setZelleEnabled('disabled');
+                                                                            else if (zelleEnabled === 'disabled' && !zelle.includes('zellepay.com')) setZelleEnabled('phone');
+                                                                            else if (zelleEnabled === 'link') setZelleUpset(['link']);
+                                                                            else if (zelleEnabled === 'email') setZelleEnabled('phone');
+                                                                        }}
+                                                                        className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
+                                                                            zelleEnabled === 'phone' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                                        }`}
+                                                                    >
+                                                                        <motion.div
+                                                                            className='h-3 w-3 rounded-full bg-white shadow-sm'
+                                                                            animate={{ x: zelleEnabled === 'phone' ? 16 : 0 }}
+                                                                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                                        />
+                                                                    </button>
+                                                                </div>
+
+                                                                <div
+                                                                    className={cn(
+                                                                        'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
+                                                                        zelleUpset.includes('phone') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : ''
+                                                                    )}
+                                                                >
+                                                                    {originalInfo.current.phoneNumber}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <div className={cn('flex flex-col gap-2 w-full', originalInfo.current.phoneNumber.length > 0 ? 'col-span-1' : 'col-span-2')}>
+                                                            <div className='flex items-center gap-2'>
+                                                                <label className='text-xs font-bold text-gray-500 uppercase'>Email</label>
+                                                                <button
+                                                                    type='button'
+                                                                    onClick={() => setZelleEnabled((prev) => (prev === 'email' ? 'disabled' : prev !== 'link' ? 'email' : prev))}
+                                                                    className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
+                                                                        zelleEnabled === 'email' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <motion.div
+                                                                        className='h-3 w-3 rounded-full bg-white shadow-sm'
+                                                                        animate={{ x: zelleEnabled === 'email' ? 16 : 0 }}
+                                                                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                                    />
+                                                                </button>
+                                                            </div>
+
+                                                            <div
+                                                                className={cn(
+                                                                    'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
+                                                                    zelleUpset.includes('email') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : ''
+                                                                )}
+                                                            >
+                                                                {email}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
                             </form>
                         )}
                     </div>
@@ -451,7 +772,11 @@ const SettingsModal = ({
                                 originalInfo.current.publicID === publicID &&
                                 originalInfo.current.phoneNumber === phoneNumber &&
                                 originalInfo.current.image === imagePreview &&
-                                originalInfo.current.role === role
+                                originalInfo.current.role === role &&
+                                originalInfo.current.venmo === venmoLink &&
+                                originalInfo.current.zelle === zelle &&
+                                originalInfo.current.venmoEnabled === venmoEnabled &&
+                                originalInfo.current.zelleEnabled === zelleEnabled
                             ) {
                                 setOpen(false);
                             } else setCloseModal(true);
@@ -470,7 +795,11 @@ const SettingsModal = ({
                                 originalInfo.current.publicID === publicID &&
                                 originalInfo.current.phoneNumber === phoneNumber &&
                                 originalInfo.current.image === imagePreview &&
-                                originalInfo.current.role === role)
+                                originalInfo.current.role === role &&
+                                originalInfo.current.venmo === venmoLink &&
+                                originalInfo.current.zelle === zelle &&
+                                originalInfo.current.venmoEnabled === venmoEnabled &&
+                                originalInfo.current.zelleEnabled === zelleEnabled)
                         }
                         type='submit'
                         className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
@@ -487,7 +816,11 @@ const SettingsModal = ({
                         originalInfo.current.publicID === publicID &&
                         originalInfo.current.phoneNumber === phoneNumber &&
                         originalInfo.current.image === imagePreview &&
-                        originalInfo.current.role === role
+                        originalInfo.current.role === role &&
+                        originalInfo.current.venmo === venmoLink &&
+                        originalInfo.current.zelle === zelle &&
+                        originalInfo.current.venmoEnabled === venmoEnabled &&
+                        originalInfo.current.zelleEnabled === zelleEnabled
                     ) {
                         setOpen(false);
                     } else setCloseModal(true);
@@ -685,11 +1018,11 @@ const NavTab = ({ active, onClick, icon: Icon, label }: { active: boolean; onCli
         onClick={onClick}
         type='button'
         className={cn(
-            'flex items-center gap-3 px-3 @min-[340px]/settings:pl-4 @min-[340px]/settings:pr-12 py-2 rounded-xl transition-all w-full text-left font-figtree cursor-pointer',
+            'flex items-center gap-3 px-3 pl-4 @min-[520px]/settings:pr-12 py-2 rounded-xl transition-all w-full text-left font-figtree cursor-pointer',
             active ? 'bg-white shadow-sm text-primary border border-gray-200 font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary-dark font-normal'
         )}
     >
-        <Icon size={18} className={active ? 'stroke-[2.5px]' : ''} />
+        <Icon className={cn('min-w-4.5 w-4.5 h-4.5', active ? 'stroke-[2.5px]' : '')} />
         {label}
     </button>
 );

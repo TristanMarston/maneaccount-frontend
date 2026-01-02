@@ -167,6 +167,52 @@
     transition-duration: 250ms;
 }
 
+.amber-border {
+    border-width: 1.9px;
+    border-color: #d97706;
+    box-shadow: 2.5px 2.5px 0 0 #d97706;
+}
+
+.amber-border-hover {
+    border-width: 1.9px;
+    border-color: #d97706;
+    box-shadow: 2.5px 2.5px 0 0 #d97706;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 250ms;
+}
+
+.amber-border-hover:hover {
+    translate: 2.5px 2.5px 0;
+    box-shadow: none;
+}
+
+.zelle-border {
+    border-width: 1.9px;
+    border-color: #5410a6;
+    box-shadow: 2.5px 2.5px 0 0 #5410a6;
+}
+
+.venmo-border {
+    border-width: 1.9px;
+    border-color: #0071cc;
+    box-shadow: 2.5px 2.5px 0 0 #0071cc;
+}
+
+.venmo-border-hover {
+    border-width: 1.9px;
+    border-color: #0071cc;
+    box-shadow: 2.5px 2.5px 0 0 #0071cc;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 250ms;
+}
+
+.venmo-border-hover:hover {
+    translate: 2.5px 2.5px 0;
+    box-shadow: none;
+}
+
 .red-border-hover:hover {
     translate: 2.5px 2.5px 0;
     box-shadow: none;

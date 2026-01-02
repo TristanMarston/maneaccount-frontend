@@ -47,20 +47,24 @@ model Service {
   priceUSD     Float
   duration     Int?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobAssignments JobAssignment[]
 }
 
 model Horse {
-  id            String   @id @default(cuid())
-  userId        String
-  showName      String
-  barnName      String
-  gender        Gender?
-  color         String? 
-  profileImage  String?
-  notes         String? 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String
+  showName          String
+  barnName          String
+  gender            Gender?
+  color             String? 
+  profileImage      String?
+  notes             String? 
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobAssignments    JobAssignment[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 enum Gender {
@@ -90,6 +94,13 @@ enum ConnectionStatus {
   accepted
 }
 
+enum ZelleOption {
+  email
+  phone
+  link
+  disabled
+}
+
 model User {
   id              String    @id @default(cuid())
   publicID        String?   @unique
@@ -99,6 +110,11 @@ model User {
   phoneNumber     String?
   image           String?
   password        String?
+  
+  venmo           String?
+  venmoEnabled    Boolean @default(false)
+  zelle           String?
+  zelleEnabled    ZelleOption @default(disabled)
 
   role            Role      @default(braider)
   services        Service[]
@@ -111,6 +127,14 @@ model User {
   createdAt       DateTime  @default(now())
   accounts        Account[]
   sessions        Session[]
+  
+  clientJobs        Job[] @relation("ClientJobs")
+  braiderJobs       Job[] @relation("BraiderJobs")
+  subcontractorJobs Job[] @relation("SubcontractorJobs")
+  notes             Note[]
+  
+  sentShowInvites      ShowInvite[] @relation("ShowInviter")
+  receivedShowInvites  ShowInvite[] @relation("ShowInvitee")
 }
 
 model Show {
@@ -126,10 +150,35 @@ model Show {
   endDate     DateTime
   
   days        ShowDay[]
+  invites     ShowInvite[]
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs        Job[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+enum ShowInviteStatus {
+  pending
+  accepted
+  declined
+}
+
+model ShowInvite {
+  id          String            @id @default(cuid())
+  showId      String
+  inviterId   String
+  inviteeId   String
+  status      ShowInviteStatus  @default(pending)
+  
+  show        Show              @relation(fields: [showId], references: [id], onDelete: Cascade)
+  inviter     User              @relation("ShowInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee     User              @relation("ShowInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  @@unique([showId, inviteeId])
 }
 
 model ShowDay {
@@ -150,6 +199,69 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Job {
+  id              String    @id @default(cuid())
+  clientId        String
+  braiderId       String
+  subcontractorId String?
+  showId          String
+  
+  status          JobStatus @default(pending)
+  
+  scheduledStartTime DateTime?
+  scheduledEndTime   DateTime?
+
+  paidAt             DateTime?
+  paymentPlatform    String?
+  
+  assignments     JobAssignment[]
+  notes           Note[]
+  
+  client          User      @relation("ClientJobs", fields: [clientId], references: [id], onDelete: Cascade)
+  braider         User      @relation("BraiderJobs", fields: [braiderId], references: [id], onDelete: Cascade)
+  subcontractor   User?     @relation("SubcontractorJobs", fields: [subcontractorId], references: [id])
+  show            Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  jobId     String
+  authorId  String
+  content   String
+  
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+}
+
+enum JobStatus {
+  pending
+  accepted
+  denied
+  canceled
+  delegated
+  sub_requested
+  sub_declined
+  completed
+}
+
+model JobAssignment {
+  id        String   @id @default(cuid())
+  jobId     String
+  horseId   String
+  
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  horse     Horse    @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  services  Service[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // npx prisma migrate dev --name "description"

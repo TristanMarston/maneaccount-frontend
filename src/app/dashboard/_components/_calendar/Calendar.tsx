@@ -2,7 +2,26 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock, List, Grid3X3, Columns, X, Trash2, PlusCircle, MoreHorizontal, Ellipsis, Pencil } from 'lucide-react';
+import {
+    Calendar as CalendarIcon,
+    ChevronLeft,
+    Bell,
+    BellOff,
+    ChevronRight,
+    MapPin,
+    Clock,
+    List,
+    Grid3X3,
+    Columns,
+    X,
+    Trash2,
+    PlusCircle,
+    MoreHorizontal,
+    Ellipsis,
+    Pencil,
+    Info,
+    Check,
+} from 'lucide-react';
 import {
     format,
     addMonths,
@@ -18,13 +37,17 @@ import {
     parseISO,
     startOfWeek as startOfWeekFns,
     addDays,
+    isEqual,
 } from 'date-fns';
-import { deleteShow, getShows } from '@/app/actions/calendar';
+import { deleteShow, getInvites, getShows, respondToShowInvite } from '@/app/actions/calendar';
 import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { failToast, successToast, usaStates } from '@/app/context';
 import AddShowForm, { getParts } from './AddShowForm';
+import { getJobs } from '@/app/actions/jobs';
+import { JobDetailView, HorseDetailView } from '../_tasks/Tasks';
+import Image from 'next/image';
 
 type CalendarViewType = 'month' | 'week' | 'list';
 
@@ -37,6 +60,12 @@ export interface Show {
     startDate: Date;
     endDate: Date;
     days: { date: Date; startTime: string; endTime: string; skipped: boolean }[];
+    type?: 'show' | 'job';
+    jobData?: any;
+    isOwner?: boolean;
+    inviteStatus?: string | null;
+    inviterName?: string | null;
+    inviteId?: string;
 }
 
 const ShowDetailsModal = ({
@@ -44,13 +73,15 @@ const ShowDetailsModal = ({
     onClose,
     onEdit,
     onDelete,
-    onDayClick,
+    handleInviteResponse,
+    showDetailsRef,
 }: {
     show: Show;
     onClose: () => void;
     onEdit: (show: Show) => void;
     onDelete: (show: Show) => void;
-    onDayClick?: (day: Date) => void;
+    handleInviteResponse: (showId: string, status: 'accepted' | 'declined') => void;
+    showDetailsRef?: React.RefObject<HTMLDivElement | null>;
 }) => {
     const modalRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(modalRef, [], () => onClose());
@@ -62,8 +93,9 @@ const ShowDetailsModal = ({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className='absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[1px] p-4'
+                    className='absolute inset-0 z-70 flex items-center justify-center bg-black/20 backdrop-blur-[1px] p-4'
                     onClick={onClose}
+                    ref={showDetailsRef}
                 >
                     <motion.div
                         initial={{ scale: 0, rotate: '12.5deg' }}
@@ -71,36 +103,82 @@ const ShowDetailsModal = ({
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
                         ref={modalRef}
-                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[95%] overflow-y-auto @container/show-details'
+                        className='bg-white w-full font-figtree max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[95%] overflow-y-auto @container/show-details'
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-start bg-gray-50/50'>
-                            <div className='min-w-0'>
-                                <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate'>{show.name}</h3>
-                                <div className='flex items-center gap-2 mt-1 text-sm text-gray-500 font-figtree'>
-                                    <MapPin size={14} className='text-primary flex-none' />
+                            <div className='min-w-0 w-full'>
+                                <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate' title={show.name}>
+                                    {show.name}
+                                </h3>
+                                <div className='flex items-center gap-1 mt-1 text-sm text-gray-500 font-figtree'>
+                                    <MapPin size={16} className='text-primary flex-none' />
                                     <span className='truncate'>
                                         {show.city}, {show.state || show.country}
                                     </span>
                                 </div>
-                                <div className='flex gap-2 items-center'>
-                                    <div
-                                        onClick={() => onEdit(show)}
-                                        className='text-gray-500 flex gap-2 mt-2 cursor-pointer items-center font-figtree text-sm hover:bg-gray-100 rounded-lg w-fit px-2 py-0.5 -ml-2 transition-all'
-                                    >
-                                        <Pencil size={14} />
-                                        Edit
+                                {show.inviteStatus === 'pending' ? (
+                                    <div className='mt-2 w-full'>
+                                        <div className='px-4 min-w-0 flex items-center justify-between gap-2 relative py-2 bg-yellow-50 w-full text-yellow-700 rounded-lg text-[15px] font-semibold border border-yellow-200/50'>
+                                            <span className='truncate'>Invited by {show.inviterName || 'User'}</span>
+                                            <div className='flex items-center gap-2 right-3 -top-3'>
+                                                <button
+                                                    onClick={() => {
+                                                        onClose();
+                                                        handleInviteResponse(show.id, 'accepted');
+                                                    }}
+                                                    className='p-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 hover:bg-emerald-100 w-fit text-xs font-semibold flex gap-1 rounded-lg cursor-pointer transition-all'
+                                                >
+                                                    <Check className='w-4 h-4' />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        onClose();
+                                                        handleInviteResponse(show.id, 'declined');
+                                                    }}
+                                                    className='p-1 bg-red-50 text-red-700 border border-red-200/50 hover:bg-red-100 w-fit text-xs font-semibold flex gap-1 rounded-lg cursor-pointer transition-all'
+                                                >
+                                                    <X className='w-4 h-4' />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div
-                                        onClick={() => {
-                                            onClose();
-                                            onDelete(show);
-                                        }}
-                                        className='text-gray-500 flex gap-2 mt-2 cursor-pointer items-center font-figtree text-sm hover:bg-gray-100 rounded-lg w-fit px-2 py-0.5 -ml-2 transition-all'
-                                    >
-                                        <Trash2 size={14} />
-                                        Delete
+                                ) : (
+                                    <div className='flex gap-2 items-center'>
+                                        {show.isOwner && (
+                                            <>
+                                                <div
+                                                    onClick={() => onEdit(show)}
+                                                    className='text-gray-500 flex gap-2 mt-2 cursor-pointer items-center font-figtree text-sm hover:bg-gray-100 rounded-lg w-fit px-2 py-0.5 -ml-2 transition-all'
+                                                >
+                                                    <Pencil size={14} />
+                                                    Edit
+                                                </div>
+                                                <div
+                                                    onClick={() => {
+                                                        onClose();
+                                                        onDelete(show);
+                                                    }}
+                                                    className='text-gray-500 flex gap-2 mt-2 cursor-pointer items-center font-figtree text-sm hover:bg-gray-100 rounded-lg w-fit px-2 py-0.5 -ml-2 transition-all'
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete
+                                                </div>
+                                            </>
+                                        )}
+                                        {!show.isOwner && show.inviteStatus === 'accepted' && (
+                                            <div
+                                                onClick={() => {
+                                                    onClose();
+                                                    onDelete(show);
+                                                }}
+                                                className='text-gray-500 flex gap-2 mt-2 cursor-pointer items-center font-figtree text-sm hover:bg-gray-100 rounded-lg w-fit px-2 py-0.5 -ml-2 transition-all'
+                                            >
+                                                <Trash2 size={14} />
+                                                Remove
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
+                                )}
                             </div>
                             <X onClick={onClose} className='text-gray-500 min-w-6 cursor-pointer hover:scale-105 transition-all' />
                         </div>
@@ -196,16 +274,33 @@ const DayDetailsModal = ({
                         </div>
                         <div className='p-5 font-figtree'>
                             <p className='text-xs font-bold text-gray-400 uppercase tracking-wide mb-3'>Events</p>
-                            <div className='space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar'>
+                            <div className='space-y-2 max-h-[300px] overflow-y-auto pb-1 pr-1 custom-scrollbar'>
                                 {getShowsForDay(day).length > 0 ? (
                                     getShowsForDay(day).map((show) => (
                                         <button
                                             key={show.id}
                                             onClick={() => onEventClick(show)}
-                                            className='w-full cursor-pointer text-left flex flex-col gap-1 p-3 bg-white border border-gray-100 rounded-xl hover:border-primary/30 hover:shadow-sm transition-all group'
+                                            className={cn(
+                                                'w-full cursor-pointer text-left flex flex-col gap-1 p-3 bg-white border border-gray-100 rounded-xl hover:border-primary/30 shadow-sm transition-all group',
+                                                show.type === 'job' ? 'bg-blue-50 border-blue-200 hover:border-blue-200' : ''
+                                            )}
                                         >
-                                            <div className='flex justify-between items-start w-full'>
-                                                <span className='font-bold text-gray-900 group-hover:text-primary transition-colors truncate min-w-0'>{show.name}</span>
+                                            <div className='flex justify-between items-start gap-2 w-full'>
+                                                <span
+                                                    className={cn(
+                                                        'font-bold text-gray-900 group-hover:text-primary transition-colors truncate min-w-0',
+                                                        show.type === 'job' ? 'group-hover:text-blue-500' : ''
+                                                    )}
+                                                >
+                                                    {show.name}
+                                                </span>
+                                                {show.type === 'job' && (
+                                                    <span>
+                                                        <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
+                                                            JOB
+                                                        </div>
+                                                    </span>
+                                                )}
                                                 {/* <div className='px-2 py-0.5 rounded-full bg-primary-extra-light text-primary text-[10px] font-bold uppercase'>Show</div> */}
                                             </div>
                                             <div className='flex items-center gap-4 text-xs text-gray-500 min-w-0'>
@@ -227,7 +322,7 @@ const DayDetailsModal = ({
     );
 };
 
-const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
+const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const [view, setView] = useState<CalendarViewType>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [shows, setShows] = useState<Show[]>([]);
@@ -235,12 +330,48 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [isDeleting, setIsDeleting] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
     const [editingShow, setEditingShow] = useState<Show | null>(null);
+    const [selectedJob, setSelectedJob] = useState<any | null>(null);
+    const [viewingShow, setViewingShow] = useState<Show | null>(null);
+    const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
+    const showDetailsRef = useRef<HTMLDivElement>(null);
 
     const loadShows = async () => {
-        const data = await getShows(userEmail);
+        setLoading(true);
+        const showsData = await getShows(userEmail);
+        const jobsData = await getJobs(userEmail, role);
+
+        const mappedJobs: Show[] = (jobsData as any[])
+            .map((job) => {
+                if (!job.scheduledStartTime) return null;
+
+                const start = new Date(job.scheduledStartTime);
+                const end = job.scheduledEndTime ? new Date(job.scheduledEndTime) : new Date(start.getTime() + 60 * 60 * 1000);
+
+                return {
+                    id: job.id,
+                    name: job.show?.name || 'Job',
+                    city: job.show?.city || '',
+                    state: job.show?.state || '',
+                    country: 'USA',
+                    startDate: start,
+                    endDate: end,
+                    days: [
+                        {
+                            date: start,
+                            startTime: format(start, 'HH:mm'),
+                            endTime: format(end, 'HH:mm'),
+                            skipped: false,
+                        },
+                    ],
+                    type: 'job' as 'show' | 'job',
+                    jobData: job,
+                    isOwner: true,
+                };
+            })
+            .filter((item) => item !== null);
 
         // @ts-ignore
-        setShows(data);
+        setShows([...showsData, ...mappedJobs]);
         setLoading(false);
     };
 
@@ -256,7 +387,28 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
         }
     };
 
+    const handleShowClick = (show: Show) => {
+        if (show.type === 'job') {
+            setSelectedJob(show.jobData);
+        } else {
+            setViewingShow(show);
+        }
+    };
+
+    const handleInviteResponse = async (showId: string, status: 'accepted' | 'declined') => {
+        if (!showId) return;
+
+        const res = await respondToShowInvite(showId, status);
+        if (res.success) {
+            successToast(status === 'accepted' ? 'Accepted invitation!' : 'Declined invitation');
+            loadShows();
+        } else {
+            failToast(status === 'accepted' ? 'Failed to accept invitation' : 'Failed to decline invitation');
+        }
+    };
+
     const handleEdit = (show: Show) => {
+        if (show.type === 'job') return;
         setEditingShow(show);
         setIsAdding(true);
     };
@@ -279,22 +431,45 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
                     <div className='space-y-2 w-full @min-[400px]/calendar:w-auto'>
                         <h1 className='text-3xl @min-[280px]/calendar:text-[33px] @min-[310px]/calendar:text-4xl font-lusitana font-bold text-gray-900'>Calendar</h1>
                         <div className='flex justify-between w-full mb-3 @min-[550px]/calendar:hidden'>
-                            <ViewSwitcher view={view} setView={setView} className='grid @min-[550px]/calendar:hidden' />
-                            <button
-                                onClick={() => {
-                                    setEditingShow(null);
-                                    setIsAdding(true);
-                                }}
-                                className='h-full font-figtree cursor-pointer font-bold flex @min-[400px]/calendar:hidden gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] p-[7px] @min-[320px]/calendar:px-4 @min-[320px]/calendar:py-[5px] bg-primary-light text-background primary-border-hover'
-                            >
-                                <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
-                                <span className='hidden @min-[320px]/calendar:block'>Add Show</span>
-                            </button>
+                            <div className='flex gap-2 items-center'>
+                                {role.toLowerCase() !== 'braider' && (
+                                    <Notifications
+                                        email={userEmail}
+                                        handleInviteResponse={handleInviteResponse}
+                                        setSelectedShow={setViewingShow}
+                                        showDetailsRef={showDetailsRef}
+                                        className='flex @min-[550px]/calendar:hidden'
+                                    />
+                                )}
+                                <ViewSwitcher view={view} setView={setView} className='grid @min-[550px]/calendar:hidden' />
+                            </div>
+                            {role.toLowerCase() === 'braider' && (
+                                <button
+                                    onClick={() => {
+                                        setEditingShow(null);
+                                        setIsAdding(true);
+                                    }}
+                                    className='h-full font-figtree cursor-pointer font-bold flex @min-[400px]/calendar:hidden gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] p-[7px] @min-[320px]/calendar:px-4 @min-[320px]/calendar:py-[5px] bg-primary-light text-background primary-border-hover'
+                                >
+                                    <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
+                                    <span className='hidden @min-[320px]/calendar:block'>Add Show</span>
+                                </button>
+                            )}
                         </div>
                         {view !== 'list' && <MonthNavigation navigate={navigate} currentDate={currentDate} className='flex @min-[400px]/calendar:hidden py-[5px] w-full' />}
                     </div>
 
                     <div className='hidden @min-[400px]/calendar:flex items-start gap-3 h-full'>
+                        {role.toLowerCase() !== 'braider' && (
+                            <Notifications
+                                email={userEmail}
+                                handleInviteResponse={handleInviteResponse}
+                                setSelectedShow={setViewingShow}
+                                showDetailsRef={showDetailsRef}
+                                anchor={view === 'list' ? 'right' : 'left'}
+                                className='hidden @min-[550px]/calendar:flex'
+                            />
+                        )}
                         <ViewSwitcher view={view} setView={setView} className='hidden @min-[550px]/calendar:grid' />
                         {view !== 'list' && <MonthNavigation navigate={navigate} currentDate={currentDate} className='hidden @min-[400px]/calendar:flex' />}
 
@@ -321,12 +496,26 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
                     ) : (
                         <>
                             {view === 'month' && (
-                                <MonthView currentDate={currentDate} shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} />
+                                <MonthView
+                                    currentDate={currentDate}
+                                    shows={shows}
+                                    onEdit={handleEdit}
+                                    onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
+                                    onShowClick={handleShowClick}
+                                />
                             )}
                             {view === 'week' && (
-                                <WeekView currentDate={currentDate} shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} />
+                                <WeekView
+                                    currentDate={currentDate}
+                                    shows={shows}
+                                    onEdit={handleEdit}
+                                    onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
+                                    onShowClick={handleShowClick}
+                                />
                             )}
-                            {view === 'list' && <ListView shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} />}
+                            {view === 'list' && (
+                                <ListView shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} onShowClick={handleShowClick} />
+                            )}
                         </>
                     )}
                 </div>
@@ -351,6 +540,7 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
                         loadShows();
                     }}
                     initialData={editingShow || undefined}
+                    userEmail={userEmail}
                 />
             </Modal>
             <Modal
@@ -380,7 +570,184 @@ const Calendar = ({ role, userEmail }: { role: string; userEmail: string }) => {
                     </div>
                 </div>
             </Modal>
+            <ShowDetailsModal
+                show={viewingShow!}
+                onClose={() => setViewingShow(null)}
+                onEdit={(show) => {
+                    setViewingShow(null);
+                    setEditingShow(show);
+                    setIsAdding(true);
+                }}
+                onDelete={(show) => {
+                    setViewingShow(null);
+                    setIsDeleting({ open: true, id: show.id, name: show.name });
+                }}
+                handleInviteResponse={handleInviteResponse}
+                showDetailsRef={showDetailsRef}
+            />
+            <Modal isOpen={!!selectedJob} setIsOpen={() => setSelectedJob(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
+                {selectedJob && (
+                    <JobDetailView
+                        job={selectedJob}
+                        role={role}
+                        userEmail={userEmail}
+                        onClose={() => setSelectedJob(null)}
+                        refresh={loadShows}
+                        handleCancelJobModal={() => {
+                            setSelectedJob(null);
+                            setSelectedPage(role === 'client' ? 'Services' : 'Tasks');
+                        }}
+                        setSelectedHorse={setSelectedHorse}
+                        setCheckMarkedCompleted={() => {}}
+                        type='calendar'
+                    />
+                )}
+            </Modal>
+            <Modal isOpen={!!selectedHorse} setIsOpen={() => setSelectedHorse(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
+                {selectedHorse && <HorseDetailView horse={selectedHorse} onClose={() => setSelectedHorse(null)} />}
+            </Modal>
         </>
+    );
+};
+
+const Notifications = ({
+    email,
+    handleInviteResponse,
+    setSelectedShow,
+    showDetailsRef,
+    className = '',
+    anchor = 'left',
+}: {
+    email: string;
+    handleInviteResponse: (showId: string, status: 'accepted' | 'declined') => void;
+    setSelectedShow: React.Dispatch<React.SetStateAction<Show | null>>;
+    showDetailsRef: React.RefObject<HTMLDivElement | null>;
+    className?: string;
+    anchor?: 'left' | 'right';
+}) => {
+    const [invites, setInvites] = useState<any[]>([]);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const bellRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(bellRef, [showDetailsRef], () => setNotificationsOpen(false));
+
+    useEffect(() => {
+        const getCalendarInvites = async () => {
+            const inv = await getInvites(email);
+            setInvites([...inv]);
+        };
+
+        getCalendarInvites();
+    }, [notificationsOpen]);
+
+    return (
+        <div ref={bellRef} className={cn('h-full my-auto flex items-center justify-center relative', className)}>
+            <Bell
+                className='w-10 min-h-10 text-primary p-2 h-full rounded-full hover:bg-primary-extra-light transition-all cursor-pointer'
+                onClick={() => setNotificationsOpen((prev) => !prev)}
+            />
+            {invites.filter((i) => i.status === 'pending').length > 0 && (
+                <div className='absolute right-2.5 top-2 bg-red-400 shadow-sm p-1 text-background font-figtree rounded-full w-2 h-2' />
+            )}
+
+            <AnimatePresence>
+                {notificationsOpen && (
+                    <motion.div
+                        variants={{
+                            closed: {
+                                opacity: 0,
+                                y: 0,
+                                transition: { duration: 0.3, ease: 'easeInOut' },
+                            },
+                            open: {
+                                opacity: 1,
+                                y: -10,
+                                transition: { duration: 0.3, ease: 'easeInOut' },
+                            },
+                        }}
+                        initial='closed'
+                        animate={notificationsOpen ? 'open' : 'closed'}
+                        exit='closed'
+                        className={cn(
+                            'absolute top-[calc(100%+24px)] w-[80vw] dashboard-sm:w-[50vw] @min-[550px]/calendar:w-[380px] @min-[730px]/calendar:w-[440px] primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40',
+                            anchor === 'left' ? 'left-0' : 'right-0'
+                        )}
+                    >
+                        <div className='p-5 @container/calendar-invites'>
+                            <h1 className='font-lusitana font-bold text-gray-900 text-3xl mb-2'>Calendar Invites</h1>
+                            <div className='flex flex-col gap-2 overflow-y-auto max-h-[340px] pr-1 pb-1'>
+                                {invites.filter((i) => i.status === 'pending').length === 0 ? (
+                                    <div className='bg-gray-50/50 rounded-2xl p-4 border border-dashed border-gray-200 grid place-items-center'>
+                                        <BellOff className='p-3 rounded-full text-gray-400 w-16 h-16' />
+                                        <p className='text-gray-500'>You have no invites.</p>
+                                    </div>
+                                ) : (
+                                    invites
+                                        .filter((i) => i.status === 'pending')
+                                        .map((invite) => (
+                                            <div key={invite.id} className='rounded-xl border border-gray-200 shadow-sm p-4'>
+                                                <div onClick={() => setSelectedShow(invite.show)} className='flex justify-between items-center group cursor-pointer'>
+                                                    <div className='min-w-0'>
+                                                        <p className='text-gray-900 truncate font-lusitana font-bold text-[19px] group-hover:text-primary transition-all leading-[1.15]'>
+                                                            {invite.show.name}
+                                                        </p>
+                                                        <p className='text-gray-500 min-w-0 truncate text-sm flex items-center gap-1 mt-0.5'>
+                                                            <MapPin className='min-w-3.5 h-3.5' />{' '}
+                                                            <span className='truncate'>
+                                                                {invite.show.city}, {invite.show.state}
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                    <Info className='min-w-10 h-10 rounded-full p-2 text-gray-400 group-hover:text-primary-light group-hover:bg-primary-extra-light transition-all' />
+                                                </div>
+                                                <div className='w-full rounded-full h-[0.4px] bg-gray-200 px-2 my-3' />
+                                                <div className='flex flex-col gap-2 @min-[320px]/calendar-invites:gap-0 @min-[320px]/calendar-invites:flex-row @min-[320px]/calendar-invites:justify-between @min-[320px]/calendar-invites:items-center'>
+                                                    <div className='flex items-center gap-3 min-w-0'>
+                                                        <div className='min-w-9 h-9 relative'>
+                                                            {invite.show.user.image ? (
+                                                                <Image src={invite.show.user.image} alt={invite.show.user.name} fill className='rounded-full object-cover' />
+                                                            ) : (
+                                                                <div className='rounded-full bg-primary-extra-light flex items-center justify-center text-primary font-bold text-[13px]'>
+                                                                    {invite.show.user.name.substring(0, 1).toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className='flex flex-col justify-center min-w-0'>
+                                                            <p className='text-gray-900 font-semibold text-sm leading-[1.15] truncate'>{invite.show.user.name}</p>
+                                                            <p className='text-gray-500 text-xs flex items-center gap-1 capitalize leading-none'>{invite.show.user.role}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className='flex flex-col @min-[260px]/calendar-invites:grid grid-cols-2 @min-[320px]/calendar-invites:flex @min-[320px]/calendar-invites:flex-row gap-2 font-figtree font-semibold'>
+                                                        <button
+                                                            onClick={() => {
+                                                                setNotificationsOpen(false);
+                                                                handleInviteResponse(invite.show.id, 'declined');
+                                                            }}
+                                                            className='flex cursor-pointer gap-1 items-center justify-center py-1 px-3 @min-[320px]/calendar-invites:p-2.5 rounded-[10px] @min-[320px]/calendar-invites:rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors'
+                                                        >
+                                                            <X className='min-w-5 h-5' strokeWidth={3} />
+                                                            <span className='block @min-[320px]/calendar-invites:hidden'>Decline</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setNotificationsOpen(false);
+                                                                handleInviteResponse(invite.show.id, 'accepted');
+                                                            }}
+                                                            className='flex cursor-pointer gap-1 items-center justify-center py-1 px-3 @min-[320px]/calendar-invites:p-2.5 rounded-[10px] @min-[320px]/calendar-invites:rounded-xl bg-primary-light text-white hover:bg-primary transition-colors shadow-sm'
+                                                        >
+                                                            <Check className='min-w-5 h-5' strokeWidth={3} />
+                                                            <span className='block @min-[320px]/calendar-invites:hidden'>Accept</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 };
 
@@ -445,8 +812,19 @@ const ViewSwitcher = ({ view, setView, className = '' }: { view: CalendarViewTyp
     );
 };
 
-const MonthView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date; shows: Show[]; onEdit: (show: Show) => void; onDelete: (id: string, name: string) => void }) => {
-    const [selectedShow, setSelectedShow] = useState<Show | null>(null);
+const MonthView = ({
+    currentDate,
+    shows,
+    onEdit,
+    onDelete,
+    onShowClick,
+}: {
+    currentDate: Date;
+    shows: Show[];
+    onEdit: (show: Show) => void;
+    onDelete: (id: string, name: string) => void;
+    onShowClick: (show: Show) => void;
+}) => {
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -487,7 +865,17 @@ const MonthView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date
                 <div className='flex-1 overflow-y-auto min-h-0 @container/month-calendar'>
                     <div className='grid grid-cols-7 grid-rows-[repeat(6,minmax(100px,1fr))] min-h-full'>
                         {days.map((day, i) => {
-                            const dayShows = getShowsForDay(day);
+                            let dayShows = getShowsForDay(day);
+                            if (dayShows.length > 1) {
+                                dayShows = dayShows.sort((a, b) => {
+                                    const aDay = a.days.find((d) => isEqual(d.date.setHours(0, 0, 0, 0), day.setHours(0, 0, 0, 0)));
+                                    const bDay = b.days.find((d) => isEqual(d.date.setHours(0, 0, 0, 0), day.setHours(0, 0, 0, 0)));
+
+                                    if (!aDay || !bDay) return 0;
+                                    return aDay.startTime.localeCompare(bDay.startTime);
+                                });
+                            }
+
                             return (
                                 <div
                                     key={i}
@@ -527,9 +915,20 @@ const MonthView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date
                                                 key={show.id}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedShow(show);
+                                                    onShowClick(show);
                                                 }}
-                                                className='text-[10px] w-full text-left cursor-pointer hover:bg-blue-100 transition-colors font-figtree bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 truncate font-medium'
+                                                className={cn(
+                                                    'text-[10px] w-full text-left cursor-pointer hover:bg-[#dae3de] transition-colors font-figtree px-1.5 py-0.5 rounded border truncate font-medium',
+                                                    show.type === 'job' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-primary-extra-light text-primary border-[#dae3de]',
+                                                    show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
+                                                    show.jobData &&
+                                                        (show.jobData.status === 'completed' ||
+                                                            show.jobData.status === 'denied' ||
+                                                            show.jobData.status === 'canceled' ||
+                                                            show.jobData.status === 'sub_declined')
+                                                        ? 'opacity-50'
+                                                        : ''
+                                                )}
                                             >
                                                 {show.name}
                                             </button>
@@ -558,27 +957,29 @@ const MonthView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date
                 onClose={() => setSelectedDay(null)}
                 onEventClick={(show) => {
                     setSelectedDay(null);
-                    setSelectedShow(show);
+                    onShowClick(show);
                 }}
                 getShowsForDay={getShowsForDay}
-            />
-            <ShowDetailsModal
-                show={selectedShow!}
-                onClose={() => setSelectedShow(null)}
-                onEdit={(show) => {
-                    setSelectedShow(null);
-                    onEdit(show);
-                }}
-                onDelete={(show) => onDelete(show.id, show.name)}
             />
         </>
     );
 };
 
-const WeekView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date; shows: Show[]; onEdit: (show: Show) => void; onDelete: (id: string, name: string) => void }) => {
+const WeekView = ({
+    currentDate,
+    shows,
+    onEdit,
+    onDelete,
+    onShowClick,
+}: {
+    currentDate: Date;
+    shows: Show[];
+    onEdit: (show: Show) => void;
+    onDelete: (id: string, name: string) => void;
+    onShowClick: (show: Show) => void;
+}) => {
     const startDate = startOfWeek(currentDate);
     const days = eachDayOfInterval({ start: startDate, end: addDays(startDate, 6) });
-    const [selectedShow, setSelectedShow] = useState<Show | null>(null);
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -662,14 +1063,38 @@ const WeekView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date;
 
                         <div className='flex-1 flex'>
                             {days.map((day, i) => {
-                                const dayShows = getShowsForDay(day);
+                                let dayShows = getShowsForDay(day);
+                                if (dayShows.length > 1) {
+                                    dayShows = dayShows.sort((a, b) => {
+                                        const aDay = a.days.find((d) => isSameDay(new Date(d.date), day));
+                                        const bDay = b.days.find((d) => isSameDay(new Date(d.date), day));
+
+                                        if (!aDay || !bDay) return 0;
+                                        return aDay.startTime.localeCompare(bDay.startTime);
+                                    });
+                                }
+
+                                const overlap = Array.from({ length: dayShows.length }, () => false);
+                                for (let i = 0; i < dayShows.length; i++) {
+                                    const dayA = dayShows[i].days.find((d) => isSameDay(new Date(d.date), day));
+                                    if (!dayA) continue;
+                                    if (i + 1 > dayShows.length - 1) continue;
+                                    const dayB = dayShows[i + 1].days.find((d) => isSameDay(new Date(d.date), day));
+                                    if (!dayB) continue;
+
+                                    const aParts = getParts(dayA.endTime);
+                                    const bParts = getParts(dayB.startTime);
+
+                                    if (new Date().setHours(aParts.hour, aParts.minute) > new Date().setHours(bParts.hour, bParts.minute)) overlap[i + 1] = true;
+                                }
+
                                 return (
                                     <div key={i} className='flex-1 border-r border-gray-100 last:border-r-0 relative h-full bg-white/50 even:bg-white'>
                                         {Array.from({ length: 24 }).map((_, h) => (
                                             <div key={h} className='h-[60px] border-b-2 border-gray-50/50 w-full' />
                                         ))}
 
-                                        {dayShows.map((show) => {
+                                        {dayShows.map((show, index) => {
                                             const daySchedule = show.days.find((d) => isSameDay(new Date(d.date), day));
                                             if (!daySchedule) return null;
 
@@ -679,11 +1104,30 @@ const WeekView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date;
                                                 <button
                                                     key={show.id}
                                                     style={style}
-                                                    onClick={() => setSelectedShow(show)}
-                                                    className='absolute inset-x-1 rounded-lg cursor-pointer bg-primary-extra-light border border-primary/20 p-1.5 overflow-hidden hover:brightness-95 transition-all text-left group z-10'
+                                                    onClick={() => onShowClick(show)}
+                                                    className={cn(
+                                                        'absolute inset-x-1 rounded-lg cursor-pointer bg-primary-extra-light border border-primary/20 p-1.5 overflow-hidden hover:brightness-95 transition-all text-left group z-10',
+                                                        show.type === 'job' ? 'bg-blue-50 border border-blue-200' : '',
+                                                        show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
+                                                        show.jobData &&
+                                                            (show.jobData.status === 'completed' ||
+                                                                show.jobData.status === 'denied' ||
+                                                                show.jobData.status === 'canceled' ||
+                                                                show.jobData.status === 'sub_declined')
+                                                            ? 'opacity-50'
+                                                            : '',
+                                                        index - 1 >= 0 && overlap[index - 1] && overlap[index] ? 'ml-8' : overlap[index] ? 'ml-4' : ''
+                                                    )}
                                                 >
                                                     <div className='flex flex-col h-full'>
-                                                        <span className='text-[11.5px] font-bold text-primary truncate group-hover:whitespace-normal leading-tight'>{show.name}</span>
+                                                        <span
+                                                            className={cn(
+                                                                'text-[11.5px] font-bold text-primary truncate group-hover:whitespace-normal leading-tight',
+                                                                show.type === 'job' ? 'text-blue-500' : ''
+                                                            )}
+                                                        >
+                                                            {show.name}
+                                                        </span>
                                                         <span className='text-[10.5px] text-gray-500 truncate'>
                                                             {format(parseISO(`2000-01-01T${daySchedule.startTime}`), 'h:mm')} -{' '}
                                                             {format(parseISO(`2000-01-01T${daySchedule.endTime}`), 'h:mm a')}
@@ -705,26 +1149,25 @@ const WeekView = ({ currentDate, shows, onEdit, onDelete }: { currentDate: Date;
                 onClose={() => setSelectedDay(null)}
                 onEventClick={(show) => {
                     setSelectedDay(null);
-                    setSelectedShow(show);
+                    onShowClick(show);
                 }}
                 getShowsForDay={getShowsForDay}
-            />
-            <ShowDetailsModal
-                show={selectedShow!}
-                onClose={() => setSelectedShow(null)}
-                onEdit={(show) => {
-                    setSelectedShow(null);
-                    onEdit(show);
-                }}
-                onDelete={(show) => onDelete(show.id, show.name)}
             />
         </div>
     );
 };
 
-const ListView = ({ shows, onEdit, onDelete }: { shows: Show[]; onEdit: (show: Show) => void; onDelete: (id: string, name: string) => void }) => {
-    const [selectedShow, setSelectedShow] = useState<Show | null>(null);
-
+const ListView = ({
+    shows,
+    onEdit,
+    onDelete,
+    onShowClick,
+}: {
+    shows: Show[];
+    onEdit: (show: Show) => void;
+    onDelete: (id: string, name: string) => void;
+    onShowClick: (show: Show) => void;
+}) => {
     const allOccurrences = shows.flatMap((show) =>
         show.days
             .filter((day) => !day.skipped)
@@ -766,7 +1209,7 @@ const ListView = ({ shows, onEdit, onDelete }: { shows: Show[]; onEdit: (show: S
         <div className='h-full overflow-y-auto custom-scrollbar bg-white @min-[700px]/calendar:grid grid-cols-[2fr_1fr] @container/list-calendar'>
             <div className='h-full p-5 @min-[350px]/list-calendar:p-6 @min-[550px]/list-calendar:p-8 space-y-4 w-full @min-[700px]/list-calendar:min-w-[520px] max-w-4xl font-figtree'>
                 {sortedDates.map((dateKey, index) => {
-                    const dayOccurrences = groupedByDate[dateKey];
+                    const dayOccurrences = [...groupedByDate[dateKey]].sort((a, b) => a.startTime.localeCompare(b.startTime));
                     const [year, month, day] = dateKey.split('-').map(Number);
                     const date = new Date(year, month - 1, day);
 
@@ -795,17 +1238,47 @@ const ListView = ({ shows, onEdit, onDelete }: { shows: Show[]; onEdit: (show: S
                                     dayOccurrences.map((occ, idx) => (
                                         <button
                                             key={`${occ.id}-${idx}`}
-                                            onClick={() => setSelectedShow(occ)}
+                                            onClick={() => onShowClick(occ)}
                                             className={cn(
                                                 'w-full cursor-pointer overflow-hidden text-left flex flex-col @min-[600px]/list-calendar:flex-row @min-[600px]/list-calendar:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-primary/30 hover:shadow-md transition-all group',
-                                                index === sortedDates.length - 1 && idx === dayOccurrences.length - 1 ? 'mb-7 @min-[350px]/list-calendar:mb-8' : ''
+                                                index === sortedDates.length - 1 && idx === dayOccurrences.length - 1 ? 'mb-7 @min-[350px]/list-calendar:mb-8' : '',
+                                                occ.type === 'job' ? 'border-blue-200 bg-blue-50 hover:border-blue-200' : '',
+                                                occ.inviteStatus === 'pending' ? 'opacity-70' : '',
+                                                occ.jobData &&
+                                                    (occ.jobData.status === 'completed' ||
+                                                        occ.jobData.status === 'denied' ||
+                                                        occ.jobData.status === 'canceled' ||
+                                                        occ.jobData.status === 'sub_declined')
+                                                    ? 'opacity-50'
+                                                    : ''
                                             )}
                                         >
                                             <div className='flex-1 min-w-0'>
                                                 <div className='flex justify-between items-start gap-3 min-w-0'>
-                                                    <h3 className='text-xl min-w-0 font-bold text-gray-900 font-lusitana group-hover:text-primary transition-colors truncate'>
-                                                        {occ.name}
-                                                    </h3>
+                                                    <div className='flex items-center gap-2'>
+                                                        <h3
+                                                            className={cn(
+                                                                'text-xl min-w-0 font-bold text-gray-900 font-lusitana group-hover:text-primary transition-colors truncate',
+                                                                occ.type === 'job' ? 'group-hover:text-blue-500' : ''
+                                                            )}
+                                                        >
+                                                            {occ.name}
+                                                        </h3>
+                                                        {occ.type === 'job' && (
+                                                            <span>
+                                                                <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
+                                                                    JOB
+                                                                </div>
+                                                            </span>
+                                                        )}
+                                                        {occ.inviteStatus === 'pending' && (
+                                                            <span>
+                                                                <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-primary bg-primary-extra-light shadow-sm uppercase border-primary/10 rounded-lg'>
+                                                                    INVITED
+                                                                </div>
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className='flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500 font-figtree'>
                                                     <span className='flex items-center gap-2 font-medium'>
@@ -821,7 +1294,12 @@ const ListView = ({ shows, onEdit, onDelete }: { shows: Show[]; onEdit: (show: S
                                                 </div>
                                             </div>
                                             <div className='flex-none opacity-0 group-hover:opacity-100 transition-opacity hidden @min-[600px]/calendar:block'>
-                                                <div className='w-10 h-10 rounded-full bg-primary-extra-light flex items-center justify-center text-primary'>
+                                                <div
+                                                    className={cn(
+                                                        'w-10 h-10 rounded-full bg-primary-extra-light flex items-center justify-center text-primary',
+                                                        occ.type === 'job' ? 'bg-blue-100 text-blue-400' : ''
+                                                    )}
+                                                >
                                                     <ChevronRight size={20} />
                                                 </div>
                                             </div>
@@ -838,15 +1316,6 @@ const ListView = ({ shows, onEdit, onDelete }: { shows: Show[]; onEdit: (show: S
             <div className="w-full h-full hidden @min-[700px]/list-calendar:block bg-primary-light border-b border-gray-100 relative overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/hexellence.png')]">
                 <div className='absolute hidden @min-[700px]/list-calendar:block inset-0 top-0 left-0 h-full w-12 sudden-gradient'></div>
             </div>
-            <ShowDetailsModal
-                show={selectedShow!}
-                onClose={() => setSelectedShow(null)}
-                onEdit={(show) => {
-                    setSelectedShow(null);
-                    onEdit(show);
-                }}
-                onDelete={(show) => onDelete(show.id, show.name)}
-            />
         </div>
     );
 };

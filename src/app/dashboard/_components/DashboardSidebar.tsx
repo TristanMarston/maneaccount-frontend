@@ -4,6 +4,7 @@ import {
     BadgeDollarSign,
     Banknote,
     Calendar,
+    ClipboardCheck,
     ChevronsLeft,
     CreditCard,
     HelpCircle,
@@ -19,6 +20,7 @@ import {
     UserPlus,
     Users,
     X,
+    Briefcase,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
 import { AnimatePresence, motion, Variants } from 'motion/react';
@@ -37,16 +39,19 @@ type Page = {
     path: string;
     accountTypes: string[];
 };
+
 const HorseIcon = () => <Icon className='w-full h-full dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
 
 const pages: Page[] = [
     { title: 'Dashboard', path: '/dashboard/', icon: Home, accountTypes: ['client', 'subcontractor', 'braider', 'admin'] },
-    { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['client'] },
-    { title: 'Braiders', path: '/dashboard/braiders', icon: Scissors, accountTypes: ['client'] },
     { title: 'Calendar', path: '/dashboard/calendar', icon: Calendar, accountTypes: ['braider', 'subcontractor', 'client'] },
-    { title: 'Clients', path: '/dashboard/clients', icon: Users, accountTypes: ['braider', 'subcontractor'] },
+    { title: 'Tasks', path: '/dashboard/tasks', icon: ClipboardCheck, accountTypes: ['braider', 'subcontractor'] },
+    { title: 'Services', path: '/dashboard/services', icon: Briefcase, accountTypes: ['client'] },
+    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider', 'client'] },
+    { title: 'Braiders', path: '/dashboard/braiders', icon: Scissors, accountTypes: ['client'] },
+    { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['client'] },
+    { title: 'Clients', path: '/dashboard/clients', icon: Users, accountTypes: ['braider'] },
     { title: 'Team', path: '/dashboard/team', icon: UserPlus, accountTypes: ['braider', 'subcontractor'] },
-    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider', 'subcontractor'] },
     { title: 'Pricing', path: '/dashboard/pricing', icon: BadgeDollarSign, accountTypes: ['braider'] },
 ];
 
@@ -59,6 +64,8 @@ const DashboardSidebar = ({
     image,
     selectedPage,
     setSelectedPage,
+    settingsModalOpen,
+    setSettingsModalOpen,
 }: {
     dashboard: string;
     session: Session | null;
@@ -68,13 +75,14 @@ const DashboardSidebar = ({
     image: string;
     selectedPage: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    settingsModalOpen: boolean;
+    setSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
     const [open, setOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
     const userDropdownRef = useRef<HTMLDivElement>(null);
     const userButtonRef = useRef<HTMLDivElement>(null);
@@ -244,38 +252,25 @@ const DashboardSidebar = ({
                 )}
             >
                 <div className='flex flex-col h-full'>
-                    {/* Header */}
-                    <div className='flex h-20 items-center justify-start border-b border-gray-50/50 scale-95'>
-                        <motion.div className={cn('flex items-center transition-all duration-300 justify-start', open ? 'w-full ml-2' : 'w-10 ml-4.5')}>
-                            <Image
-                                key='m-image'
-                                src='/mane-account-M.svg'
-                                alt='M'
-                                className={cn('svg-filter text-primary fill-current min-w-10 h-7 relative left-0.5')}
-                                width={50}
-                                height={50}
-                            />
-                            <AnimatePresence>
-                                {open && (
-                                    <motion.span
-                                        layout
-                                        initial={{ opacity: 0, y: 12 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.1 }}
-                                        className='flex items-center gap-1 whitespace-nowrap'
-                                    >
-                                        <p className='text-primary font-lustria pt-2.5 text-[26px]'>ane</p>
-                                        <Image key='a-image' src='/mane-account-A.svg' alt='A' className='svg-filter text-primary fill-current w-7 h-7' width={50} height={50} />
-                                        <p className='text-primary font-lustria pt-2.5 text-[26px]'>ccount</p>
-                                    </motion.span>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
-                    </div>
+                    <motion.div
+                        className='flex h-24 items-center justify-start border-b border-gray-50/50 scale-95'
+                        initial={{ height: 96 }}
+                        animate={{ height: open ? 96 : 68 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <div className={cn('flex items-center transition-all duration-300 justify-start', open ? 'w-full ml-2' : 'w-10 ml-4.5')}>
+                            {open ? (
+                                <span className='whitespace-nowrap'>
+                                    <Image key='maneaccount-sidebar-logo' src='/maneaccount-logo.png' alt='Logo' className='w-full h-14' width={200} height={50} />
+                                </span>
+                            ) : (
+                                <Image key='m-image' src='/maneaccount-new-M.png' alt='M' className='w-10 h-7 relative left-0.5' width={50} height={50} />
+                            )}
+                        </div>
+                    </motion.div>
 
                     <div className='w-[90%] mx-auto h-px -mt-2 bg-primary' />
 
-                    {/* Desktop Menu Items */}
                     <div className='flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar'>
                         {filteredPages.map((page, index) => (
                             <SidebarItem
@@ -290,7 +285,6 @@ const DashboardSidebar = ({
                         ))}
                     </div>
 
-                    {/* Footer */}
                     <div className='border-t border-gray-50 p-3'>
                         <SidebarItem
                             icon={() => (

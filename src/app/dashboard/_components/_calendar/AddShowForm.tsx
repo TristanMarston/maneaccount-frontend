@@ -1,19 +1,27 @@
 'use client';
 
 import { updateShow, createShow } from '@/app/actions/calendar';
+import { getRelations } from '@/app/actions/client-relations';
+import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, usaStates } from '@/app/context';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { cn } from '@/lib/utils';
 import { eachDayOfInterval, format } from 'date-fns';
-import { CalendarIcon, MapPin, LayersPlus, PlusCircle, MinusCircle, ChevronsLeft, ChevronsRight, X, Clock, ChevronDown, Check } from 'lucide-react';
+import { CalendarIcon, MapPin, LayersPlus, PlusCircle, MinusCircle, ChevronsLeft, ChevronsRight, X, Clock, ChevronDown, Check, Search, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import DatePicker from '../DatePicker';
 import { Show } from '@/app/dashboard/_components/_calendar/Calendar';
 
-const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void; onSuccess: () => void; initialData?: Show }) => {
+const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: () => void; onSuccess: () => void; initialData?: Show; userEmail: string }) => {
     const [step, setStep] = useState(1);
+    const [invitees, setInvitees] = useState<string[]>(
+        // @ts-ignore
+        initialData?.invites?.map((i: any) => i.inviteeId) || []
+    );
+    const [connections, setConnections] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [formData, setFormData] = useState({
         name: initialData?.name || '',
         country: initialData?.country || 'USA',
@@ -26,6 +34,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
     const [startDateSelectorOpen, setStartDateSelectorOpen] = useState(false);
     const [endDateSelectorOpen, setEndDateSelectorOpen] = useState(false);
     const [changesMade, setChangesMade] = useState(false);
+    const [connectionsLoading, setConnectionsLoading] = useState(true);
     const startDateDropdownRef = useRef<HTMLDivElement>(null);
     const endDateDropdownRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(startDateDropdownRef, [], () => setStartDateSelectorOpen(false));
@@ -69,6 +78,8 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                 setStepTwoActionItemsVisible(days.map(() => ({ copy: false, skip: false })));
             }
             setStep(2);
+        } else if (step === 2) {
+            setStep(3);
         } else {
             handleSubmit();
         }
@@ -83,6 +94,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
             state: formData.state,
             city: formData.city,
             days: formData.schedule,
+            invites: invitees,
         };
 
         const res = initialData ? await updateShow(initialData.id, dataToSave) : await createShow(dataToSave);
@@ -95,6 +107,19 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
         }
         setIsSubmitting(false);
     };
+
+    useEffect(() => {
+        const getAllRelations = async () => {
+            setConnectionsLoading(true);
+            const clientData = await getRelations(userEmail);
+            const subcontractorData = await getTeamMembers(userEmail);
+
+            setConnectionsLoading(false);
+            setConnections([...clientData, ...subcontractorData]);
+        };
+
+        if (step === 3 && connections.length === 0) getAllRelations();
+    }, [step, userEmail]);
 
     useEffect(() => {
         if (initialData) {
@@ -269,7 +294,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                 </div>
                             </div>
                         </div>
-                    ) : (
+                    ) : step === 2 ? (
                         <div className='space-y-4'>
                             <p className='text-gray-500 text-[15px] @min-[240px]/add-show:text-base font-figtree mt-0 @min-[240px]/add-show:mt-1 mb-4'>
                                 Set the schedule for this show.
@@ -474,6 +499,68 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                                 ))}
                             </div>
                         </div>
+                    ) : (
+                        <div className='space-y-4'>
+                            <p className='text-gray-500 text-[15px] @min-[240px]/add-show:text-base font-figtree mt-0 @min-[240px]/add-show:mt-1 mb-4 w-full'>
+                                Invite users to this show. They will receive a notification to accept or decline.
+                            </p>
+
+                            <div className='relative w-full'>
+                                <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4', searchQuery.length > 0 ? 'text-black' : '')} />
+                                <input
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder='Search connections...'
+                                    className='w-full pl-9 pr-4 py-2 border border-gray-200 shadow-sm rounded-xl outline-none focus:border-primary transition-colors'
+                                />
+                            </div>
+
+                            <div className='flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 pb-1'>
+                                {connections.length > 0 ? (
+                                    connections
+                                        .filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                        .map((connection) => (
+                                            <div
+                                                key={connection.id}
+                                                onClick={() => {
+                                                    setInvitees((prev) => (prev.includes(connection.id) ? prev.filter((id) => id !== connection.id) : [...prev, connection.id]));
+                                                }}
+                                                className={cn(
+                                                    'flex items-center justify-between p-3 rounded-xl shadow-sm border cursor-pointer transition-all',
+                                                    invitees.includes(connection.id) ? 'border-primary bg-primary-extra-light' : 'border-gray-100 hover:border-gray-200'
+                                                )}
+                                            >
+                                                <div className='flex items-center gap-3 min-w-0'>
+                                                    {connection.image ? (
+                                                        <img src={connection.image} alt={connection.name} className='min-w-8 h-8 rounded-full object-cover' />
+                                                    ) : (
+                                                        <div className='min-w-8 h-8 rounded-full bg-primary-extra-light flex items-center justify-center text-primary font-bold text-[13px]'>
+                                                            {connection.name.substring(0, 1).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <div className='min-w-0'>
+                                                        <p className='font-bold text-sm text-gray-900 truncate'>{connection.name}</p>
+                                                        <p className='text-xs text-gray-500 capitalize'>{connection.role}</p>
+                                                    </div>
+                                                </div>
+                                                {!invitees.includes(connection.id) && (
+                                                    <PlusCircle className='min-w-8 h-8 text-primary p-1 hover:bg-primary-extra-light rounded-full transition-all' />
+                                                )}
+                                                {invitees.includes(connection.id) && <Check className='min-w-6 h-6 text-primary mr-1' />}
+                                            </div>
+                                        ))
+                                ) : connectionsLoading ? (
+                                    <div className='grid place-items-center w-full p-4'>
+                                        <div className='loader-primary'></div>
+                                    </div>
+                                ) : (
+                                    <div className='text-center py-6 text-gray-400 text-sm'>
+                                        <Users className='w-8 h-8 mx-auto mb-2 opacity-50' />
+                                        <p>No connections found.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
 
@@ -484,9 +571,9 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                     >
                         <span>Cancel</span>
                     </button>
-                    {step === 2 && (
+                    {(step === 2 || step === 3) && (
                         <button
-                            onClick={() => setStep(1)}
+                            onClick={() => setStep((prev) => prev - 1)}
                             className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-1.5 pl-4.5 pr-6 bg-background text-primary primary-border-hover'
                         >
                             <ChevronsLeft className='w-6 h-6' strokeWidth={2.5} />
@@ -496,13 +583,13 @@ const AddShowForm = ({ onClose, onSuccess, initialData }: { onClose: () => void;
                     <button
                         onClick={handleNext}
                         disabled={
-                            step === 1
+                            step === 1 || step === 2
                                 ? !rangeStart || !rangeEnd
                                 : !formData.name || !formData.state || !formData.city || !rangeEnd || !rangeStart || isSubmitting || (initialData && !changesMade)
                         }
                         className='disabled:pointer-events-none disabled:opacity-50 font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-1.5 pl-6 pr-4.5 bg-primary-light text-background primary-border-hover'
                     >
-                        <span>{isSubmitting ? 'Saving...' : step === 1 ? 'Next' : initialData ? 'Save Changes' : 'Create Show'}</span>
+                        <span>{isSubmitting ? 'Saving...' : step !== 3 ? 'Next' : initialData ? 'Save Changes' : 'Create Show'}</span>
                         <ChevronsRight className='w-6 h-6' strokeWidth={2.5} />
                     </button>
                 </div>

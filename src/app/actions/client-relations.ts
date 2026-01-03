@@ -1,22 +1,9 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { revalidatePath } from 'next/cache';
-import { PrismaPg } from '@prisma/adapter-pg';
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-const prisma =
-    globalForPrisma.prisma ||
-    new PrismaClient({
-        adapter: new PrismaPg({
-            connectionString: process.env.DATABASE_URL,
-        }),
-    });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { prisma } from '@/lib/prisma';
 
 export async function getRelations(email: string) {
     if (!email) return [];

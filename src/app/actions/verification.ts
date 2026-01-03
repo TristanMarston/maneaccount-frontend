@@ -1,23 +1,10 @@
 'use server';
 
 import { randomBytes } from 'crypto';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../api/auth/[...nextauth]/route';
 import { sendNotificationEmail, sendVerificationCode } from '@/lib/email';
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-const prisma =
-    globalForPrisma.prisma ||
-    new PrismaClient({
-        adapter: new PrismaPg({
-            connectionString: process.env.DATABASE_URL,
-        }),
-    });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { prisma } from '@/lib/prisma';
 
 export async function generateVerificationToken(email: string) {
     // Generate 6 digit code (100000 to 999999)

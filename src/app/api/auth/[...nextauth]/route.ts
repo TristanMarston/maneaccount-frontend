@@ -2,24 +2,14 @@ import NextAuth, { AuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import { PrismaClient } from '@prisma/client';
 import bcryptjs from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { generateUniquePublicID } from '@/app/actions/generatePublicID';
-import { PrismaPg } from '@prisma/adapter-pg';
 import { establishConnection } from '@/app/actions/join';
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-export const prisma =
-    globalForPrisma.prisma ||
-    new PrismaClient({
-        adapter: new PrismaPg({
-            connectionString: process.env.DATABASE_URL,
-        }),
-    });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions as nextAuthOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export const authOptions: AuthOptions = {
     adapter: PrismaAdapter(prisma),

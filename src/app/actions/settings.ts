@@ -1,13 +1,12 @@
 'use server';
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../api/auth/[...nextauth]/route'; // Changed path from '@/app/api/auth/[...nextauth]/route'
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 
 export async function checkPublicIDAvailability(publicID: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return false;
 
     const sanitizedID = publicID.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -22,7 +21,7 @@ export async function checkPublicIDAvailability(publicID: string) {
 }
 
 export async function updateProfile(formData: any) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     const name = formData.name as string | null;
@@ -94,7 +93,7 @@ export async function updateProfile(formData: any) {
 }
 
 export async function getUserSettings() {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return null;
 
     return await prisma.user.findUnique({
@@ -116,7 +115,7 @@ export async function getUserSettings() {
 }
 
 export async function deleteAccount() {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -150,7 +149,7 @@ export async function deleteAccount() {
 }
 
 export async function deleteAccountByID(id: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email || session?.user?.role !== 'admin') return { error: 'Unauthorized' };
 
     try {
@@ -184,7 +183,7 @@ export async function deleteAccountByID(id: string) {
 }
 
 export async function switchAccountRole() {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {

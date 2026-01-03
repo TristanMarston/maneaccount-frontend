@@ -1,8 +1,8 @@
 'use server';
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { subDays } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 
 export async function getRelations(email: string) {
@@ -13,23 +13,23 @@ export async function getRelations(email: string) {
             where: { email },
             include: {
                 sentConnections: { include: { receiver: true } },
-                receivedConnections: { include: { sender: true } }
-            }
+                receivedConnections: { include: { sender: true } },
+            },
         });
 
         if (!user) return [];
 
-        const targetRole = user.role === 'client' ? 'braider' : 'client'; 
+        const targetRole = user.role === 'client' ? 'braider' : 'client';
 
         // 1. Sent Connections (I invited them)
         const sent = user.sentConnections
-            .filter(c => c.status === 'accepted' && c.receiver.role === targetRole)
-            .map(c => ({ ...c.receiver, connectionID: c.id, joinedAt: c.createdAt }));
-            
+            .filter((c) => c.status === 'accepted' && c.receiver.role === targetRole)
+            .map((c) => ({ ...c.receiver, connectionID: c.id, joinedAt: c.createdAt }));
+
         // 2. Received Connections (They invited me)
         const received = user.receivedConnections
-            .filter(c => c.status === 'accepted' && c.sender.role === targetRole)
-            .map(c => ({ ...c.sender, connectionID: c.id, joinedAt: c.createdAt }));
+            .filter((c) => c.status === 'accepted' && c.sender.role === targetRole)
+            .map((c) => ({ ...c.sender, connectionID: c.id, joinedAt: c.createdAt }));
 
         return [...sent, ...received];
     } catch (error) {
@@ -47,13 +47,13 @@ export async function getPendingRelations(email: string) {
             include: {
                 receivedConnections: {
                     where: { status: 'pending' },
-                    include: { sender: true }
+                    include: { sender: true },
                 },
                 sentConnections: {
                     where: { status: 'pending' },
-                    include: { receiver: true }
-                }
-            }
+                    include: { receiver: true },
+                },
+            },
         });
 
         if (!user) return { incoming: [], outgoing: [] };
@@ -62,21 +62,21 @@ export async function getPendingRelations(email: string) {
 
         // Filter pending requests to only show those matching the desired relationship type
         // e.g. If I'm a Braider, don't show pending Subcontractor requests here (those go to TeamView)
-        
+
         const incoming = user.receivedConnections
-            .filter(c => c.sender.role === targetRole)
-            .map(c => ({
+            .filter((c) => c.sender.role === targetRole)
+            .map((c) => ({
                 ...c.sender,
                 connectionID: c.id,
-                sentAt: c.createdAt
+                sentAt: c.createdAt,
             }));
 
         const outgoing = user.sentConnections
-            .filter(c => c.receiver.role === targetRole)
-            .map(c => ({
+            .filter((c) => c.receiver.role === targetRole)
+            .map((c) => ({
                 ...c.receiver,
                 connectionID: c.id,
-                sentAt: c.createdAt
+                sentAt: c.createdAt,
             }));
 
         return { incoming, outgoing };
@@ -87,26 +87,24 @@ export async function getPendingRelations(email: string) {
 }
 
 export async function inviteRelation(publicID: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
         const sender = await prisma.user.findUnique({
-            where: { email: session.user.email }
+            where: { email: session.user.email },
         });
         if (!sender) return { error: 'User not found' };
 
         const receiver = await prisma.user.findUnique({
-            where: { publicID: publicID.toLowerCase() }
+            where: { publicID: publicID.toLowerCase() },
         });
         if (!receiver) return { error: 'User not found with that ID' };
 
         if (sender.id === receiver.id) return { error: 'Cannot invite yourself' };
 
-        const validBraiderClient = 
-            (sender.role === 'braider' && receiver.role === 'client') ||
-            (sender.role === 'client' && receiver.role === 'braider');
-            
+        const validBraiderClient = (sender.role === 'braider' && receiver.role === 'client') || (sender.role === 'client' && receiver.role === 'braider');
+
         if (!validBraiderClient) {
             return { error: `You cannot add a ${receiver.role.toLowerCase()} here.` };
         }
@@ -115,9 +113,9 @@ export async function inviteRelation(publicID: string) {
             where: {
                 OR: [
                     { senderId: sender.id, receiverId: receiver.id },
-                    { senderId: receiver.id, receiverId: sender.id }
-                ]
-            }
+                    { senderId: receiver.id, receiverId: sender.id },
+                ],
+            },
         });
 
         if (existing) {
@@ -128,13 +126,12 @@ export async function inviteRelation(publicID: string) {
             data: {
                 senderId: sender.id,
                 receiverId: receiver.id,
-                status: 'pending'
-            }
+                status: 'pending',
+            },
         });
 
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
-
     } catch (error) {
         console.error('Invite error:', error);
         return { error: 'Failed to send invitation' };
@@ -142,12 +139,12 @@ export async function inviteRelation(publicID: string) {
 }
 
 export async function removeRelation(connectionId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
         await prisma.connection.delete({
-            where: { id: connectionId }
+            where: { id: connectionId },
         });
         revalidatePath('/dashboard');
         return { success: true };
@@ -157,13 +154,13 @@ export async function removeRelation(connectionId: string) {
 }
 
 export async function acceptRelationRequest(connectionId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
         await prisma.connection.update({
             where: { id: connectionId },
-            data: { status: 'accepted' }
+            data: { status: 'accepted' },
         });
         revalidatePath('/dashboard');
         return { success: true };
@@ -180,10 +177,10 @@ export async function getRelationByPublicID(publicID: string) {
                 name: true,
                 image: true,
                 role: true,
-                publicID: true
-            }
+                publicID: true,
+            },
         });
-        
+
         if (!user) return { error: 'User not found' };
         return { user };
     } catch (error) {

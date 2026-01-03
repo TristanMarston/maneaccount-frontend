@@ -1,23 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { PrismaClient } from '@prisma/client';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PrismaPg } from '@prisma/adapter-pg';
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-export const prisma =
-    globalForPrisma.prisma ||
-    new PrismaClient({
-        adapter: new PrismaPg({
-            connectionString: process.env.DATABASE_URL,
-        }),
-    });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session || !session.user || session.user.role !== 'admin') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -37,6 +23,7 @@ export async function GET() {
 
         return NextResponse.json(users);
     } catch (error) {
+        console.error('Admin users fetch error:', error);
         return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 }

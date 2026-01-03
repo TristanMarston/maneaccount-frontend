@@ -322,6 +322,10 @@ const DayDetailsModal = ({
     );
 };
 
+import { getDashboardData } from '@/app/actions/dashboard';
+
+// ... (existing imports)
+
 const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const [view, setView] = useState<CalendarViewType>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -337,8 +341,15 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
 
     const loadShows = async () => {
         setLoading(true);
-        const showsData = await getShows(userEmail);
-        const jobsData = await getJobs(userEmail, role);
+        const result = await getDashboardData(role);
+
+        if (result.error) {
+            console.error(result.error);
+            setLoading(false);
+            return;
+        }
+
+        const { shows: showsData, jobs: jobsData } = result;
 
         const mappedJobs: Show[] = (jobsData as any[])
             .map((job) => {

@@ -1,14 +1,13 @@
 'use server';
 
 import { JobStatus } from '@prisma/client';
-import { getServerSession } from 'next-auth';
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { subDays } from 'date-fns';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
 export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[] }[] }) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -94,7 +93,7 @@ export async function updateJobStatus(
         subcontractorId?: string;
     }
 ) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -119,7 +118,7 @@ export async function updateJobStatus(
 }
 
 export async function addNote(jobId: string, content: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -143,7 +142,7 @@ export async function addNote(jobId: string, content: string) {
 }
 
 export async function markJobCompleted(jobId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -161,7 +160,7 @@ export async function markJobCompleted(jobId: string) {
 }
 
 export async function markJobPaid(jobId: string, paymentPlatform: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -202,7 +201,7 @@ export async function getBraiderData(braiderId: string) {
 }
 
 export async function cancelJob(jobId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -220,7 +219,7 @@ export async function cancelJob(jobId: string) {
 }
 
 export async function reRequestJob(jobId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -238,7 +237,7 @@ export async function reRequestJob(jobId: string) {
 }
 
 export async function deleteJob(jobId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {

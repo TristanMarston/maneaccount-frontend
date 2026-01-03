@@ -1,7 +1,6 @@
 'use server';
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
@@ -111,7 +110,7 @@ async function syncToAppleCalendar(show: any) {
 }
 
 export async function createShow(data: CreateShowInput) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -165,7 +164,7 @@ export async function createShow(data: CreateShowInput) {
 
 export async function getInvites(email: string) {
     if (!email) return [];
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return [];
 
     try {
@@ -235,7 +234,6 @@ export async function getShows(email: string) {
             inviterName: invite.show.user.name,
         }));
 
-        // Sort combined shows
         const allShows = [...ownedShows, ...invitedShows].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
         return allShows;
@@ -246,7 +244,7 @@ export async function getShows(email: string) {
 }
 
 export async function updateShow(id: string, data: CreateShowInput) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -331,7 +329,7 @@ export async function updateShow(id: string, data: CreateShowInput) {
 }
 
 export async function deleteShow(id: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -368,7 +366,7 @@ export async function deleteShow(id: string) {
 }
 
 export async function respondToShowInvite(showId: string, status: 'accepted' | 'declined') {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {

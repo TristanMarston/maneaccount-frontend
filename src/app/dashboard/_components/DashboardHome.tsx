@@ -20,8 +20,7 @@ import {
     ArrowUpRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { getShows } from '@/app/actions/calendar';
-import { getJobs } from '@/app/actions/jobs';
+import { getDashboardData } from '@/app/actions/dashboard';
 import { Show } from './_calendar/Calendar'; // Importing Show type
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react'; // Updated import based on sidebar
@@ -40,8 +39,14 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
             setLoading(true);
 
             try {
-                const showsData = await getShows(userEmail);
-                const jobsData = await getJobs(userEmail, role);
+                const result = await getDashboardData(role);
+
+                if (result.error) {
+                    console.error(result.error);
+                    return;
+                }
+
+                const { shows: showsData, jobs: jobsData } = result;
 
                 const mappedJobs: Show[] = (jobsData as any[])
                     .map((job) => {
@@ -66,6 +71,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
 
                 // @ts-ignore
                 setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
+                // @ts-ignore
                 setJobs(jobsData);
             } catch (error) {
                 console.error('Failed to fetch dashboard data', error);

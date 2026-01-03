@@ -1,9 +1,8 @@
 'use server';
 
 import { Gender } from '@prisma/client';
-import { getServerSession } from 'next-auth';
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 
@@ -23,7 +22,7 @@ export async function getHorses(email: string) {
 }
 
 export async function addHorse(formData: any) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session || !session.user?.email) {
         return { error: 'Unauthorized' };
@@ -89,7 +88,7 @@ export async function addHorse(formData: any) {
 }
 
 export async function editHorse(data: any, horseId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!data.showName && !data.barnName && !data.gender && !data.color && !data.notes && !data.profileImage) return { error: 'Send a field to update' };
 
@@ -152,7 +151,7 @@ export async function editHorse(data: any, horseId: string) {
 }
 
 export async function deleteHorse(horseId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session || !session.user?.email) {
         return { error: 'Unauthorized' };

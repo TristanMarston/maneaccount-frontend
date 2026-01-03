@@ -1,7 +1,6 @@
 'use server';
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { sendNotificationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
@@ -9,7 +8,7 @@ import { prisma } from '@/lib/prisma';
 export async function getUserByPublicID(publicID: string) {
     if (!publicID) return;
 
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -119,7 +118,7 @@ export async function getPendingRequests(email: string) {
 }
 
 export async function inviteUser(publicID: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -177,7 +176,7 @@ export async function inviteUser(publicID: string) {
 }
 
 export async function acceptRequest(connectionID: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
@@ -203,7 +202,7 @@ export async function acceptRequest(connectionID: string) {
 }
 
 export async function removeMember(connectionID: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {

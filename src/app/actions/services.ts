@@ -1,8 +1,7 @@
 'use server';
 
-import { getServerSession } from 'next-auth';
+import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
 export async function getServices(email: string) {
@@ -21,7 +20,7 @@ export async function getServices(email: string) {
 }
 
 export async function addService(formData: any) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session || !session.user?.email) {
         return { error: 'Unauthorized' };
@@ -56,7 +55,7 @@ export async function addService(formData: any) {
 }
 
 export async function editService(data: any, serviceId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!data.name && !data.category && !data.priceUSD && !data.duration) return { error: 'Send a field to update' };
 
@@ -89,7 +88,7 @@ export async function editService(data: any, serviceId: string) {
 }
 
 export async function deleteService(serviceId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session || !session.user?.email) {
         return { error: 'Unauthorized' };

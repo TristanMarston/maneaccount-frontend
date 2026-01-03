@@ -1,8 +1,7 @@
 'use server';
 
 import { randomBytes } from 'crypto';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { sendNotificationEmail, sendVerificationCode } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 
@@ -29,7 +28,7 @@ export async function generateVerificationToken(email: string) {
 }
 
 export async function requestVerificationEmail() {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {

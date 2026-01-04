@@ -538,7 +538,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     if (!val) setEditingShow(null);
                 }}
                 closeOnOutsideClick={false}
-                className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-visible'
+                className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-visible!'
             >
                 <AddShowForm
                     onClose={() => {

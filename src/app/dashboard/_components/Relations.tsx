@@ -512,7 +512,7 @@ const InviteModal = ({
 
     return (
         <>
-            <motion.div layout className='@container/invite-relations'>
+            <motion.div layout className='@container/invite-relations font-figtree'>
                 <div className='border-b pb-4 mb-4 min-[435px]:mb-0 border-gray-100 flex flex-col items-start @min-[375px]/invite-relations:flex-row @min-[375px]/invite-relations:items-center gap-2 @min-[375px]/invite-relations:gap-4'>
                     <h1 className='text-3xl @min-[250px]/invite-relations:text-[33px] @min-[265px]/invite-relations:text-4xl font-lusitana font-bold text-gray-900'>
                         Add {targetLabel}

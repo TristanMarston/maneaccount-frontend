@@ -154,11 +154,43 @@ export async function createShow(data: CreateShowInput) {
         // await syncToGoogleCalendar(session.user.id, newShow, newShow.days);
 
         revalidatePath('/dashboard');
-        revalidatePath('/dashboard/calendar');
         return { success: true, show: newShow };
     } catch (error) {
         console.error('Create show error:', error);
         return { error: 'Failed to create show' };
+    }
+}
+
+export async function addShowToCalendar(showId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const show = await prisma.show.findUnique({
+            where: { id: showId },
+            include: { days: true },
+        });
+
+        if (!show) return { error: 'Show not found' };
+
+        await prisma.show.update({
+            where: { id: showId },
+            data: {
+                invites: {
+                    create: {
+                        inviter: { connect: { id: show.userId } },
+                        invitee: { connect: { email: session.user.email! } },
+                        status: 'accepted',
+                    }
+                }
+            }
+        })
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Add show to calendar error:', error);
+        return { error: 'Failed to add show to calendar' };
     }
 }
 
@@ -320,7 +352,6 @@ export async function updateShow(id: string, data: CreateShowInput) {
         });
 
         revalidatePath('/dashboard');
-        revalidatePath('/dashboard/calendar');
         return { success: true, show: updatedShow };
     } catch (error) {
         console.error('Update show error:', error);
@@ -339,7 +370,6 @@ export async function deleteShow(id: string) {
                 where: { id },
             });
             revalidatePath('/dashboard');
-            revalidatePath('/dashboard/calendar');
             return { success: true };
         }
 
@@ -354,7 +384,6 @@ export async function deleteShow(id: string) {
         if (invite) {
             await prisma.showInvite.delete({ where: { id: invite.id } });
             revalidatePath('/dashboard');
-            revalidatePath('/dashboard/calendar');
             return { success: true };
         }
 
@@ -389,7 +418,6 @@ export async function respondToShowInvite(showId: string, status: 'accepted' | '
         }
 
         revalidatePath('/dashboard');
-        revalidatePath('/dashboard/calendar');
         return { success: true };
     } catch (error) {
         console.error('Respond invite error:', error);

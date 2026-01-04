@@ -34,6 +34,7 @@ import { RequestWorkModal, ViewShowDetailsModal } from './RequestWorkModals';
 import { createPortal } from 'react-dom';
 import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, scrollVariants } from '@/app/context';
+import { addShowToCalendar } from '@/app/actions/calendar';
 
 type Job = {
     id: string;
@@ -42,7 +43,7 @@ type Job = {
     client: { name: string; image?: string; email: string };
     paidAt?: Date;
     subcontractor?: { name: string; image?: string; email: string };
-    show: { name: string; city: string; state: string; startDate: Date; endDate: Date };
+    show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date };
     assignments: {
         id: string;
         horse: { id: string; showName: string; barnName: string; profileImage: string; gender: string; notes: string; color: string };
@@ -690,6 +691,17 @@ export const JobDetailView = ({
         }
     };
 
+    const handleAddToCalendar = async () => {
+        const res = await addShowToCalendar(job.show.id);
+
+        if (res.success) {
+            successToast(`Event added to calendar!`);
+            refresh();
+        } else {
+            failToast('Failed to add to calendar');
+        }
+    };
+
     return (
         <div className='flex flex-col bg-white'>
             <div className='flex justify-between items-start p-7 pb-2 border-b border-gray-50'>
@@ -751,12 +763,23 @@ export const JobDetailView = ({
                             <span className='uppercase font-bold text-xs'>{format(job.scheduledStartTime, 'MMM')}</span>
                             <span className='uppercase font-bold text-xs'>{format(job.scheduledStartTime, 'dd')}</span>
                         </div>
-                        <div>
-                            <p className='font-bold text-primary-dark'>Hours</p>
-                            <h3 className='text-[13px] font-bold text-primary uppercase'>
-                                {format(job.scheduledStartTime, 'p')}
-                                {job.scheduledEndTime ? ` - ${format(job.scheduledEndTime, 'p')}` : ` - ${format(addHours(job.scheduledStartTime, 1), 'p')}`}
-                            </h3>
+                        <div className='flex items-center justify-between w-full gap-2'>
+                            <div>
+                                <p className='font-bold text-primary-dark'>Hours</p>
+                                <h3 className='text-[13px] font-bold text-primary uppercase'>
+                                    {format(job.scheduledStartTime, 'p')}
+                                    {job.scheduledEndTime ? ` - ${format(job.scheduledEndTime, 'p')}` : ` - ${format(addHours(job.scheduledStartTime, 1), 'p')}`}
+                                </h3>
+                            </div>
+                            {role !== 'braider' && (
+                                <div
+                                    onClick={handleAddToCalendar}
+                                    className='bg-primary-light/30 flex items-center gap-2 px-4 py-1 rounded-[10px] cursor-pointer hover:bg-primary-light/40 transition-all text-primary shadow-sm text-sm font-semibold border border-primary'
+                                >
+                                    <Calendar className='w-4 h-4' />
+                                    Add to Calendar
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

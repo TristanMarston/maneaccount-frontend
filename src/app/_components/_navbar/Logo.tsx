@@ -18,9 +18,9 @@ const Logo = ({
     return (
         <Link href={href} className={cn('flex items-center gap-1 font-figtree', className)}>
             {color === 'default' ? (
-                <Image src='/maneaccount-logo.png' alt='Logo' width={500} height={182} className={cn('w-full', position === 'navbar' ? 'h-11 4xl:h-13' : '')} />
+                <Image src='/maneaccount-logo.png' alt='Logo' width={500} height={182} className={cn('w-full', position === 'navbar' ? 'w-auto h-11 4xl:h-13' : '')} />
             ) : (
-                <Image src='/maneaccount-logo-white.png' alt='Logo' width={500} height={182} className={cn('w-full', position === 'navbar' ? 'h-11 4xl:h-13' : '')} />
+                <Image src='/maneaccount-logo-white.png' alt='Logo' width={500} height={182} className={cn('w-full', position === 'navbar' ? 'w-auto h-11 4xl:h-13' : '')} />
             )}
             {/* {color === 'default' ? (
                 <>

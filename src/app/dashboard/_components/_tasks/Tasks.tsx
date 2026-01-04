@@ -143,18 +143,18 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
     return (
         <>
             <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-6 @container/tasks'>
-                <header className='flex justify-between items-center'>
+                <header className='flex flex-col gap-4 @min-[400px]/tasks:gap-0 @min-[400px]/tasks:flex-row @min-[400px]/tasks:justify-between @min-[400px]/tasks:items-center'>
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'client' ? 'Services' : 'Tasks'}</h1>
-                        <p className='text-gray-500 font-figtree mt-1.5'>Manage your braiding schedule and requests.</p>
+                        <p className='text-gray-500 font-figtree mt-1 @min-[400px]/tasks:mt-1.5'>Manage your braiding schedule and requests.</p>
                     </div>
                     {role === 'client' && (
                         <button
                             onClick={() => setRequestModalOpen(true)}
-                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
                         >
                             <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
-                            Request Work
+                            <span className='block @min-[400px]/tasks:hidden @min-[560px]/tasks:block'>Request Work</span>
                         </button>
                     )}
                 </header>
@@ -191,7 +191,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                     </div>
                 ) : (
                     <div className='grid grid-cols-1 gap-4'>
-                        {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'completed' && j.status !== 'denied').length === 0 &&
+                        {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied').length === 0 &&
                             (role === 'client' ? (
                                 <div
                                     onClick={() => setRequestModalOpen(true)}
@@ -214,7 +214,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                 </div>
                             ))}
                         {jobs
-                            .filter((j) => j.status !== 'canceled' && j.status !== 'completed' && j.status !== 'denied')
+                            .filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt))
                             .map((job) => (
                                 <JobCard
                                     key={job.id}
@@ -224,18 +224,20 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                     setNotesJob={setNotesJob}
                                     refresh={refreshJobs}
                                     setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                    setSelectedPage={setSelectedPage}
                                 />
                             ))}
-                        {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'completed' && j.status !== 'denied').length > 0 && (
-                            <div className='h-[0.5px] bg-gray-200 rounded-full' />
-                        )}
-                        {jobs.filter((j) => j.status === 'completed').length > 0 && (
+                        {jobs.filter((j) => (j.status === 'completed' && j.paidAt) || j.status === 'canceled' || j.status === 'denied').length > 0 &&
+                            jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt)).length > 0 && (
+                                <div className='h-[0.5px] bg-gray-200 rounded-full' />
+                            )}
+                        {jobs.filter((j) => j.status === 'completed' && j.paidAt).length > 0 && (
                             <>
                                 <span
                                     onClick={() => setShowCompletedEvents((prev) => !prev)}
                                     className='font-figtree uppercase text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-2'
                                 >
-                                    <div>Completed Services</div>{' '}
+                                    <div>Completed & Paid Services</div>{' '}
                                     <motion.div
                                         initial={{ rotate: 0 }}
                                         animate={showCompletedEvents ? { rotate: 180 } : { rotate: 0 }}
@@ -263,7 +265,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                             exit='hidden'
                                         >
                                             {jobs
-                                                .filter((j) => j.status === 'completed')
+                                                .filter((j) => j.status === 'completed' && j.paidAt)
                                                 .map((job) => (
                                                     <JobCard
                                                         key={job.id}
@@ -274,6 +276,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                         setNotesJob={setNotesJob}
                                                         refresh={refreshJobs}
                                                         setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                                        setSelectedPage={setSelectedPage}
                                                     />
                                                 ))}
                                         </motion.div>
@@ -326,6 +329,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                         setNotesJob={setNotesJob}
                                                         refresh={refreshJobs}
                                                         setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                                        setSelectedPage={setSelectedPage}
                                                     />
                                                 ))}
                                         </motion.div>
@@ -336,14 +340,14 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                     </div>
                 )}
             </div>
-            <Modal isOpen={requestModalOpen} setIsOpen={setRequestModalOpen} className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-y-auto max-h-[95vh]'>
+            <Modal isOpen={requestModalOpen} setIsOpen={setRequestModalOpen} className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-y-auto'>
                 <RequestWorkModal userEmail={userEmail} onClose={() => setRequestModalOpen(false)} setShowDetailsModal={setShowDetailsModal} onSubmit={handleCreateJob} />
             </Modal>
 
             <Modal
                 isOpen={showDetailsModal.open}
                 setIsOpen={(open: boolean) => setShowDetailsModal({ open: false, show: null, onSelect: () => {} })}
-                className='bg-white p-0 w-full max-w-sm overflow-hidden rounded-[18px] primary-border-bold max-h-[95%] overflow-y-auto @container/show-details'
+                className='bg-white p-0 w-full max-w-sm overflow-hidden rounded-[18px] primary-border-bold overflow-y-auto @container/show-details'
             >
                 {showDetailsModal.show !== null && <ViewShowDetailsModal show={showDetailsModal.show} setShowDetailsModal={setShowDetailsModal} onSelect={showDetailsModal.onSelect} />}
             </Modal>
@@ -456,6 +460,7 @@ const JobCard = ({
     completed = false,
     refresh,
     setCheckMarkedCompleted,
+    setSelectedPage,
 }: {
     job: Job;
     role: string;
@@ -465,7 +470,10 @@ const JobCard = ({
     completed?: boolean;
     refresh: () => void;
     setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string }>>;
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
 }) => {
+    const completedNotPaid = job.status === 'completed' && !job.paidAt;
+
     const handleMarkCompleted = (e: React.MouseEvent) => {
         e.stopPropagation();
         setCheckMarkedCompleted({ open: true, id: job.id });
@@ -475,11 +483,11 @@ const JobCard = ({
         <div
             onClick={() => setSelectedJob(job)}
             className={cn(
-                'bg-white p-5 @min-[450px]/tasks:p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col @min-[600px]/tasks:flex-row gap-4 justify-between items-start @min-[600px]/tasks:items-center @container/job-card',
-                canceled ? 'opacity-50' : completed ? 'opacity-60' : ''
+                'bg-white p-5 @min-[450px]/tasks:p-6 relative rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col @min-[600px]/tasks:flex-row gap-4 justify-between items-start @min-[600px]/tasks:items-center @container/job-card',
+                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : ''
             )}
         >
-            <div className='flex items-start gap-4 w-full @min-[600px]/tasks:w-auto'>
+            <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>
                 <div className='w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-figtree'>
                     {role === 'client' ? (
                         job.braider?.image ? (
@@ -536,7 +544,12 @@ const JobCard = ({
                 </div>
             </div>
 
-            <div className='flex whitespace-nowrap flex-row-reverse @min-[600px]/tasks:flex-row min-w-0 items-center gap-2 @min-[350px]/job-card:gap-4 w-full @min-[600px]/tasks:w-auto justify-between @min-[600px]/tasks:justify-end mt-2 @min-[600px]/tasks:mt-0'>
+            <div
+                className={cn(
+                    'flex whitespace-nowrap flex-row-reverse @min-[600px]/tasks:flex-row min-w-0 items-center gap-2 @min-[350px]/job-card:gap-4 w-full @min-[600px]/tasks:w-auto justify-between @min-[600px]/tasks:justify-end mt-2 @min-[600px]/tasks:mt-0',
+                    completedNotPaid ? 'opacity-60' : ''
+                )}
+            >
                 <div className='flex items-center gap-2'>
                     {(role === 'braider' || role === 'subcontractor') && (job.status === 'accepted' || job.status === 'delegated') && (
                         <button
@@ -573,6 +586,19 @@ const JobCard = ({
                     </span>
                 </div>
             </div>
+            {completedNotPaid && (
+                <div
+                    onClick={() => {
+                        if (role !== 'subcontractor') setSelectedPage('Invoices');
+                    }}
+                    className={cn(
+                        'cursor-pointer font-figtree uppercase font-bold absolute -top-3 right-2 text-[15px] tracking-wide px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 hover:bg-amber-200 transition-all',
+                        role === 'subcontractor' ? 'pointer-events-none' : ''
+                    )}
+                >
+                    {role === 'client' ? 'Payment Required' : 'Invoice Sent to Braider'}
+                </div>
+            )}
         </div>
     );
 };
@@ -665,7 +691,7 @@ export const JobDetailView = ({
     };
 
     return (
-        <div className='flex flex-col max-h-[95vh] bg-white'>
+        <div className='flex flex-col bg-white'>
             <div className='flex justify-between items-start p-7 pb-2 border-b border-gray-50'>
                 <div className='min-w-0'>
                     <h2 className='text-3xl font-lusitana font-bold text-gray-900 truncate'>{job.show.name}</h2>
@@ -735,8 +761,8 @@ export const JobDetailView = ({
                     </div>
                 )}
 
-                {job.subcontractor && role !== 'subcontractor' && (
-                    <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 rounded-[14px]'>
+                {job.subcontractor && role !== 'subcontractor' ? (
+                    <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
                         <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
                             {job.subcontractor.image ? (
                                 <Image src={job.subcontractor.image} alt='Sub' fill className='object-cover' />
@@ -749,6 +775,19 @@ export const JobDetailView = ({
                             <p className='font-bold text-blue-900 truncate'>{job.subcontractor.name}</p>
                         </div>
                     </div>
+                ) : (
+                    job.subcontractor &&
+                    role === 'subcontractor' && (
+                        <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
+                            <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
+                                {job.braider.image ? <Image src={job.braider.image} alt='Sub' fill className='object-cover' /> : <User className='w-full h-full p-2 text-blue-300' />}
+                            </div>
+                            <div className='min-w-0'>
+                                <p className='text-xs text-blue-500 uppercase font-bold'>Assigned By</p>
+                                <p className='font-bold text-blue-900 truncate'>{job.braider.name}</p>
+                            </div>
+                        </div>
+                    )
                 )}
 
                 <div>
@@ -1504,7 +1543,7 @@ export const HorseDetailView = ({ horse, onClose }: { horse: any; onClose: () =>
     };
 
     return (
-        <div className='flex flex-col bg-primary-extra-light overflow-y-auto max-h-[95vh] @container/horse-detail'>
+        <div className='flex flex-col bg-primary-extra-light overflow-y-auto @container/horse-detail'>
             {horse.profileImage && (
                 <div className='w-full bg-primary-extra-light flex justify-center p-4'>
                     <Image src={horse.profileImage} alt={horse.barnName} fill className='object-cover static! rounded-full w-full h-full max-w-48 max-h-48 shadow-lg' />

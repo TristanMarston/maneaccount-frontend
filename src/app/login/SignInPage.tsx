@@ -54,7 +54,6 @@ const SignInPage = () => {
     }, []);
 
     useEffect(() => {
-        console.log(validRoles);
         router.push(`/login?mode=${mode}&validRoles=${validRoles.join(',')}`);
     }, [mode]);
 
@@ -133,7 +132,7 @@ const SignInPage = () => {
                             initial='hidden'
                             animate='visible'
                             variants={scrollVariants()}
-                            className='bg-white rounded-2xl p-6 lg:p-8 shadow-lg font-figtree w-[90%] max-w-xl max-h-[90vh] overflow-y-scroll'
+                            className='bg-white rounded-2xl p-6 lg:p-8 shadow-lg font-figtree w-[90%] max-w-xl max-h-[90dvh] overflow-y-scroll'
                         >
                             <h1 className='text-[33px] lg:text-4xl font-bold text-center mb-2'>{mode === 'signin' ? 'Sign In' : 'Sign Up'}</h1>
                             <p className='text-gray-500 text-center mb-4 lg:mb-6'>{mode === 'signin' ? 'Welcome back to ManeAccount' : 'Select an account type to get started'}</p>

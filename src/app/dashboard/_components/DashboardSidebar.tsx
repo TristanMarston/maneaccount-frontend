@@ -40,7 +40,7 @@ type Page = {
     accountTypes: string[];
 };
 
-const HorseIcon = () => <Icon className='w-full h-full dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
+const HorseIcon = () => <Icon className='w-full h-full max-h-5 max-w-5 dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
 
 const pages: Page[] = [
     { title: 'Dashboard', path: '/dashboard/', icon: Home, accountTypes: ['client', 'subcontractor', 'braider', 'admin'] },
@@ -54,6 +54,8 @@ const pages: Page[] = [
     { title: 'Team', path: '/dashboard/team', icon: UserPlus, accountTypes: ['braider', 'subcontractor'] },
     { title: 'Pricing', path: '/dashboard/pricing', icon: BadgeDollarSign, accountTypes: ['braider'] },
 ];
+
+type Tab = 'profile' | 'account' | 'payments';
 
 const DashboardSidebar = ({
     dashboard,
@@ -81,6 +83,7 @@ const DashboardSidebar = ({
     const [open, setOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>('profile');
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -162,7 +165,6 @@ const DashboardSidebar = ({
                                 </div>
 
                                 <div className='overflow-y-auto p-4 space-y-4 font-figtree'>
-                                    {/* Secondary Navigation Links */}
                                     {mobileSecondaryPages.length > 0 && (
                                         <div className='space-y-1'>
                                             <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>Menu</p>
@@ -183,8 +185,16 @@ const DashboardSidebar = ({
 
                                     <div className='space-y-1'>
                                         <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2'>Account</p>
-                                        <MobileDrawerItem icon={User} title='View Profile' onClick={() => {}} />
-                                        <MobileDrawerItem icon={CreditCard} title='Billing' onClick={() => {}} />
+                                        <MobileDrawerItem
+                                            icon={User}
+                                            title='Account'
+                                            onClick={() => {
+                                                setMobileMenuOpen(false);
+                                                setSettingsModalOpen(true);
+                                                setActiveTab('account');
+                                            }}
+                                        />
+                                        {/* <MobileDrawerItem icon={CreditCard} title='Billing' onClick={() => {}} /> */}
                                         <MobileDrawerItem
                                             icon={Settings}
                                             title='Settings'
@@ -231,9 +241,9 @@ const DashboardSidebar = ({
                     isOpen={settingsModalOpen}
                     setIsOpen={setSettingsModalOpen}
                     closeOnOutsideClick={false}
-                    className='max-w-4xl p-6 lg:p-7 max-h-[90vh] rounded-[18px] primary-border-bold relative dashboard-sm:hidden overflow-y-scroll'
+                    className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative dashboard-sm:hidden overflow-y-auto'
                 >
-                    <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
+                    <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} activeTab={activeTab} setActiveTab={setActiveTab} />
                 </Modal>
             </>
         );
@@ -357,8 +367,16 @@ const DashboardSidebar = ({
                                             </div>
 
                                             <div className='space-y-0.5'>
-                                                <MenuItem icon={User} onClick={() => {}} label='View Profile' />
-                                                <MenuItem icon={CreditCard} onClick={() => {}} label='Billing' />
+                                                <MenuItem
+                                                    icon={User}
+                                                    onClick={() => {
+                                                        setUserDropdownOpen(false);
+                                                        setSettingsModalOpen(true);
+                                                        setActiveTab('account');
+                                                    }}
+                                                    label='Account'
+                                                />
+                                                {/* <MenuItem icon={CreditCard} onClick={() => {}} label='Billing' /> */}
                                                 <MenuItem
                                                     icon={Settings}
                                                     onClick={() => {
@@ -385,9 +403,9 @@ const DashboardSidebar = ({
                 isOpen={settingsModalOpen}
                 setIsOpen={setSettingsModalOpen}
                 closeOnOutsideClick={false}
-                className='max-w-4xl p-6 lg:p-7 max-h-[90vh] rounded-[18px] primary-border-bold relative hidden dashboard-sm:block overflow-y-scroll'
+                className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative hidden dashboard-sm:block overflow-y-auto'
             >
-                <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} />
+                <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} activeTab={activeTab} setActiveTab={setActiveTab} />
             </Modal>
         </>
     );

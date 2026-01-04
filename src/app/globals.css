@@ -117,6 +117,10 @@
     background: var(--primary-light);
 }
 
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
 .svg-filter {
     filter: invert(var(--svg-filter-invert)) sepia(var(--svg-filter-sepia)) saturate(var(--svg-filter-saturate)) hue-rotate(var(--svg-filter-hue-rotate))
         brightness(var(--svg-filter-brightness)) contrast(var(--svg-filter-contrast));

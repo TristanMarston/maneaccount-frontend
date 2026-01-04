@@ -43,7 +43,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
     useEffect(() => {
         const loadServices = async () => {
             const data = await getServices(userEmail);
-            console.log(data);
+            
             setServices(data);
             setLoading(false);
         };

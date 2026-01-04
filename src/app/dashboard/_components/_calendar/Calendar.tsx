@@ -103,7 +103,7 @@ const ShowDetailsModal = ({
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
                         ref={modalRef}
-                        className='bg-white w-full font-figtree max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[95%] overflow-y-auto @container/show-details'
+                        className='bg-white w-full font-figtree max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[90dvh] overflow-y-auto @container/show-details'
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-start bg-gray-50/50'>
                             <div className='min-w-0 w-full'>
@@ -266,7 +266,7 @@ const DayDetailsModal = ({
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
                         ref={modalRef}
-                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[95%] overflow-y-auto @container/day-details'
+                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[90dvh] overflow-y-auto @container/day-details'
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50'>
                             <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate min-w-0'>{format(day, 'MMMM d, yyyy')}</h3>
@@ -323,8 +323,6 @@ const DayDetailsModal = ({
 };
 
 import { getDashboardData } from '@/app/actions/dashboard';
-
-// ... (existing imports)
 
 const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const [view, setView] = useState<CalendarViewType>('month');
@@ -513,6 +511,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                                     onEdit={handleEdit}
                                     onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
                                     onShowClick={handleShowClick}
+                                    role={role}
                                 />
                             )}
                             {view === 'week' && (
@@ -522,10 +521,11 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                                     onEdit={handleEdit}
                                     onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
                                     onShowClick={handleShowClick}
+                                    role={role}
                                 />
                             )}
                             {view === 'list' && (
-                                <ListView shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} onShowClick={handleShowClick} />
+                                <ListView shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} onShowClick={handleShowClick} role={role} />
                             )}
                         </>
                     )}
@@ -829,12 +829,14 @@ const MonthView = ({
     onEdit,
     onDelete,
     onShowClick,
+    role,
 }: {
     currentDate: Date;
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
     onShowClick: (show: Show) => void;
+    role: string;
 }) => {
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
     const monthStart = startOfMonth(currentDate);
@@ -930,7 +932,9 @@ const MonthView = ({
                                                 }}
                                                 className={cn(
                                                     'text-[10px] w-full text-left cursor-pointer hover:bg-[#dae3de] transition-colors font-figtree px-1.5 py-0.5 rounded border truncate font-medium',
-                                                    show.type === 'job' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-primary-extra-light text-primary border-[#dae3de]',
+                                                    show.type === 'job'
+                                                        ? 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100'
+                                                        : 'bg-primary-extra-light text-primary border-[#dae3de]',
                                                     show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
                                                     show.jobData &&
                                                         (show.jobData.status === 'completed' ||
@@ -938,6 +942,9 @@ const MonthView = ({
                                                             show.jobData.status === 'canceled' ||
                                                             show.jobData.status === 'sub_declined')
                                                         ? 'opacity-50'
+                                                        : '',
+                                                    show.jobData && show.jobData.status === 'sub_requested' && role === 'subcontractor' && show.jobData.subcontractorId
+                                                        ? 'bg-background hover:bg-blue-50 opacity-80'
                                                         : ''
                                                 )}
                                             >
@@ -982,12 +989,14 @@ const WeekView = ({
     onEdit,
     onDelete,
     onShowClick,
+    role,
 }: {
     currentDate: Date;
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
     onShowClick: (show: Show) => void;
+    role: string;
 }) => {
     const startDate = startOfWeek(currentDate);
     const days = eachDayOfInterval({ start: startDate, end: addDays(startDate, 6) });
@@ -1118,7 +1127,7 @@ const WeekView = ({
                                                     onClick={() => onShowClick(show)}
                                                     className={cn(
                                                         'absolute inset-x-1 rounded-lg cursor-pointer bg-primary-extra-light border border-primary/20 p-1.5 overflow-hidden hover:brightness-95 transition-all text-left group z-10',
-                                                        show.type === 'job' ? 'bg-blue-50 border border-blue-200' : '',
+                                                        show.type === 'job' ? 'bg-blue-50 border border-blue-200 hover:bg-blue-100' : '',
                                                         show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
                                                         show.jobData &&
                                                             (show.jobData.status === 'completed' ||
@@ -1127,7 +1136,10 @@ const WeekView = ({
                                                                 show.jobData.status === 'sub_declined')
                                                             ? 'opacity-50'
                                                             : '',
-                                                        index - 1 >= 0 && overlap[index - 1] && overlap[index] ? 'ml-8' : overlap[index] ? 'ml-4' : ''
+                                                        index - 1 >= 0 && overlap[index - 1] && overlap[index] ? 'ml-8' : overlap[index] ? 'ml-4' : '',
+                                                        show.jobData && show.jobData.status === 'sub_requested' && role === 'subcontractor' && show.jobData.subcontractorId
+                                                            ? 'bg-background opacity-80 hover:bg-blue-50'
+                                                            : ''
                                                     )}
                                                 >
                                                     <div className='flex flex-col h-full'>
@@ -1173,11 +1185,13 @@ const ListView = ({
     onEdit,
     onDelete,
     onShowClick,
+    role,
 }: {
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
     onShowClick: (show: Show) => void;
+    role: string;
 }) => {
     const allOccurrences = shows.flatMap((show) =>
         show.days
@@ -1261,7 +1275,8 @@ const ListView = ({
                                                         occ.jobData.status === 'canceled' ||
                                                         occ.jobData.status === 'sub_declined')
                                                     ? 'opacity-50'
-                                                    : ''
+                                                    : '',
+                                                occ.jobData && occ.jobData.status === 'sub_requested' && role === 'subcontractor' && occ.jobData.subcontractorId ? 'opacity-70' : ''
                                             )}
                                         >
                                             <div className='flex-1 min-w-0'>
@@ -1275,12 +1290,20 @@ const ListView = ({
                                                         >
                                                             {occ.name}
                                                         </h3>
-                                                        {occ.type === 'job' && (
+                                                        {occ.jobData && occ.jobData.status === 'sub_requested' && role === 'subcontractor' && occ.jobData.subcontractorId ? (
                                                             <span>
                                                                 <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
-                                                                    JOB
+                                                                    REQUESTED
                                                                 </div>
                                                             </span>
+                                                        ) : (
+                                                            occ.type === 'job' && (
+                                                                <span>
+                                                                    <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
+                                                                        JOB
+                                                                    </div>
+                                                                </span>
+                                                            )
                                                         )}
                                                         {occ.inviteStatus === 'pending' && (
                                                             <span>

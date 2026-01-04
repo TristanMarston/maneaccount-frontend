@@ -182,7 +182,6 @@ export async function markJobPaid(jobId: string, paymentPlatform: string) {
 
 export async function getBraiderData(braiderId: string) {
     try {
-        console.log(new Date());
         const braider = await prisma.user.findUnique({
             where: { id: braiderId },
             include: {

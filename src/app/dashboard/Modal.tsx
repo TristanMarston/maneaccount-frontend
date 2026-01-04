@@ -36,7 +36,7 @@ const Modal = ({
                         animate={{ scale: 1, rotate: '0deg' }}
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
-                        className={cn('bg-background p-6 rounded-lg w-full max-w-lg shadow-xl cursor-default relative overflow-hidden', className)}
+                        className={cn('bg-background p-6 rounded-lg w-full max-w-lg shadow-xl cursor-default max-h-[93dvh] relative overflow-x-hidden overflow-y-auto! hide-scrollbar', className)}
                     >
                         {children}
                     </motion.div>

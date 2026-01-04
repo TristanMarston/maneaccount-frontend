@@ -24,6 +24,7 @@ import { getDashboardData } from '@/app/actions/dashboard';
 import { Show } from './_calendar/Calendar'; // Importing Show type
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react'; // Updated import based on sidebar
+import { getParts } from './_calendar/AddShowForm';
 
 const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: string; name: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const hours = new Date().getHours();
@@ -266,7 +267,7 @@ const ClientView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: S
                     value={upcomingShows[0] ? format(new Date(upcomingShows[0].startDate), 'MMM d') : '-'}
                     icon={Calendar}
                     color='primary'
-                    subtext={`${upcomingShows[0]?.name}${upcomingShows[0]?.type === 'job' ? ' • Job' : ''}` || 'No upcoming events'}
+                    subtext={`${upcomingShows[0]?.name || 'No upcoming events'}${upcomingShows[0]?.type === 'job' ? ' • Job' : ''}`}
                     onClick={() => setSelectedPage('Calendar')}
                 />
             </div>
@@ -297,8 +298,6 @@ const ClientView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: S
         </div>
     );
 };
-
-// --- Helper Components ---
 
 const StatCard = ({
     title,
@@ -402,7 +401,10 @@ const ShowCard = ({ show }: { show: Show }) => {
 
                 <div className='flex items-center flex-wrap gap-0 text-sm text-gray-500 font-medium mt-0.5'>
                     <span className='flex items-center gap-1 pr-4'>
-                        <Clock size={14} /> <span className='text-nowrap'>{format(new Date(show.startDate), 'h:mm a')}</span>
+                        <Clock size={14} />{' '}
+                        <span className='text-nowrap'>
+                            {format(new Date(show.startDate).setHours(getParts(show.days[0].startTime).hour, getParts(show.days[0].startTime).minute), 'h:mm a')}
+                        </span>
                     </span>
                     <span className='flex items-center gap-1 min-w-0'>
                         <MapPin size={14} /> <span className='truncate text-nowrap'>{show.city}</span>
@@ -430,7 +432,7 @@ const InvoicePreviewCard = ({ job, role }: { job: any; role: string }) => {
             <span className='font-lusitana font-bold text-lg text-amber-700 hidden @min-[360px]/home:block'>
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
             </span>
-            <span className='font-lusitana font-bold absolute -top-3 right-2 text-base px-3 py-0.5 rounded-full bg-amber-100 border-amber-200 shadow-sm text-amber-700 block @min-[360px]/home:hidden'>
+            <span className='font-lusitana font-bold absolute -top-3 right-2 text-base px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 block @min-[360px]/home:hidden'>
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
             </span>
         </div>

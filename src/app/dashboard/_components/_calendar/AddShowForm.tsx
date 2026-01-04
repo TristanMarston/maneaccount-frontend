@@ -146,7 +146,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
 
     return (
         <>
-            <div className='flex flex-col h-full max-h-[85vh] @container/add-show'>
+            <div className='flex flex-col h-full @container/add-show'>
                 <h1 className='text-[33px] @min-[240px]/add-show:text-4xl font-lusitana font-bold text-gray-900'>{initialData ? 'Edit Show' : 'Add a Show'}</h1>
 
                 <div className={cn('flex-1 font-figtree overflow-y-visible')}>

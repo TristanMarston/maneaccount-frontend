@@ -148,7 +148,6 @@ export const RequestWorkModal = ({
         const getBraider = async () => {
             setLoadingData(true);
             const data = await getBraiderData(selectedBraider.id);
-            console.log(data);
 
             if (data) {
                 setShows(data.shows);

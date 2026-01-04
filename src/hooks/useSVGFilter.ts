@@ -27,14 +27,6 @@ export function useSVGFilter(hexColor: string) {
     const result = solver.solve();
 
     const hueRotate = result.filter.substring(result.filter.indexOf('hue-rotate(') + 11, result.filter.indexOf(') brightness'));
-    console.log({
-        invert: Math.round(result.values[0]),
-        sepia: Math.round(result.values[1]),
-        saturate: Math.round(result.values[2]),
-        hueRotate,
-        brightness: Math.round(result.values[4]),
-        contrast: Math.round(result.values[5]),
-    });
     return {
         invert: Math.round(result.values[0]),
         sepia: Math.round(result.values[1]),

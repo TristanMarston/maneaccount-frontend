@@ -42,14 +42,17 @@ const SettingsModal = ({
     setOpen,
     session,
     update,
+    activeTab,
+    setActiveTab,
 }: {
     setOpen: React.Dispatch<React.SetStateAction<boolean>>;
     session: Session | null;
     update: (data?: any) => Promise<Session | null>;
+    activeTab: Tab;
+    setActiveTab: React.Dispatch<React.SetStateAction<Tab>>
 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState<Tab>('profile');
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');

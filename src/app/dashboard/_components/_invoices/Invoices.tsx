@@ -22,6 +22,7 @@ import {
     Mail,
     X,
     CircleQuestionMark,
+    HandCoins,
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { motion, AnimatePresence } from 'motion/react';
@@ -174,7 +175,13 @@ const Invoices = ({
                             className='text-4xl font-lusitana font-bold text-primary truncate'
                             title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)}
                         >
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)}
+                            {loading ? (
+                                <span>
+                                    $<span className='text-5xl'>--.--</span>
+                                </span>
+                            ) : (
+                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)
+                            )}
                         </span>
                     </div>
                     <div className='bg-amber-50 amber-border p-6 rounded-[14px] flex flex-col gap-2'>
@@ -183,7 +190,13 @@ const Invoices = ({
                             className='text-4xl font-lusitana font-bold text-amber-700 truncate'
                             title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
                         >
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
+                            {loading ? (
+                                <span>
+                                    $<span className='text-5xl'>--.--</span>
+                                </span>
+                            ) : (
+                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)
+                            )}
                         </span>
                     </div>
                 </div>
@@ -200,8 +213,19 @@ const Invoices = ({
                         )}
                     </h2>
 
-                    {unpaidJobs.length === 0 ? (
-                        <div className='text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400'>No pending invoices.</div>
+                    {loading ? (
+                        <div className='flex flex-col items-center gap-3 animate-pulse'>
+                            <div className='w-full h-[140px] @min-[490px]/invoices:h-[82px] bg-gray-100 rounded-2xl'></div>
+                            <div className='w-full h-[140px] @min-[490px]/invoices:h-[82px] bg-gray-100 rounded-2xl'></div>
+                            <div className='w-full h-[140px] @min-[490px]/invoices:h-[82px] bg-gray-100 rounded-2xl'></div>
+                        </div>
+                    ) : unpaidJobs.length === 0 ? (
+                        <div className='flex flex-col items-center justify-center text-center py-12 bg-gray-50/50 rounded-2xl px-4 border border-dashed border-gray-200'>
+                            <div className='w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4'>
+                                <HandCoins className='text-gray-400' size={40} />
+                            </div>
+                            <span className='text-gray-500 text-lg font-semibold'>No pending invoices.</span>
+                        </div>
                     ) : (
                         <div className='space-y-3'>
                             {unpaidJobs.map((job) => (
@@ -258,7 +282,7 @@ const Invoices = ({
                 )}
             </div>
 
-            <Modal isOpen={payModal} setIsOpen={setPayModal} className='max-w-md w-full p-7 rounded-[18px] primary-border-bold max-h-[95vh] overflow-y-auto'>
+            <Modal isOpen={payModal} setIsOpen={setPayModal} className='max-w-md w-full p-7 rounded-[18px] primary-border-bold overflow-y-auto'>
                 {selectedJob && (
                     <div className='font-figtree @container/send-payment'>
                         <h2 className='text-4xl font-lusitana font-bold mb-1'>Send Payment</h2>

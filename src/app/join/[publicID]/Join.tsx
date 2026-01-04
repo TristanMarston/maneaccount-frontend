@@ -112,7 +112,6 @@ const Join = ({ inviterID }: { inviterID: string }) => {
 
     const setJoinCookie = () => {
         document.cookie = `join_request_user=${inviter?.publicID}; path=/; max-age=3600; SameSite=Lax`;
-        console.log(document.cookie);
     };
 
     const handleJoin = (action: 'signin' | 'signup' | 'dashboard') => {
@@ -157,7 +156,7 @@ const Join = ({ inviterID }: { inviterID: string }) => {
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ duration: 0.4, ease: 'easeOut' }}
-                        className='bg-white rounded-2xl p-0 shadow-lg font-figtree w-[90%] max-w-[480px] max-h-[90vh] overflow-y-auto relative'
+                        className='bg-white rounded-2xl p-0 shadow-lg font-figtree w-[90%] max-w-[480px] max-h-[90dvh] overflow-y-auto relative'
                     >
                         <div className='h-32 w-full rounded-t-2xl bg-primary-extra-light border-b border-gray-100 relative overflow-hidden'>
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diamond-upholstery.png')] opacity-80"></div>

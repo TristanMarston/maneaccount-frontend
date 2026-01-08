@@ -92,7 +92,6 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
 
     const loadJobs = useCallback(async () => {
         const data = await getJobs(userEmail, role);
-        console.log(data);
         setJobs(data as any);
         setLoading(false);
     }, [userEmail, role]);
@@ -682,7 +681,6 @@ export const JobDetailView = ({
 
         const getUserId = async () => {
             const res = await getIDByEmail(userEmail);
-            console.log(res);
             if (res.success) setUserId(res.success.id);
         };
 

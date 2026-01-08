@@ -230,15 +230,15 @@ const SettingsModal = ({
             originalInfo.current.phoneNumber === phoneNumber &&
             originalInfo.current.image === imagePreview &&
             originalInfo.current.role === role &&
-            originalInfo.current.venmo === venmoLink &&
-            originalInfo.current.zelle === zelle &&
-            originalInfo.current.venmoEnabled === venmoEnabled
+            (originalInfo.current.role === 'braider'
+                ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
+                : true)
         ) {
             failToast('Update at least one field to save changes');
             return;
         }
 
-        if (venmo.length < 5 || venmo.length > 30) {
+        if (role === 'braider' ? venmo.length < 5 || venmo.length > 30 : false) {
             failToast('Venmo username must be between 5 and 30 characters');
             return;
         }
@@ -706,9 +706,9 @@ const SettingsModal = ({
                                 originalInfo.current.phoneNumber === phoneNumber &&
                                 originalInfo.current.image === imagePreview &&
                                 originalInfo.current.role === role &&
-                                originalInfo.current.venmo === venmoLink &&
-                                originalInfo.current.zelle === zelle &&
-                                originalInfo.current.venmoEnabled === venmoEnabled
+                                (originalInfo.current.role === 'braider'
+                                    ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
+                                    : true)
                             ) {
                                 setOpen(false);
                             } else setCloseModal(true);
@@ -728,9 +728,9 @@ const SettingsModal = ({
                                 originalInfo.current.phoneNumber === phoneNumber &&
                                 originalInfo.current.image === imagePreview &&
                                 originalInfo.current.role === role &&
-                                originalInfo.current.venmo === venmoLink &&
-                                originalInfo.current.zelle === zelle &&
-                                originalInfo.current.venmoEnabled === venmoEnabled)
+                                (originalInfo.current.role === 'braider'
+                                    ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
+                                    : true))
                         }
                         type='submit'
                         className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
@@ -748,9 +748,9 @@ const SettingsModal = ({
                         originalInfo.current.phoneNumber === phoneNumber &&
                         originalInfo.current.image === imagePreview &&
                         originalInfo.current.role === role &&
-                        originalInfo.current.venmo === venmoLink &&
-                        originalInfo.current.zelle === zelle &&
-                        originalInfo.current.venmoEnabled === venmoEnabled
+                        (originalInfo.current.role === 'braider'
+                            ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
+                            : true)
                     ) {
                         setOpen(false);
                     } else setCloseModal(true);

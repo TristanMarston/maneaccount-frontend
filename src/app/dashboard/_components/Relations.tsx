@@ -57,7 +57,7 @@ const Relations = ({
     const targetLabel = isClient ? 'Braider' : 'Client';
     const pluralLabel = isClient ? 'My Braiders' : 'My Clients';
 
-    const refreshDataFn = useCallback(async () => {
+    const refreshDataFn = async () => {
         setLoading(true);
         const [memberData, pendingData] = await Promise.all([getRelations(userEmail), getPendingRelations(userEmail)]);
 
@@ -66,6 +66,10 @@ const Relations = ({
         // @ts-ignore
         setPending(pendingData);
         setLoading(false);
+    };
+
+    useEffect(() => {
+        refreshDataFn();
     }, [userEmail]);
 
     useAutoRefresh(refreshDataFn);

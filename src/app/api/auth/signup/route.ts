@@ -1,30 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
-import { PrismaPg } from '@prisma/adapter-pg';
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-export const prisma =
-    globalForPrisma.prisma ||
-    new PrismaClient({
-        adapter: new PrismaPg({
-            connectionString: process.env.DATABASE_URL,
-        }),
-    });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
     const { email, password, name, role } = await req.json();
 
-    if (!email || !password || !name || !role) {
-        return NextResponse.json({ error: 'Missing email or password' }, { status: 400 });
-    }
+    if (!email) return NextResponse.json({ error: 'email_required' }, { status: 400 });
+    if (!password) return NextResponse.json({ error: 'password_required' }, { status: 400 });
+    if (!name) return NextResponse.json({ error: 'name_required' }, { status: 400 });
+    if (!role) return NextResponse.json({ error: 'role_required' }, { status: 400 });
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-        return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+        return NextResponse.json({ error: 'existing_user' }, { status: 400 });
     }
 
     const hashedPassword = await hash(password, 10);

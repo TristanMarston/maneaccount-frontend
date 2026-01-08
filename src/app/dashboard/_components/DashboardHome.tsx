@@ -26,9 +26,9 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
-import { Show } from './_calendar/Calendar'; // Importing Show type
+import { Show } from './_calendar/Calendar';
 import { cn } from '@/lib/utils';
-import { AnimatePresence, motion } from 'motion/react'; // Updated import based on sidebar
+import { AnimatePresence, motion } from 'motion/react';
 import { deleteNotification, getNotifications, markAsRead } from '@/app/actions/notifications';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import Image from 'next/image';
@@ -43,7 +43,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         if (!userEmail) return;
         setLoading(true);
 
@@ -78,17 +78,17 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
             setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
             // @ts-ignore
             setJobs(jobsData);
+            setLoading(false);
         } catch (error) {
             console.error('Failed to fetch dashboard data', error);
-        } finally {
             setLoading(false);
         }
-    }, [userEmail, role]);
-
-    // useAutoRefresh(fetchData);
+    };
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [role, userEmail]);
+    
+    useAutoRefresh(fetchData);
 
     const upcomingShows = shows
         .filter((s) => new Date(s.endDate) >= new Date(new Date().setHours(0, 0, 0, 0)))

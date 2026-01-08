@@ -84,7 +84,6 @@ const SignInPage = () => {
             }
 
             if (mode === 'signup') {
-                // Pass the role to your signup API
                 const res = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -93,8 +92,15 @@ const SignInPage = () => {
 
                 if (!res.ok) {
                     const data = await res.json();
-                    failToast('Signup failed, please try again.');
-                    throw new Error(data.error || 'Signup failed');
+                    let message = 'Signup failed, please try again.';
+                    if (data.error === 'email_required') message = 'Please input an email address.';
+                    if (data.error === 'password_required') message = 'Please input a password.';
+                    if (data.error === 'name_required') message = 'Please enter first and last name.';
+                    if (data.error === 'role_required') message = 'Please select a role to sign up.';
+                    if (data.error === 'existing_user') message = 'Account already exists! Please sign in.';
+
+                    failToast(message);
+                    return;
                 }
             }
 
@@ -106,9 +112,11 @@ const SignInPage = () => {
 
             if (result?.error) {
                 let message = 'Something went wrong. Please try again.';
-                if (result.error === 'CredentialsSignin') message = 'Invalid credentials.';
+                if (result.error === 'wrong_password') message = 'Incorrect password.';
+                if (result.error === 'no_user') message = 'No user found with that email.';
+                if (result.error === 'no_password_set') message = 'This email only has a Google account.';
                 failToast(message);
-                throw new Error(message);
+                return;
             }
 
             router.push('/dashboard');

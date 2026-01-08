@@ -4,20 +4,17 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
-
-type ShowDayInput = {
-    date: Date;
-    startTime: string;
-    endTime: string;
-    skipped?: boolean;
-};
+import { createNotification } from './notifications';
+import { NotificationType } from '@prisma/client';
 
 type CreateShowInput = {
     name: string;
     country: string;
     state?: string;
     city: string;
-    days: ShowDayInput[];
+    startDate: Date;
+    endDate: Date;
+
     invites?: string[];
 };
 
@@ -115,12 +112,6 @@ export async function createShow(data: CreateShowInput) {
 
     try {
         // 1. Determine overall start/end dates from the days array
-        if (data.days.length === 0) return { error: 'At least one day is required' };
-
-        // Sort days to find range
-        const sortedDays = [...data.days].sort((a, b) => a.date.getTime() - b.date.getTime());
-        const startDate = sortedDays[0].date;
-        const endDate = sortedDays[sortedDays.length - 1].date;
 
         // 2. Create Show in Database
         const newShow = await prisma.show.create({
@@ -130,16 +121,8 @@ export async function createShow(data: CreateShowInput) {
                 country: data.country,
                 state: data.state,
                 city: data.city,
-                startDate,
-                endDate,
-                days: {
-                    create: data.days.map((day) => ({
-                        date: day.date,
-                        startTime: day.startTime,
-                        endTime: day.endTime,
-                        skipped: day.skipped,
-                    })),
-                },
+                startDate: data.startDate,
+                endDate: data.endDate,
                 invites: {
                     create: data.invites?.map((inviteeId) => ({
                         inviter: { connect: { email: session.user.email! } },
@@ -148,8 +131,15 @@ export async function createShow(data: CreateShowInput) {
                     })),
                 },
             },
-            include: { days: true, invites: true },
+            include: { invites: { include: { invitee: true, inviter: true } } },
         });
+
+        // Notify invitees
+        if (data.invites && data.invites.length > 0) {
+            for (const inviteeId of data.invites) {
+                await createNotification(inviteeId, NotificationType.calendar_invite, `${session.user.name} invited you to ${newShow.name}`, newShow.id, session.user.id);
+            }
+        }
 
         // await syncToGoogleCalendar(session.user.id, newShow, newShow.days);
 
@@ -168,7 +158,7 @@ export async function addShowToCalendar(showId: string) {
     try {
         const show = await prisma.show.findUnique({
             where: { id: showId },
-            include: { days: true },
+            include: { invites: true },
         });
 
         if (!show) return { error: 'Show not found' };
@@ -181,10 +171,10 @@ export async function addShowToCalendar(showId: string) {
                         inviter: { connect: { id: show.userId } },
                         invitee: { connect: { email: session.user.email! } },
                         status: 'accepted',
-                    }
-                }
-            }
-        })
+                    },
+                },
+            },
+        });
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -208,7 +198,6 @@ export async function getInvites(email: string) {
                     include: {
                         show: {
                             include: {
-                                days: true,
                                 invites: { include: { invitee: true, inviter: true } },
                                 user: true,
                             },
@@ -235,7 +224,6 @@ export async function getShows(email: string) {
             include: {
                 shows: {
                     include: {
-                        days: true,
                         invites: { include: { invitee: true, inviter: true } },
                     },
                     orderBy: { startDate: 'asc' },
@@ -245,7 +233,6 @@ export async function getShows(email: string) {
                     include: {
                         show: {
                             include: {
-                                days: true,
                                 invites: { include: { invitee: true, inviter: true } },
                                 user: true,
                             },
@@ -280,8 +267,6 @@ export async function updateShow(id: string, data: CreateShowInput) {
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        if (data.days.length === 0) return { error: 'At least one day is required' };
-
         // Verify ownership
         const existingShow = await prisma.show.findUnique({
             where: { id },
@@ -291,11 +276,7 @@ export async function updateShow(id: string, data: CreateShowInput) {
         if (!existingShow || existingShow.user.email !== session.user.email) {
             return { error: 'Unauthorized or show not found' };
         }
-
-        const sortedDays = [...data.days].sort((a, b) => a.date.getTime() - b.date.getTime());
-        const startDate = sortedDays[0].date;
-        const endDate = sortedDays[sortedDays.length - 1].date;
-
+        
         const currentInviteeIds = existingShow.invites.map((i) => i.inviteeId);
         const newInviteeIds = data.invites || [];
 
@@ -303,10 +284,6 @@ export async function updateShow(id: string, data: CreateShowInput) {
         const toRemove = currentInviteeIds.filter((id) => !newInviteeIds.includes(id));
 
         const updatedShow = await prisma.$transaction(async (tx) => {
-            await tx.showDay.deleteMany({
-                where: { showId: id },
-            });
-
             // Remove missing invites
             if (toRemove.length > 0) {
                 await tx.showInvite.deleteMany({
@@ -336,20 +313,17 @@ export async function updateShow(id: string, data: CreateShowInput) {
                     country: data.country,
                     state: data.state,
                     city: data.city,
-                    startDate,
-                    endDate,
-                    days: {
-                        create: data.days.map((day) => ({
-                            date: day.date,
-                            startTime: day.startTime,
-                            endTime: day.endTime,
-                            skipped: day.skipped,
-                        })),
-                    },
+                    startDate: data.startDate,
+                    endDate: data.endDate,
                 },
-                include: { days: true, invites: true },
+                include: { invites: true },
             });
         });
+
+        // Notify new invitees
+        for (const inviteeId of toAdd) {
+            await createNotification(inviteeId, NotificationType.calendar_invite, `${existingShow.user.name} invited you to ${data.name}`, id, existingShow.userId);
+        }
 
         revalidatePath('/dashboard');
         return { success: true, show: updatedShow };

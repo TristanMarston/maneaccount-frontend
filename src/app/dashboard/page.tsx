@@ -3,6 +3,7 @@
 import { SessionProvider } from 'next-auth/react';
 import Dashboard from './Dashboard';
 import { Toaster } from 'react-hot-toast';
+import { NotificationProvider } from '../NotificationContext';
 
 const page = () => {
     return (
@@ -18,7 +19,9 @@ const page = () => {
                 }}
             />
             <SessionProvider>
-                <Dashboard />
+                <NotificationProvider>
+                    <Dashboard />
+                </NotificationProvider>
             </SessionProvider>
         </div>
     );

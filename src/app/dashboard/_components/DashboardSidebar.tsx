@@ -21,6 +21,7 @@ import {
     Users,
     X,
     Briefcase,
+    Wallet,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
 import { AnimatePresence, motion, Variants } from 'motion/react';
@@ -32,6 +33,8 @@ import { Session } from 'next-auth';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import Modal from '../Modal';
 import SettingsModal from '../SettingsModal';
+import { useNotifications } from '@/app/NotificationContext';
+import { NotificationType } from '@prisma/client';
 
 type Page = {
     title: string;
@@ -80,10 +83,35 @@ const DashboardSidebar = ({
     settingsModalOpen: boolean;
     setSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
+    const { unreadCounts, refreshCounts } = useNotifications();
     const [open, setOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<Tab>('profile');
+
+    useEffect(() => {
+        refreshCounts();
+    }, [selectedPage, refreshCounts]);
+
+    const getPageNotifs = (page: Page) => {
+        if (page.title === 'Calendar') return unreadCounts.byType[NotificationType.calendar_invite] || 0;
+        if (page.title === 'Tasks' || page.title === 'Services') {
+            return (
+                (unreadCounts.byType[NotificationType.job_request] || 0) +
+                (unreadCounts.byType[NotificationType.job_status_change] || 0) +
+                (unreadCounts.byType[NotificationType.job_completed] || 0) +
+                (unreadCounts.byType[NotificationType.job_paid] || 0) +
+                (unreadCounts.byType[NotificationType.new_message] || 0)
+            );
+        }
+        if (page.title === 'Team') {
+            return (unreadCounts.byType[NotificationType.team_invite] || 0) + (unreadCounts.byType[NotificationType.team_status_change] || 0);
+        }
+        if (page.title === 'Clients' || page.title === 'Braiders') {
+            return (unreadCounts.byType[NotificationType.client_invite] || 0) + (unreadCounts.byType[NotificationType.client_status_change] || 0);
+        }
+        return 0;
+    };
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -141,20 +169,33 @@ const DashboardSidebar = ({
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: '100%', opacity: 0 }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                className='fixed bottom-6 left-4 right-4 bg-white rounded-3xl z-80 shadow-2xl border border-gray-100 overflow-hidden max-h-[75vh] flex flex-col'
+                                className='fixed font-figtree bottom-6 left-4 right-4 bg-white rounded-3xl z-80 shadow-2xl border border-gray-100 overflow-hidden max-h-[75vh] flex flex-col'
                             >
                                 <div className='p-5 border-b border-gray-100 bg-gray-50/50'>
                                     <div className='flex items-center gap-3'>
                                         {image && image.length > 0 ? (
-                                            <Image className='w-10 h-10 rounded-full border border-white shadow-sm' src={image} alt='profile' width={50} height={50} />
+                                            <Image className='w-12 h-12 rounded-full border border-white shadow-sm' src={image} alt='profile' width={50} height={50} />
                                         ) : (
-                                            <div className='h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm'>
+                                            <div className='h-12 w-12 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm'>
                                                 {name ? name.charAt(0).toUpperCase() : ''}
                                             </div>
                                         )}
                                         <div className='flex flex-col overflow-hidden'>
-                                            <span className='font-lusitana font-bold text-lg text-gray-900 truncate'>{name}</span>
-                                            <span className='text-xs text-gray-500 font-figtree truncate'>{session?.user.email}</span>
+                                            <span className='font-lusitana font-bold leading-[1.25] text-lg text-gray-900 truncate'>{name}</span>
+                                            <div className='flex items-center gap-1'>
+                                                <Mail className='w-3 h-3 text-gray-500' />
+                                                <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
+                                            </div>
+                                            <div className='flex items-center gap-1 mt-0.5'>
+                                                {dashboard === 'client' ? (
+                                                    <Briefcase className='w-3 h-3 text-gray-500' />
+                                                ) : dashboard === 'subcontractor' ? (
+                                                    <Users className='w-3 h-3 text-gray-500' />
+                                                ) : (
+                                                    <Scissors className='w-3 h-3 text-gray-500' />
+                                                )}
+                                                <p className='text-xs text-gray-500 truncate'>{dashboard}</p>
+                                            </div>
                                         </div>
                                         <div className='ml-auto'>
                                             <span className='inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary'>
@@ -173,6 +214,7 @@ const DashboardSidebar = ({
                                                     key={page.title}
                                                     icon={page.icon}
                                                     title={page.title}
+                                                    notifs={getPageNotifs(page)}
                                                     onClick={() => {
                                                         setSelectedPage(page.title);
                                                         setMobileMenuOpen(false);
@@ -186,6 +228,14 @@ const DashboardSidebar = ({
                                     <div className='space-y-1'>
                                         <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2'>Account</p>
                                         <MobileDrawerItem
+                                            icon={Settings}
+                                            title='Settings'
+                                            onClick={() => {
+                                                setMobileMenuOpen(false);
+                                                setSettingsModalOpen(true);
+                                            }}
+                                        />
+                                        <MobileDrawerItem
                                             icon={User}
                                             title='Account'
                                             onClick={() => {
@@ -194,16 +244,17 @@ const DashboardSidebar = ({
                                                 setActiveTab('account');
                                             }}
                                         />
-                                        {/* <MobileDrawerItem icon={CreditCard} title='Billing' onClick={() => {}} /> */}
-                                        <MobileDrawerItem
-                                            icon={Settings}
-                                            title='Settings'
-                                            onClick={() => {
-                                                setMobileMenuOpen(false);
-                                                setSettingsModalOpen(true);
-                                            }}
-                                        />
-                                        <MobileDrawerItem icon={HelpCircle} title='Help Center' onClick={() => {}} />
+                                        {dashboard === 'braider' && (
+                                            <MobileDrawerItem
+                                                icon={CreditCard}
+                                                title='Payments'
+                                                onClick={() => {
+                                                    setMobileMenuOpen(false);
+                                                    setSettingsModalOpen(true);
+                                                    setActiveTab('payments');
+                                                }}
+                                            />
+                                        )}
                                     </div>
 
                                     <button
@@ -219,7 +270,7 @@ const DashboardSidebar = ({
                     )}
                 </AnimatePresence>
 
-                <div className='fixed bottom-6 h-16 z-70 w-full flex justify-center px-6 cm:px-8 min-[550px]:px-10 @container/nav'>
+                <div className='fixed bottom-6 font-figtree h-16 z-70 w-full flex justify-center px-6 cm:px-8 min-[550px]:px-10 @container/nav'>
                     <div className='bg-white/95 w-full backdrop-blur-md rounded-[18px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200/50 flex items-center justify-between dashboard-sm:hidden'>
                         {mobilePrimaryPages.map((page, index) => (
                             <MobileNavItem
@@ -228,13 +279,21 @@ const DashboardSidebar = ({
                                 title={page.title}
                                 index={index}
                                 selected={selectedPage === page.title}
+                                notifs={getPageNotifs(page)}
                                 onClick={() => {
                                     setSelectedPage(page.title);
                                     setMobileMenuOpen(false);
                                 }}
                             />
                         ))}
-                        <MobileNavItem icon={MoreHorizontal} index={3} title='More' selected={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
+                        <MobileNavItem
+                            icon={MoreHorizontal}
+                            index={3}
+                            title='More'
+                            selected={mobileMenuOpen}
+                            notifs={mobileSecondaryPages.some((p) => getPageNotifs(p) > 0) ? 1 : 0} // Show a dot if any secondary page has notifs
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        />
                     </div>
                 </div>
                 <Modal
@@ -258,7 +317,7 @@ const DashboardSidebar = ({
                 animate={{ width: open ? 240 : 80 }}
                 transition={{ duration: 0.3 }}
                 className={cn(
-                    'sticky top-0 h-full rounded-l-[18px] shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden'
+                    'sticky top-0 h-full font-figtree rounded-l-[18px] shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden'
                 )}
             >
                 <div className='flex flex-col h-full'>
@@ -269,19 +328,26 @@ const DashboardSidebar = ({
                         transition={{ duration: 0.3 }}
                     >
                         <div className={cn('flex items-center transition-all duration-300 justify-start', open ? 'w-full ml-2' : 'w-10 ml-4.5')}>
-                            {open ? (
-                                <span className='whitespace-nowrap'>
-                                    <Image key='maneaccount-sidebar-logo' src='/maneaccount-logo.png' alt='Logo' className='w-full h-14' width={200} height={50} />
-                                </span>
-                            ) : (
-                                <Image key='m-image' src='/maneaccount-new-M.png' alt='M' className='w-10 h-7 relative left-0.5' width={50} height={50} />
-                            )}
+                            <AnimatePresence>
+                                {open ? (
+                                    <motion.span
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0, transition: { duration: 0.25, delay: 0.15 } }}
+                                        exit={{ opacity: 0, x: 10, transition: { duration: 0.2 } }}
+                                        className='whitespace-nowrap'
+                                    >
+                                        <Image key='maneaccount-sidebar-logo' src='/maneaccount-logo.png' alt='Logo' className='w-full h-14' width={200} height={50} />
+                                    </motion.span>
+                                ) : (
+                                    <Image key='m-image' src='/maneaccount-new-M.png' alt='M' className='w-10 h-7 relative left-0.5' width={50} height={50} />
+                                )}
+                            </AnimatePresence>
                         </div>
                     </motion.div>
 
                     <div className='w-[90%] mx-auto h-px -mt-2 bg-primary' />
 
-                    <div className='flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar'>
+                    <div className='flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 space-y-1 custom-scrollbar'>
                         {filteredPages.map((page, index) => (
                             <SidebarItem
                                 key={page.title + index}
@@ -290,6 +356,7 @@ const DashboardSidebar = ({
                                 onClick={() => setSelectedPage(page.title)}
                                 selected={selectedPage === page.title}
                                 open={open}
+                                notifs={getPageNotifs(page)}
                                 stagger={index * 0.025}
                             />
                         ))}
@@ -364,9 +431,27 @@ const DashboardSidebar = ({
                                                     <Mail className='w-3 h-3 text-gray-500' />
                                                     <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
                                                 </div>
+                                                <div className='flex items-center gap-1 mt-0.5'>
+                                                    {dashboard === 'client' ? (
+                                                        <Briefcase className='w-3 h-3 text-gray-500' />
+                                                    ) : dashboard === 'subcontractor' ? (
+                                                        <Users className='w-3 h-3 text-gray-500' />
+                                                    ) : (
+                                                        <Scissors className='w-3 h-3 text-gray-500' />
+                                                    )}
+                                                    <p className='text-xs text-gray-500 truncate'>{dashboard}</p>
+                                                </div>
                                             </div>
 
                                             <div className='space-y-0.5'>
+                                                <MenuItem
+                                                    icon={Settings}
+                                                    onClick={() => {
+                                                        setUserDropdownOpen(false);
+                                                        setSettingsModalOpen(true);
+                                                    }}
+                                                    label='Settings'
+                                                />
                                                 <MenuItem
                                                     icon={User}
                                                     onClick={() => {
@@ -376,16 +461,18 @@ const DashboardSidebar = ({
                                                     }}
                                                     label='Account'
                                                 />
-                                                {/* <MenuItem icon={CreditCard} onClick={() => {}} label='Billing' /> */}
-                                                <MenuItem
-                                                    icon={Settings}
-                                                    onClick={() => {
-                                                        setUserDropdownOpen(false);
-                                                        setSettingsModalOpen(true);
-                                                    }}
-                                                    label='Settings'
-                                                />
-                                                <MenuItem icon={HelpCircle} onClick={() => {}} label='Help Center' />
+
+                                                {dashboard === 'braider' && (
+                                                    <MenuItem
+                                                        icon={CreditCard}
+                                                        onClick={() => {
+                                                            setUserDropdownOpen(false);
+                                                            setSettingsModalOpen(true);
+                                                            setActiveTab('payments');
+                                                        }}
+                                                        label='Payments'
+                                                    />
+                                                )}
                                             </div>
 
                                             <div className='mt-1 border-t border-gray-50 pt-1'>
@@ -413,11 +500,25 @@ const DashboardSidebar = ({
 
 // --- Helper Components for Mobile ---
 
-const MobileNavItem = ({ icon: Icon, title, index, selected, onClick }: { icon: React.ElementType; index: number; title: string; selected: boolean; onClick: () => void }) => (
+const MobileNavItem = ({
+    icon: Icon,
+    title,
+    index,
+    selected,
+    notifs,
+    onClick,
+}: {
+    icon: React.ElementType;
+    index: number;
+    title: string;
+    selected: boolean;
+    notifs?: number;
+    onClick: () => void;
+}) => (
     <button
         onClick={onClick}
         className={cn(
-            'flex-1 cursor-pointer flex flex-col items-center justify-center gap-1.5 h-full transition-all duration-200 active:scale-95 font-figtree py-0.5',
+            'flex-1 cursor-pointer flex flex-col items-center justify-center gap-1.5 h-full transition-all duration-200 active:scale-95 font-figtree py-0.5 relative',
             selected ? 'text-primary bg-primary-extra-light' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
             index === 0 ? 'rounded-l-[18px]' : index === 3 ? 'rounded-r-[18px]' : 'rounded-none'
         )}
@@ -426,23 +527,36 @@ const MobileNavItem = ({ icon: Icon, title, index, selected, onClick }: { icon: 
             <Icon className='w-full h-full' strokeWidth={selected ? 2.5 : 2} />
         </div>
         <span className='text-[13px] font-bold tracking-wide hidden @min-[450px]/nav:block'>{title}</span>
+        {notifs && notifs > 0 ? (
+            <div
+                className={cn(
+                    'absolute top-2 left-[50%] ml-3 transform-[translateX(-50%)] text-[9.9px] min-w-5 h-5 @min-[450px]/nav:m-0 @min-[450px]/nav:left-auto @min-[450px]/nav:transform-none @min-[450px]/nav:top-0.5 @min-[450px]/nav:right-[35%] flex @min-[450px]/nav:h-4.5 @min-[450px]/nav:min-w-4.5 items-center justify-center rounded-full bg-primary px-1 @min-[450px]/nav:text-[9.5px] font-bold text-white border-2',
+                    selected ? 'border-primary-extra-light' : 'border-white'
+                )}
+            >
+                {notifs}
+            </div>
+        ) : (
+            <></>
+        )}
     </button>
 );
 
-const MobileDrawerItem = ({ icon: Icon, title, selected, onClick }: { icon: React.ElementType; title: string; selected?: boolean; onClick: () => void }) => (
+const MobileDrawerItem = ({ icon: Icon, title, selected, notifs, onClick }: { icon: React.ElementType; title: string; selected?: boolean; notifs?: number; onClick: () => void }) => (
     <button
         onClick={onClick}
         className={cn(
-            'w-full flex items-center cursor-pointer gap-4 px-4 py-3 rounded-xl transition-all duration-200',
+            'w-full flex items-center justify-between cursor-pointer gap-4 px-4 py-3 rounded-xl transition-all duration-200',
             selected ? 'text-primary bg-primary-extra-light font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary'
         )}
     >
-        <Icon strokeWidth={2} className='w-5 h-5' />
-        <span className='font-figtree'>{title}</span>
+        <div className='flex items-center gap-4'>
+            <Icon strokeWidth={2} className='w-5 h-5' />
+            <span className='font-figtree'>{title}</span>
+        </div>
+        {notifs && notifs > 0 ? <div className='flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white'>{notifs}</div> : <></>}
     </button>
 );
-
-// --- Existing Helper Components ---
 
 const MenuItem = ({ icon: Icon, label, onClick, isDestructive = false }: { icon: React.ElementType; label: string; onClick: () => void; isDestructive?: boolean }) => (
     <button
@@ -479,35 +593,39 @@ const SidebarItem = ({
             layout
             onClick={onClick}
             className={cn(
-                'relative flex h-11 items-center rounded-xl transition-all duration-200 group cursor-pointer',
+                'relative flex h-11 items-center justify-between rounded-xl transition-all duration-200 group cursor-pointer',
                 selected ? 'bg-primary-extra-light text-primary' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
                 open ? 'w-full' : 'ml-[5px] w-11'
             )}
         >
-            <motion.div layout className='flex items-center justify-center min-w-11 h-11'>
-                <Icon />
-            </motion.div>
+            <div className='flex items-center'>
+                <motion.div layout className='flex items-center justify-center min-w-11 h-11'>
+                    <Icon />
+                </motion.div>
 
-            {open && (
-                <motion.span
-                    layout
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + (stagger ? stagger : 0) }}
-                    className='font-figtree whitespace-nowrap text-nowrap text-sm font-medium'
-                >
-                    {title}
-                </motion.span>
-            )}
+                {open && (
+                    <motion.span
+                        layout
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 + (stagger ? stagger : 0) }}
+                        className='font-figtree whitespace-nowrap text-nowrap text-sm font-medium'
+                    >
+                        {title}
+                    </motion.span>
+                )}
+            </div>
 
-            {notifs && open && (
+            {notifs && notifs > 0 && open ? (
                 <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className='ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white'
+                    className='flex h-5 min-w-5 mr-2 items-center font-figtree justify-center rounded-full bg-primary p-1.5 text-[10px] font-bold text-white'
                 >
                     {notifs}
                 </motion.span>
+            ) : (
+                <></>
             )}
         </motion.button>
     );

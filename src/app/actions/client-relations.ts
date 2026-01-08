@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { subDays } from 'date-fns';
 import { prisma } from '@/lib/prisma';
+import { createNotification } from './notifications';
+import { NotificationType } from '@prisma/client';
 
 export async function getRelations(email: string) {
     if (!email) return [];
@@ -59,9 +61,6 @@ export async function getPendingRelations(email: string) {
         if (!user) return { incoming: [], outgoing: [] };
 
         const targetRole = user.role === 'client' ? 'braider' : 'client';
-
-        // Filter pending requests to only show those matching the desired relationship type
-        // e.g. If I'm a Braider, don't show pending Subcontractor requests here (those go to TeamView)
 
         const incoming = user.receivedConnections
             .filter((c) => c.sender.role === targetRole)
@@ -130,6 +129,8 @@ export async function inviteRelation(publicID: string) {
             },
         });
 
+        await createNotification(receiver.id, NotificationType.client_invite, `${sender.name} sent you a connection request`, null, sender.id);
+
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
     } catch (error) {
@@ -138,14 +139,28 @@ export async function inviteRelation(publicID: string) {
     }
 }
 
-export async function removeRelation(connectionId: string) {
+export async function removeRelation(connectionId: string, rejected: boolean) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
+        if (rejected) {
+            const connection = await prisma.connection.findUnique({ where: { id: connectionId }, include: { sender: true, receiver: true } });
+            if (connection) {
+                createNotification(
+                    connection.sender.id,
+                    NotificationType.client_status_change,
+                    `${connection.receiver.name} rejected your connection request`,
+                    null,
+                    connection.receiver.id
+                );
+            }
+        }
+
         await prisma.connection.delete({
             where: { id: connectionId },
         });
+
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
@@ -158,10 +173,19 @@ export async function acceptRelationRequest(connectionId: string) {
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        await prisma.connection.update({
+        const connection = await prisma.connection.update({
             where: { id: connectionId },
             data: { status: 'accepted' },
+            include: { receiver: true, sender: true },
         });
+
+        await createNotification(
+            connection.senderId,
+            NotificationType.client_status_change,
+            `${connection.receiver.name} accepted your connection request`,
+            null,
+            connection.receiverId
+        );
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {

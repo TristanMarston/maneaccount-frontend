@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
     Calendar,
@@ -18,13 +18,22 @@ import {
     AlertCircle,
     CheckCircle2,
     ArrowUpRight,
+    Bell,
+    BellOff,
+    MailCheck,
+    SquareArrowOutUpRight,
+    Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
 import { Show } from './_calendar/Calendar'; // Importing Show type
 import { cn } from '@/lib/utils';
-import { motion } from 'motion/react'; // Updated import based on sidebar
-import { getParts } from './_calendar/AddShowForm';
+import { AnimatePresence, motion } from 'motion/react'; // Updated import based on sidebar
+import { deleteNotification, getNotifications, markAsRead } from '@/app/actions/notifications';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import Image from 'next/image';
+import { failToast, successToast } from '@/app/context';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: string; name: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const hours = new Date().getHours();
@@ -34,55 +43,49 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!userEmail) return;
-            setLoading(true);
+    const fetchData = useCallback(async () => {
+        if (!userEmail) return;
+        setLoading(true);
 
-            try {
-                const result = await getDashboardData(role);
+        try {
+            const result = await getDashboardData(role);
 
-                if (result.error) {
-                    console.error(result.error);
-                    return;
-                }
-
-                const { shows: showsData, jobs: jobsData } = result;
-
-                const mappedJobs: Show[] = (jobsData as any[])
-                    .map((job) => {
-                        if (!job.scheduledStartTime) return null;
-                        const start = new Date(job.scheduledStartTime);
-                        const end = job.scheduledEndTime ? new Date(job.scheduledEndTime) : new Date(start.getTime() + 60 * 60 * 1000);
-                        return {
-                            id: job.id,
-                            name: job.show?.name || 'Job',
-                            city: job.show?.city || '',
-                            state: job.show?.state || '',
-                            country: 'USA',
-                            startDate: start,
-                            endDate: end,
-                            days: [{ date: start, startTime: format(start, 'HH:mm'), endTime: format(end, 'HH:mm'), skipped: false }],
-                            type: 'job' as 'show' | 'job',
-                            jobData: job,
-                            isOwner: true,
-                        };
-                    })
-                    .filter((item) => item !== null);
-
-                // @ts-ignore
-                setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
-                // @ts-ignore
-                setJobs(jobsData);
-            } catch (error) {
-                console.error('Failed to fetch dashboard data', error);
-            } finally {
-                setLoading(false);
+            if (result.error) {
+                console.error(result.error);
+                return;
             }
-        };
 
-        fetchData();
+            const { shows: showsData, jobs: jobsData } = result;
+
+            const mappedJobs: Show[] = (jobsData as any[])
+                .map((job) => {
+                    return {
+                        id: job.id,
+                        name: job.show?.name || 'Job',
+                        city: job.show?.city || '',
+                        state: job.show?.state || '',
+                        country: 'USA',
+                        startDate: job.scheduledDate,
+                        endDate: job.scheduledDate,
+                        type: 'job' as 'show' | 'job',
+                        jobData: job,
+                        isOwner: true,
+                    };
+                })
+                .filter((item) => item !== null);
+
+            // @ts-ignore
+            setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
+            // @ts-ignore
+            setJobs(jobsData);
+        } catch (error) {
+            console.error('Failed to fetch dashboard data', error);
+        } finally {
+            setLoading(false);
+        }
     }, [userEmail, role]);
+
+    useAutoRefresh(fetchData);
 
     const upcomingShows = shows
         .filter((s) => new Date(s.endDate) >= new Date(new Date().setHours(0, 0, 0, 0)))
@@ -91,13 +94,14 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
 
     return (
         <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 h-full @container/home'>
-            <header className='flex flex-col md:flex-row md:items-center justify-between gap-4'>
+            <header className='flex flex-row justify-between gap-x-4 flex-wrap'>
                 <div>
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>
                         {greeting}, {name.split(' ')[0]}.
                     </h1>
-                    <p className='text-gray-500 font-figtree mt-1'>Here&apos;s what&apos;s happening in your stable today.</p>
+                    <p className='text-gray-500 font-figtree mt-1 ml-1'>Here&apos;s what&apos;s happening in your stable today.</p>
                 </div>
+                <Notifications setSelectedPage={setSelectedPage} role={role} />
             </header>
 
             {loading ? (
@@ -115,7 +119,261 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     );
 };
 
-const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: (page: string) => void }) => {
+const Notifications = ({ setSelectedPage, role }: { setSelectedPage: React.Dispatch<React.SetStateAction<string>>; role: string }) => {
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [isWrapped, setIsWrapped] = useState(false);
+    const bellRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(bellRef, [], () => setNotificationsOpen(false));
+    const notificationsRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const parent = notificationsRef.current?.parentElement;
+        if (!parent) return;
+
+        const checkWrap = () => {
+            const children = Array.from(parent.children);
+            if (children.length >= 2) {
+                const firstChild = children[0] as HTMLElement;
+                const lastChild = children[children.length - 1] as HTMLElement;
+                setIsWrapped(firstChild.offsetTop !== lastChild.offsetTop);
+            }
+        };
+
+        const observer = new ResizeObserver(checkWrap);
+        observer.observe(parent);
+        checkWrap();
+
+        return () => observer.disconnect();
+    }, []);
+
+    const fetchNotificationsList = useCallback(async () => {
+        const result = await getNotifications();
+        setNotifications([...result]);
+    }, []);
+
+    useAutoRefresh(fetchNotificationsList);
+
+    const handleDeleteNotification = async (notificationId: string) => {
+        const result = await deleteNotification(notificationId);
+
+        if (result.success) {
+            setNotifications((prev) => prev.filter((notif) => notif.id !== notificationId));
+            // successToast('Deleted notification');
+        } else {
+            failToast('Failed to delete notification');
+        }
+    };
+
+    const handleMarkAsRead = async (notificationId: string) => {
+        const result = await markAsRead(notificationId);
+
+        if (result.success) {
+            setNotifications((prev) => prev.map((notif) => (notif.id === notificationId ? { ...notif, isRead: true } : notif)));
+            // successToast('Marked as read');
+        } else {
+            failToast('Failed to mark as read');
+        }
+    };
+
+    return (
+        <div ref={notificationsRef} className='h-full'>
+            <div ref={bellRef} className='h-full my-auto flex items-center justify-center relative'>
+                <Bell
+                    className='w-13 min-h-13 text-primary p-2 h-full rounded-full hover:bg-primary-extra-light transition-all cursor-pointer'
+                    onClick={() => setNotificationsOpen((prev) => !prev)}
+                />
+                {notifications.filter((notif) => !notif.isRead).length > 0 && (
+                    <div className='absolute right-2.5 top-2 bg-red-400 shadow-sm p-1 text-background font-figtree rounded-full w-3 h-3' />
+                )}
+
+                <AnimatePresence>
+                    {notificationsOpen && (
+                        <motion.div
+                            variants={{
+                                closed: {
+                                    opacity: 0,
+                                    y: 0,
+                                    transition: { duration: 0.3, ease: 'easeInOut' },
+                                },
+                                open: {
+                                    opacity: 1,
+                                    y: -10,
+                                    transition: { duration: 0.3, ease: 'easeInOut' },
+                                },
+                            }}
+                            initial='closed'
+                            animate={notificationsOpen ? 'open' : 'closed'}
+                            exit='closed'
+                            className={cn(
+                                'absolute top-[calc(100%+16px)] w-[80dvw] dashboard-sm:w-[325px] dashboard-sm:@min-[350px]/home:w-xs dashboard-sm:@min-[400px]/home:w-cm dashboard-sm:@min-[450px]/home:w-[450px] dashboard-sm:@min-[500px]/home:w-lg primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40',
+                                isWrapped ? 'left-0 right-auto' : 'right-0 left-auto'
+                            )}
+                        >
+                            <div className='p-5 @container/notification-window'>
+                                <h1 className='font-lusitana font-bold text-gray-900 text-3xl'>Notifications</h1>
+                                <div className='flex flex-col gap-4 overflow-y-auto max-h-[340px] pt-[11px] pr-1 pb-1'>
+                                    {notifications.length === 0 ? (
+                                        <div className='bg-gray-50/50 rounded-2xl p-4 border border-dashed border-gray-200 grid place-items-center'>
+                                            <BellOff className='p-3 rounded-full text-gray-400 w-16 h-16' />
+                                            <p className='text-gray-500'>You have no notifications.</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {notifications
+                                                .filter((notif) => !notif.isRead)
+                                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                                .map((notif) => (
+                                                    <Notification
+                                                        key={notif.id}
+                                                        notification={notif}
+                                                        setSelectedPage={setSelectedPage}
+                                                        role={role}
+                                                        isRead={notif.isRead}
+                                                        handleDeleteNotification={handleDeleteNotification}
+                                                        handleMarkAsRead={handleMarkAsRead}
+                                                        setNotificationsOpen={setNotificationsOpen}
+                                                    />
+                                                ))}
+                                            {notifications.filter((notif) => notif.isRead).length > 0 && (
+                                                <span className='font-figtree text-gray-600 uppercase font-bold tracking-wide mt-2'>Past Notifications</span>
+                                            )}
+                                            {notifications
+                                                .filter((notif) => notif.isRead)
+                                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                                .map((notif) => (
+                                                    <Notification
+                                                        key={notif.id}
+                                                        notification={notif}
+                                                        setSelectedPage={setSelectedPage}
+                                                        role={role}
+                                                        isRead={notif.isRead}
+                                                        handleDeleteNotification={handleDeleteNotification}
+                                                        handleMarkAsRead={handleMarkAsRead}
+                                                        setNotificationsOpen={setNotificationsOpen}
+                                                    />
+                                                ))}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </div>
+    );
+};
+
+const Notification = ({
+    notification,
+    setSelectedPage,
+    role,
+    isRead,
+    handleDeleteNotification,
+    handleMarkAsRead,
+    setNotificationsOpen,
+}: {
+    notification: any;
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    role: string;
+    isRead: boolean;
+    handleDeleteNotification: (notificationId: string) => void;
+    handleMarkAsRead: (notificationId: string) => void;
+    setNotificationsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+    return (
+        <div
+            key={notification.id}
+            className={cn('rounded-xl relative border border-gray-200 shadow-sm p-2.5 transition-colors cursor-pointer', isRead ? 'bg-gray-50' : 'hover:bg-gray-50')}
+        >
+            <div
+                onClick={() => {
+                    if (role === 'braider' || role === 'subcontractor') {
+                        setSelectedPage(
+                            notification.type === 'calendar_invite'
+                                ? 'Calendar'
+                                : notification.type.startsWith('job')
+                                  ? 'Tasks'
+                                  : notification.type.startsWith('client')
+                                    ? 'Clients'
+                                    : notification.type.startsWith('team')
+                                      ? 'Team'
+                                      : notification.type === 'new_message'
+                                        ? 'Messages'
+                                        : ''
+                        );
+                    } else if (role === 'client') {
+                        setSelectedPage(
+                            notification.type === 'calendar_invite'
+                                ? 'Calendar'
+                                : notification.type === 'job_completed'
+                                  ? 'Invoices'
+                                  : notification.type.startsWith('job')
+                                    ? 'Services'
+                                    : notification.type.startsWith('client')
+                                      ? 'Braiders'
+                                      : notification.type.startsWith('team')
+                                        ? 'Team'
+                                        : notification.type === 'new_message'
+                                          ? 'Messages'
+                                          : ''
+                        );
+                    }
+                    setNotificationsOpen(false);
+                }}
+                className={cn('flex items-center justify-between group cursor-pointer gap-3 min-w-0', isRead ? 'opacity-50' : '')}
+            >
+                <div className='flex items-center gap-3 min-w-0'>
+                    {notification.sender && (
+                        <div className='min-w-10 h-10 relative'>
+                            {notification.sender.image ? (
+                                <Image src={notification.sender.image} alt={notification.sender.name} fill className='rounded-full object-cover' />
+                            ) : (
+                                <div className='w-full h-full rounded-full bg-primary-extra-light flex items-center justify-center text-primary font-bold text-sm'>
+                                    {notification.sender.name.substring(0, 1).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <p className='text-gray-900 font-semibold text-sm leading-[1.15] text-wrap'>{notification.message}</p>
+                </div>
+                <div className='flex flex-col gap-1 @min-[335px]/notification-window:flex-row @min-[335px]/notification-window:gap-3 pr-2'>
+                    {isRead ? (
+                        <Trash2
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteNotification(notification.id);
+                            }}
+                            className='cursor-pointer w-4.5 h-4.5 @min-[335px]/notification-window:w-5 @min-[335px]/notification-window:h-5 text-gray-400 hover:text-red-500 transition-all hover:scale-105'
+                        />
+                    ) : (
+                        <MailCheck
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsRead(notification.id);
+                            }}
+                            className='cursor-pointer w-4.5 h-4.5 @min-[335px]/notification-window:w-5 @min-[335px]/notification-window:h-5 text-gray-400 hover:text-primary-dark transition-all hover:scale-105'
+                        />
+                    )}
+                    <SquareArrowOutUpRight className='cursor-pointer w-4.5 h-4.5 @min-[335px]/notification-window:w-5 @min-[335px]/notification-window:h-5 text-gray-400 hover:text-primary-dark transition-all hover:scale-105' />
+                </div>
+            </div>
+            {notification.createdAt && (
+                <div
+                    className={cn(
+                        '-top-3 absolute text-xs right-2 bg-primary-extra-light text-primary-dark border border-primary/25 shadow-sm rounded-full px-2 py-0.5',
+                        notification.isRead ? 'text-gray-400 bg-gray-50 border-gray-200' : ''
+                    )}
+                >
+                    {format(notification.createdAt, 'Pp')}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
     const pendingAmount = unpaidJobs.reduce(
         (acc, j) => acc + j.assignments.reduce((sAcc: number, s: any) => sAcc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0),
@@ -184,7 +442,7 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
     );
 };
 
-const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: (page: string) => void }) => {
+const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const upcomingEvents = upcomingShows.filter(
         (s) =>
             s.type !== 'job' ||
@@ -244,7 +502,7 @@ const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingS
     );
 };
 
-const ClientView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: (page: string) => void }) => {
+const ClientView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
     const pendingAmount = unpaidJobs.reduce(
         (acc, j) => acc + j.assignments.reduce((sAcc: number, s: any) => sAcc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0),
@@ -400,12 +658,6 @@ const ShowCard = ({ show }: { show: Show }) => {
                 </div>
 
                 <div className='flex items-center flex-wrap gap-0 text-sm text-gray-500 font-medium mt-0.5'>
-                    <span className='flex items-center gap-1 pr-4'>
-                        <Clock size={14} />{' '}
-                        <span className='text-nowrap'>
-                            {format(new Date(show.startDate).setHours(getParts(show.days[0].startTime).hour, getParts(show.days[0].startTime).minute), 'h:mm a')}
-                        </span>
-                    </span>
                     <span className='flex items-center gap-1 min-w-0'>
                         <MapPin size={14} /> <span className='truncate text-nowrap'>{show.city}</span>
                     </span>
@@ -426,7 +678,7 @@ const InvoicePreviewCard = ({ job, role }: { job: any; role: string }) => {
                 </div>
                 <div className='min-w-0'>
                     <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'client' ? job.braider.name : job.client.name}</p>
-                    <p className='text-xs text-gray-500 font-medium'>{format(new Date(job.scheduledStartTime), 'MMM d, yyyy')}</p>
+                    <p className='text-xs text-gray-500 font-medium'>{format(new Date(job.scheduledDate), 'MMM d, yyyy')}</p>
                 </div>
             </div>
             <span className='font-lusitana font-bold text-lg text-amber-700 hidden @min-[360px]/home:block'>

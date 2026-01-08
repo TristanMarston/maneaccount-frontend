@@ -262,7 +262,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                     </div>
                 </div>
             </Modal>
-            <Modal isOpen={horseModalOpen} setIsOpen={setHorseModalOpen} className='max-w-4xl p-7 rounded-[18px] primary-border-bold relative overflow-visible'>
+            <Modal isOpen={horseModalOpen} setIsOpen={setHorseModalOpen} className='max-w-4xl p-7 rounded-[18px] primary-border-bold relative overflow-visible!'>
                 <HorseModal
                     type='add'
                     handleSubmit={handleSubmit}
@@ -280,7 +280,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                         return { ...prev, open };
                     })
                 }
-                className='max-w-4xl p-7 rounded-[18px] primary-border-bold relative overflow-visible'
+                className='max-w-4xl p-7 rounded-[18px] primary-border-bold relative overflow-visible!'
             >
                 <HorseModal
                     type='edit'
@@ -300,7 +300,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                 isOpen={isCropping && imageFile !== null}
                 setIsOpen={setIsCropping}
                 closeOnOutsideClick={false}
-                className='rounded-[18px] primary-border-bold relative overflow-visible'
+                className='rounded-[18px] primary-border-bold relative overflow-visible!'
             >
                 {isCropping && imageFile && (
                     <ImageCropper

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { PlusCircle, Search, Trash2, User, Copy, Share2, Phone, Mail, Check, X, ArrowRight, ArrowLeft, Loader2, RefreshCcw, Briefcase } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -12,6 +12,10 @@ import { failToast, successToast } from '@/app/context';
 import Link from 'next/link';
 import Modal from '../Modal';
 import useScreenWidth from '@/hooks/useScreenWidth';
+import { markAllTypeAsRead } from '@/app/actions/notifications';
+import { NotificationType } from '@prisma/client';
+import { useNotifications } from '@/app/NotificationContext';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const getInitials = (name: string) => (name ? name.substring(0, 2).toUpperCase() : '??');
 
@@ -53,18 +57,29 @@ const Relations = ({
     const targetLabel = isClient ? 'Braider' : 'Client';
     const pluralLabel = isClient ? 'My Braiders' : 'My Clients';
 
-    const refreshData = async () => {
+    const refreshDataFn = useCallback(async () => {
+        setLoading(true);
         const [memberData, pendingData] = await Promise.all([getRelations(userEmail), getPendingRelations(userEmail)]);
+
         // @ts-ignore
         setMembers(memberData);
         // @ts-ignore
         setPending(pendingData);
         setLoading(false);
-    };
+    }, [userEmail]);
+
+    useAutoRefresh(refreshDataFn);
+
+    const { refreshCounts } = useNotifications();
 
     useEffect(() => {
-        refreshData();
-    }, [userEmail]);
+        const markRead = async () => {
+            await markAllTypeAsRead(NotificationType.client_invite);
+            await markAllTypeAsRead(NotificationType.client_status_change);
+            refreshCounts();
+        };
+        markRead();
+    }, [refreshCounts]);
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,7 +90,7 @@ const Relations = ({
             successToast(result.message);
             setIsInviting(false);
             setInviteInput('');
-            refreshData();
+            refreshDataFn();
         } else {
             failToast(result.error || 'Failed to invite');
         }
@@ -86,17 +101,17 @@ const Relations = ({
         const result = await acceptRelationRequest(connectionID);
         if (result.success) {
             successToast('Connection accepted!');
-            refreshData();
+            refreshDataFn();
         } else {
             failToast('Failed to accept');
         }
     };
 
     const handleRemove = async (connectionID: string, isPending: boolean = false) => {
-        const result = await removeRelation(connectionID);
+        const result = await removeRelation(connectionID, isPending);
 
         if (result.success) {
-            successToast(isPending ? 'Request cancelled' : 'Connection removed');
+            successToast(isPending ? 'Request denied' : 'Connection removed');
             if (isPending) {
                 setPending((prev) => ({
                     incoming: prev.incoming.filter((m) => m.connectionID !== connectionID),
@@ -125,7 +140,7 @@ const Relations = ({
                         <button
                             onClick={() => {
                                 setLoading(true);
-                                refreshData();
+                                refreshDataFn();
                             }}
                             className='font-figtree w-full @min-[490px]/relations:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/relations:text-lg text-nowrap rounded-[14px] @min-[490px]/relations:rounded-[20px] @min-[735px]/relations:rounded-[10px] py-2 px-6 @min-[490px]/relations:p-3 @min-[735px]/relations:py-2 @min-[735px]/relations:px-6 bg-background text-primary primary-border-hover'
                         >

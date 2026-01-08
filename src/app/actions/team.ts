@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { sendNotificationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
+import { createNotification } from './notifications';
+import { NotificationType } from '@prisma/client';
 
 export async function getUserByPublicID(publicID: string) {
     if (!publicID) return;
@@ -38,12 +40,14 @@ export async function getTeamMembers(email: string) {
 
         if (!user) return [];
 
+        const targetRole = user.role === 'braider' ? 'subcontractor' : 'braider';
+
         const sent = user.sentConnections
-            .filter((c) => c.status === 'accepted' && c.receiver.role !== 'client')
+            .filter((c) => c.status === 'accepted' && c.receiver.role === targetRole)
             .map((c) => ({ ...c.receiver, connectionID: c.id, joinedAt: c.createdAt }));
 
         const received = user.receivedConnections
-            .filter((c) => c.status === 'accepted' && c.sender.role !== 'client')
+            .filter((c) => c.status === 'accepted' && c.sender.role === targetRole)
             .map((c) => ({ ...c.sender, connectionID: c.id, joinedAt: c.createdAt }));
 
         return [...sent, ...received];
@@ -54,7 +58,7 @@ export async function getTeamMembers(email: string) {
 }
 
 export async function getTeamRequests(email: string) {
-    if (!email) return [];
+    if (!email) return { incoming: [], outgoing: [] };
 
     try {
         const user = await prisma.user.findUnique({
@@ -67,55 +71,61 @@ export async function getTeamRequests(email: string) {
 
         if (!user) return [];
 
-        const sent = user.sentConnections.filter((c) => c.status === 'pending').map((c) => ({ ...c.receiver, connectionID: c.id, joinedAt: c.createdAt }));
+        const targetRole = user.role === 'braider' ? 'subcontractor' : 'braider';
 
-        const received = user.receivedConnections.filter((c) => c.status === 'pending').map((c) => ({ ...c.sender, connectionID: c.id, joinedAt: c.createdAt }));
+        const sent = user.sentConnections
+            .filter((c) => c.status === 'pending' && c.receiver.role === targetRole)
+            .map((c) => ({ ...c.receiver, connectionID: c.id, joinedAt: c.createdAt }));
 
-        return [...sent, ...received];
+        const received = user.receivedConnections
+            .filter((c) => c.status === 'pending' && c.sender.role === targetRole)
+            .map((c) => ({ ...c.sender, connectionID: c.id, joinedAt: c.createdAt }));
+
+        return { incoming: received, outgoing: sent };
     } catch (error) {
         console.error('Failed to fetch team:', error);
         return [];
     }
 }
 
-export async function getPendingRequests(email: string) {
-    if (!email) return { incoming: [], outgoing: [] };
+// export async function getPendingRequests(email: string) {
+//     if (!email) return { incoming: [], outgoing: [] };
 
-    try {
-        const user = await prisma.user.findUnique({
-            where: { email },
-            include: {
-                receivedConnections: {
-                    where: { status: 'pending' },
-                    include: { sender: true },
-                },
-                sentConnections: {
-                    where: { status: 'pending' },
-                    include: { receiver: true },
-                },
-            },
-        });
+//     try {
+//         const user = await prisma.user.findUnique({
+//             where: { email },
+//             include: {
+//                 receivedConnections: {
+//                     where: { status: 'pending' },
+//                     include: { sender: true },
+//                 },
+//                 sentConnections: {
+//                     where: { status: 'pending' },
+//                     include: { receiver: true },
+//                 },
+//             },
+//         });
 
-        if (!user) return { incoming: [], outgoing: [] };
+//         if (!user) return { incoming: [], outgoing: [] };
 
-        const incoming = user.receivedConnections.map((c) => ({
-            ...c.sender,
-            connectionID: c.id,
-            sentAt: c.createdAt,
-        }));
+//         const incoming = user.receivedConnections.map((c) => ({
+//             ...c.sender,
+//             connectionID: c.id,
+//             sentAt: c.createdAt,
+//         }));
 
-        const outgoing = user.sentConnections.map((c) => ({
-            ...c.receiver,
-            connectionID: c.id,
-            sentAt: c.createdAt,
-        }));
+//         const outgoing = user.sentConnections.map((c) => ({
+//             ...c.receiver,
+//             connectionID: c.id,
+//             sentAt: c.createdAt,
+//         }));
 
-        return { incoming, outgoing };
-    } catch (error) {
-        console.error('Failed to fetch pending requests:', error);
-        return { incoming: [], outgoing: [] };
-    }
-}
+//         return { incoming, outgoing };
+//     } catch (error) {
+//         console.error('Failed to fetch pending requests:', error);
+//         return { incoming: [], outgoing: [] };
+//     }
+// }
 
 export async function inviteUser(publicID: string) {
     const session = await auth();
@@ -156,16 +166,24 @@ export async function inviteUser(publicID: string) {
             },
         });
 
-        if (receiver.email) {
-            await sendNotificationEmail({
-                to: receiver.email,
-                subject: `New Invite from ${sender.name}`,
-                heading: 'You have a new connection request!',
-                message: `${sender.name} (${sender.role.toLowerCase()}) wants to add you to their team on ManeAccount.`,
-                actionLabel: 'View Dashboard',
-                actionUrl: `${process.env.NEXTAUTH_URL}/dashboard`,
-            });
-        }
+        await createNotification(
+            receiver.id,
+            NotificationType.team_invite,
+            `${sender.name} ${sender.role === 'braider' ? 'invited you to their team' : 'wants to join your team'}`,
+            null,
+            sender.id
+        );
+
+        // if (receiver.email) {
+        //     await sendNotificationEmail({
+        //         to: receiver.email,
+        //         subject: `New Invite from ${sender.name}`,
+        //         heading: 'You have a new connection request!',
+        //         message: `${sender.name} (${sender.role.toLowerCase()}) wants to add you to their team on ManeAccount.`,
+        //         actionLabel: 'View Dashboard',
+        //         actionUrl: `${process.env.NEXTAUTH_URL}/dashboard`,
+        //     });
+        // }
 
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
@@ -189,10 +207,19 @@ export async function acceptRequest(connectionID: string) {
             return { error: 'Unauthorized' };
         }
 
-        await prisma.connection.update({
+        const updatedConnection = await prisma.connection.update({
             where: { id: connectionID },
             data: { status: 'accepted' },
+            include: { sender: true, receiver: true },
         });
+
+        await createNotification(
+            updatedConnection.senderId,
+            NotificationType.team_status_change,
+            `${updatedConnection.receiver.name} accepted your team invitation`,
+            null,
+            updatedConnection.receiverId
+        );
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -201,11 +228,18 @@ export async function acceptRequest(connectionID: string) {
     }
 }
 
-export async function removeMember(connectionID: string) {
+export async function removeMember(connectionID: string, rejected: boolean) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
+        if (rejected) {
+            const connection = await prisma.connection.findUnique({ where: { id: connectionID }, include: { sender: true, receiver: true } });
+            if (connection) {
+                createNotification(connection.sender.id, NotificationType.team_status_change, `${connection.receiver.name} rejected your team invitation`, null, connection.receiver.id);
+            }
+        }
+
         await prisma.connection.delete({
             where: { id: connectionID },
         });

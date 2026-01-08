@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
     User as UserIcon,
@@ -32,9 +32,14 @@ import { getJobs, markJobPaid } from '@/app/actions/jobs';
 import { Job } from '@prisma/client';
 import toast from 'react-hot-toast';
 import Modal from '../../Modal';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import { markAllTypeAsRead } from '@/app/actions/notifications';
+import { NotificationType } from '@prisma/client';
+import { useNotifications } from '@/app/NotificationContext';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { getUserSettings } from '@/app/actions/settings';
 import { failToast, successToast } from '@/app/context';
-import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import { format } from 'date-fns';
 
 const Invoices = ({
     role,
@@ -54,9 +59,6 @@ const Invoices = ({
     const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash/check' | ''>('');
     const [showQRModal, setShowQRModal] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [showZellePopover, setShowZellePopover] = useState(false);
-    const zellePopoverRef = useRef<HTMLDivElement>(null);
-    useOnClickOutside(zellePopoverRef, [], () => setShowZellePopover(false));
 
     const [showHistory, setShowHistory] = useState(false);
 
@@ -75,16 +77,24 @@ const Invoices = ({
         fetchSettings();
     }, [role, showQRModal, payModal]);
 
-    const refreshJobs = async () => {
+    const refreshJobsFn = useCallback(async () => {
         setLoading(true);
         const data = await getJobs(userEmail, role);
         setJobs(data);
         setLoading(false);
-    };
+    }, [userEmail, role]);
+
+    useAutoRefresh(refreshJobsFn);
+
+    const { refreshCounts } = useNotifications();
 
     useEffect(() => {
-        refreshJobs();
-    }, [userEmail, role]);
+        if (role === 'client') {
+            markAllTypeAsRead(NotificationType.job_completed).then(() => {
+                refreshCounts();
+            });
+        }
+    }, [userEmail, role, refreshCounts]);
 
     const handlePay = async () => {
         if (!selectedJob || !paymentMethod) return;
@@ -96,7 +106,7 @@ const Invoices = ({
             setPayModal(false);
             setPaymentMethod('');
             setSelectedJob(null);
-            refreshJobs();
+            refreshJobsFn();
         } else {
             failToast('Failed to record payment');
         }
@@ -138,7 +148,7 @@ const Invoices = ({
                 </div>
                 <div className='flex flex-col gap-3 @min-[380px]/invoices:flex-row @min-[380px]/invoices:items-center @min-[380px]/invoices:gap-4 w-auto'>
                     <button
-                        onClick={refreshJobs}
+                        onClick={refreshJobsFn}
                         className={cn(
                             'font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-primary primary-border-hover bg-background',
                             role === 'braider'
@@ -289,7 +299,7 @@ const Invoices = ({
                         <p className='text-gray-500 text-sm mb-6'>
                             Pay <span className='font-bold text-gray-900'>{selectedJob.braider.name}</span> for{' '}
                             {selectedJob.assignments.reduce((acc: any, s: any) => acc + s.services.length, 0)} services across {selectedJob.assignments.length} horses.
-                            <span className='text-sm text-gray-400 text-left block mt-0.5'>Service date: {new Date(selectedJob.scheduledStartTime).toLocaleDateString()}</span>
+                            <span className='text-sm text-gray-400 text-left block mt-0.5'>Service date: {format(selectedJob.scheduledDate, 'MMM d, yyyy')}</span>
                         </p>
 
                         <div className='bg-emerald-50 p-4 rounded-xl mb-6 border border-emerald-200 shadow-sm'>
@@ -330,14 +340,12 @@ const Invoices = ({
                                 </div>
                             )}
 
-                            {selectedJob.braider.zelleEnabled !== 'disabled' &&
-                                (selectedJob.braider.zelleEnabled === 'link'
-                                    ? selectedJob.braider.zelle && selectedJob.braider.zelle.length > 0
-                                    : selectedJob.braider.zelleEnabled === 'phone'
-                                      ? selectedJob.braider.phoneNumber && selectedJob.braider.phoneNumber.length > 0
-                                      : selectedJob.braider.zelleEnabled === 'email'
-                                        ? selectedJob.braider.email && selectedJob.braider.email.length > 0
-                                        : false) && (
+                            {selectedJob.braider.zelle !== 'disabled' &&
+                                (selectedJob.braider.zelle === 'phone'
+                                    ? selectedJob.braider.phoneNumber && selectedJob.braider.phoneNumber.length > 0
+                                    : selectedJob.braider.zelle === 'email'
+                                      ? selectedJob.braider.email && selectedJob.braider.email.length > 0
+                                      : false) && (
                                     <div
                                         onClick={() => {
                                             setPaymentMethod('zelle');
@@ -354,56 +362,14 @@ const Invoices = ({
                                         </div>
                                         <div className='flex-1 min-w-0'>
                                             <div className='font-bold text-gray-900 text-lg'>Zelle</div>
-                                            {selectedJob.braider.zelleEnabled === 'link' ? (
-                                                <div className='text-sm text-gray-500'>Scan braider&apos;s QR code</div>
-                                            ) : (
-                                                <div className='text-sm text-gray-500 flex items-center gap-1 min-w-0'>
-                                                    <span className='truncate'>
-                                                        {selectedJob.braider.zelleEnabled === 'email'
-                                                            ? selectedJob.braider.email
-                                                            : selectedJob.braider.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {selectedJob.braider.zelleEnabled !== 'link' ? (
-                                            <Copy
-                                                size={40}
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(
-                                                        selectedJob.braider.zelleEnabled === 'email'
-                                                            ? selectedJob.braider.email
-                                                            : selectedJob.braider.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
-                                                    );
-                                                    successToast('Copied!');
-                                                }}
-                                                className='text-gray-300 mr-1 min-w-8 hover:bg-[#6D1ED4]/10 cursor-pointer hover:text-[#6D1ED4] transition-all p-2 rounded-2xl'
-                                            />
-                                        ) : (
-                                            <div className='relative' ref={zellePopoverRef}>
-                                                <CircleQuestionMark
-                                                    size={40}
-                                                    onClick={() => {
-                                                        setShowZellePopover((prev) => !prev);
-                                                    }}
-                                                    className='text-gray-300 mr-1 hover:bg-[#6D1ED4]/10 cursor-pointer hover:text-[#6D1ED4] transition-all p-2 rounded-2xl'
-                                                />
-                                                <AnimatePresence>
-                                                    {showZellePopover && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, y: 10 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            exit={{ opacity: 0, y: 10 }}
-                                                            transition={{ duration: 0.2 }}
-                                                            className='absolute top-[-420%] @min-[230px]/send-payment:top-[-360%] @min-[260px]/send-payment:top-[-300%] @min-[330px]/send-payment:top-[-240%] w-40 @min-[230px]/send-payment:w-48 @min-[260px]/send-payment:w-56 @min-[300px]/send-payment:w-64 @min-[330px]/send-payment:w-72 right-3 bg-purple-50 text-[#6D1ED4] border border-[#6D1ED4] shadow-lg p-2.5 rounded-[10px]'
-                                                        >
-                                                            Ask {selectedJob.braider.name.split(' ')[0]} to open their Zelle QR Code. Then, go to your banking app and scan it to pay
-                                                            them.
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
+                                            <div className='text-sm text-gray-500 flex items-center gap-1 min-w-0'>
+                                                <span className='truncate'>
+                                                    {selectedJob.braider.zelle === 'email'
+                                                        ? selectedJob.braider.email
+                                                        : selectedJob.braider.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
+                                                </span>
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 )}
 
@@ -448,16 +414,18 @@ const Invoices = ({
 };
 
 const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClose: () => void; setSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>> }) => {
-    const [view, setView] = useState<'venmo' | 'zelle'>('venmo');
+    const [view, setView] = useState<'venmo' | 'zelle'>(user.venmo && user.venmo.length > 0 && user.venmoEnabled ? 'venmo' : user.zelle !== 'disabled' ? 'zelle' : 'venmo');
 
     return (
-        <div className='font-figtree flex flex-col items-center'>
-            <div className='flex w-full items-center justify-between mb-6'>
-                <h2 className='text-3xl font-lusitana font-bold'>Payment QR Codes</h2>
+        <div className='font-figtree flex flex-col items-center @container/payment-qr-codes'>
+            <div className='flex w-full items-center justify-between mb-4 @min-[300px]/payment-qr-codes:mb-6'>
+                <h2 className='text-[22px] @min-[235px]/payment-qr-codes:text-2xl @min-[265px]/payment-qr-codes:text-[27px] @min-[300px]/payment-qr-codes:text-3xl font-lusitana font-bold'>
+                    Payment QR Codes
+                </h2>
                 <X className='text-gray-500 cursor-pointer hover:scale-105 transition-all' onClick={onClose} />
             </div>
 
-            <div className='relative flex w-full max-w-[300px] bg-primary-extra-light rounded-full p-1 mb-6'>
+            <div className='relative flex w-full max-w-[300px] bg-primary-extra-light rounded-full p-1 mb-2 @min-[270px]/payment-qr-codes:mb-6'>
                 <button
                     onClick={() => setView('venmo')}
                     className={cn(
@@ -509,12 +477,12 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                 </div>
                             ) : (
                                 <>
-                                    <div className='p-4 bg-white rounded-2xl border-2 border-[#008CFF]/10 shadow-sm'>
+                                    <div className='p-4 bg-white scale-[0.85] @min-[250px]/payment-qr-codes:scale-[0.9] @min-[270px]/payment-qr-codes:scale-[0.95] @min-[285px]/payment-qr-codes:scale-[1] rounded-2xl border-2 border-[#008CFF]/10 shadow-sm'>
                                         <QRCode value={user.venmo} size={250} fgColor='#171717' bgColor='#FFFFFF' level='M' />
                                     </div>
 
-                                    <div className='flex w-full items-center gap-3 justify-center'>
-                                        <div className='bg-[#008dff] venmo-border rounded-[10px] h-[42px] flex items-center justify-center w-[161px]'>
+                                    <div className='flex flex-col @min-[315px]/payment-qr-codes:flex-row w-full items-center gap-3 justify-center'>
+                                        <div className='bg-[#008dff] venmo-border rounded-[10px] h-[42px] flex items-center justify-center w-full @min-[315px]/payment-qr-codes:w-[161px]'>
                                             <Image src='/venmo-logo-full.png' alt='Venmo' width={100} height={100} className='max-h-[38px] w-fit px-4' />
                                         </div>
 
@@ -524,7 +492,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                                 navigator.clipboard.writeText(user.venmo);
                                                 toast.success('Venmo link copied');
                                             }}
-                                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-1.5 px-6 bg-background text-primary primary-border-hover'
+                                            className='font-figtree w-full @min-[315px]/payment-qr-codes:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-1.5 px-6 bg-background text-primary primary-border-hover'
                                         >
                                             <Share2 className='w-4 h-4' strokeWidth={3} />
                                             Share Link
@@ -541,7 +509,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                             exit={{ x: 20, opacity: 0 }}
                             className='flex flex-col items-center w-full space-y-6'
                         >
-                            {user.zelleEnabled === 'disabled' ? (
+                            {user.zelle === 'disabled' ? (
                                 <div className='text-center py-10 px-4 flex flex-col justify-center'>
                                     <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4'>
                                         <Smartphone className='text-gray-400' size={32} />
@@ -558,75 +526,47 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                     </button>
                                 </div>
                             ) : (
-                                <>
-                                    {user.zelleEnabled === 'link' ? (
-                                        <>
-                                            <div className='p-4 bg-white rounded-2xl border-2 border-[#008CFF]/10 shadow-sm'>
-                                                <QRCode value={user.zelle} size={250} fgColor='#171717' bgColor='#FFFFFF' level='M' />
-                                            </div>
+                                (user.zelle === 'email' || (user.zelle === 'phone' && user.phoneNumber && user.phoneNumber.length > 0)) && (
+                                    <div className='flex flex-col items-center justify-center p-4 w-full'>
+                                        <div className='w-40 h-40 bg-[#6D1ED4]/10 rounded-4xl flex items-center justify-center mb-6'>
+                                            <Image src='/zelle-logo.png' alt='Zelle' width={120} height={120} />
+                                        </div>
 
-                                            <div className='flex w-full items-center gap-3 justify-center'>
-                                                <div className='bg-[#6b15d4] zelle-border rounded-[10px] h-[42px] flex items-center justify-center w-[161px]'>
-                                                    <Image src='/zelle-logo-full.png' alt='Zelle' width={100} height={100} className='max-h-[38px] w-fit px-4' />
-                                                </div>
-                                                <button
-                                                    type='button'
+                                        <div className='w-full text-center mb-4'>
+                                            <p className='text-gray-400 text-xs font-bold uppercase mb-1'>Send Zelle payment to:</p>
+                                            <p className='text-2xl font-bold text-gray-900 break-all family-mono mb-2 truncate'>{user.name}</p>
+                                            <button
+                                                type='button'
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(user.zelle === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3'));
+                                                    successToast('Copied to clipboard');
+                                                }}
+                                                title={user.zelle === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
+                                                className='bg-gray-50 border cursor-pointer truncate text-gray-500 border-gray-200 shadow-sm flex items-center gap-2 w-full px-4 py-[5px] text-[17px] rounded-xl'
+                                            >
+                                                <Copy size={18} className='min-w-4.5' />
+                                                <span className='truncate'>{user.zelle === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}</span>
+                                            </button>
+                                        </div>
+
+                                        <div className='text-center text-gray-400 text-xs max-w-xs'>
+                                            <p>
+                                                Ask the client to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like
+                                                to switch to {user.zelle === 'email' ? 'a phone number' : 'your email'},{' '}
+                                                <span
+                                                    className='text-primary hover:text-primary-light underline cursor-pointer transition-all'
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText(user.zelle);
-                                                        toast.success('Zelle link copied');
+                                                        onClose();
+                                                        setSettingsModalOpen(true);
                                                     }}
-                                                    className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-1.5 px-6 bg-background text-primary primary-border-hover'
                                                 >
-                                                    <Share2 className='w-4 h-4' strokeWidth={3} />
-                                                    Share Link
-                                                </button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        (user.zelleEnabled === 'email' || (user.zelleEnabled === 'phone' && user.phoneNumber && user.phoneNumber.length > 0)) && (
-                                            <div className='flex flex-col items-center justify-center p-4 w-full'>
-                                                <div className='w-40 h-40 bg-[#6D1ED4]/10 rounded-4xl flex items-center justify-center mb-6'>
-                                                    <Image src='/zelle-logo.png' alt='Zelle' width={120} height={120} />
-                                                </div>
-
-                                                <div className='w-full text-center mb-4'>
-                                                    <p className='text-gray-400 text-xs font-bold uppercase mb-2'>Send Zelle payment to:</p>
-                                                    <p className='text-2xl font-bold text-gray-900 break-all family-mono mb-2'>{user.zelle}</p>
-                                                    <button
-                                                        type='button'
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(
-                                                                user.zelleEnabled === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
-                                                            );
-                                                            successToast('Copied to clipboard');
-                                                        }}
-                                                        className='bg-gray-50 border cursor-pointer truncate text-gray-500 border-gray-200 shadow-sm flex items-center gap-2 w-full px-4 py-[5px] text-[17px] rounded-xl'
-                                                    >
-                                                        <Copy size={18} />
-                                                        {user.zelleEnabled === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
-                                                    </button>
-                                                </div>
-
-                                                <div className='text-center text-gray-400 text-xs max-w-xs'>
-                                                    <p>
-                                                        Ask the client to open their banking app and pay using Zelle with this {user.zelleEnabled === 'email' ? 'email' : 'number'}. You
-                                                        have not added a QR code for Zelle.{' '}
-                                                        <span
-                                                            className='text-primary hover:text-primary-light underline cursor-pointer transition-all'
-                                                            onClick={() => {
-                                                                onClose();
-                                                                setSettingsModalOpen(true);
-                                                            }}
-                                                        >
-                                                            Go to settings
-                                                        </span>{' '}
-                                                        to add it.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )
-                                    )}
-                                </>
+                                                    go to settings
+                                                </span>{' '}
+                                                to change it.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )
                             )}
                         </motion.div>
                     )}

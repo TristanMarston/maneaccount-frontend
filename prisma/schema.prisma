@@ -97,7 +97,6 @@ enum ConnectionStatus {
 enum ZelleOption {
   email
   phone
-  link
   disabled
 }
 
@@ -113,8 +112,7 @@ model User {
   
   venmo           String?
   venmoEnabled    Boolean @default(false)
-  zelle           String?
-  zelleEnabled    ZelleOption @default(disabled)
+  zelle           ZelleOption @default(disabled)
 
   role            Role      @default(braider)
   services        Service[]
@@ -135,6 +133,36 @@ model User {
   
   sentShowInvites      ShowInvite[] @relation("ShowInviter")
   receivedShowInvites  ShowInvite[] @relation("ShowInvitee")
+  
+  notifications        Notification[] @relation("user")
+  sentNotifications    Notification[] @relation("sender")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  senderId  String?
+  targetId  String?          // ID of the related Job, Show, Connection, etc.
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+  sender    User?            @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+enum NotificationType {
+  calendar_invite
+  job_request
+  job_status_change
+  job_completed
+  job_paid
+  client_invite
+  client_status_change
+  team_invite
+  team_status_change
+  new_message
 }
 
 model Show {
@@ -149,7 +177,7 @@ model Show {
   startDate   DateTime
   endDate     DateTime
   
-  days        ShowDay[]
+
   invites     ShowInvite[]
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -181,17 +209,7 @@ model ShowInvite {
   @@unique([showId, inviteeId])
 }
 
-model ShowDay {
-  id                 String   @id @default(cuid())
-  showId             String
-  date               DateTime
-  startTime          String   
-  endTime            String   
-  skipped            Boolean  @default(false)
-  googleEventId      String?
 
-  show      Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
-}
 
 model VerificationToken {
   identifier String
@@ -210,8 +228,7 @@ model Job {
   
   status          JobStatus @default(pending)
   
-  scheduledStartTime DateTime?
-  scheduledEndTime   DateTime?
+  scheduledDate      DateTime?
 
   paidAt             DateTime?
   paymentPlatform    String?
@@ -259,6 +276,8 @@ model JobAssignment {
   job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   horse     Horse    @relation(fields: [horseId], references: [id], onDelete: Cascade)
   services  Service[]
+
+  completedServiceIds String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

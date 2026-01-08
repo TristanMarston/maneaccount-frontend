@@ -35,8 +35,8 @@ const formatPhoneNumber = (value: string) => {
 };
 
 type Tab = 'profile' | 'account' | 'payments';
-type ZelleOption = 'email' | 'phone' | 'link' | 'disabled';
-type ZelleUpsetOption = 'link' | 'phone' | 'email';
+type ZelleOption = 'email' | 'phone' | 'disabled';
+type ZelleUpsetOption = 'phone' | 'email';
 
 const SettingsModal = ({
     setOpen,
@@ -49,7 +49,7 @@ const SettingsModal = ({
     session: Session | null;
     update: (data?: any) => Promise<Session | null>;
     activeTab: Tab;
-    setActiveTab: React.Dispatch<React.SetStateAction<Tab>>
+    setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -70,14 +70,38 @@ const SettingsModal = ({
     const [venmo, setVenmo] = useState('');
     const [venmoEnabled, setVenmoEnabled] = useState(false);
     const [venmoUpset, setVenmoUpset] = useState(false);
-    const [zelle, setZelle] = useState('');
-    const [zelleEnabled, setZelleEnabled] = useState<ZelleOption>('disabled');
+    const [zelle, setZelle] = useState<ZelleOption>('disabled');
     const [zelleUpset, setZelleUpset] = useState<ZelleUpsetOption[]>([]);
 
     const [imagePreview, setImagePreview] = useState<string>('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
+
+    const originalInfo = useRef<{
+        name: string;
+        publicID: string;
+        image: string;
+        phoneNumber: string;
+        role: string;
+        venmo: string;
+        zelle: ZelleOption;
+        venmoEnabled: boolean;
+    }>({
+        name: '',
+        publicID: '',
+        image: '',
+        phoneNumber: '',
+        role: '',
+        venmo: '',
+        zelle: 'disabled',
+        venmoEnabled: false,
+    });
+    const [deleteAccountModal, setDeleteAccountModal] = useState(false);
+
+    const debouncedPublicID = useDebounce(publicID, 500);
+    const [isIDAvailable, setIsIDAvailable] = useState<boolean | null>(null);
+    const [isCheckingID, setIsCheckingID] = useState(false);
 
     useEffect(() => {
         if (venmo.length >= 5 && venmo.length <= 30) {
@@ -87,35 +111,8 @@ const SettingsModal = ({
     }, [venmo]);
 
     useEffect(() => {
-        if (zelle.includes('zellepay.com') || zelleEnabled === 'phone' || zelleEnabled === 'email' || zelleEnabled === 'disabled') setZelleUpset([]);
-    }, [zelle, zelleEnabled]);
-
-    const originalInfo = useRef<{
-        name: string;
-        publicID: string;
-        image: string;
-        phoneNumber: string;
-        role: string;
-        venmo: string;
-        zelle: string;
-        venmoEnabled: boolean;
-        zelleEnabled: ZelleOption;
-    }>({
-        name: '',
-        publicID: '',
-        image: '',
-        phoneNumber: '',
-        role: '',
-        venmo: '',
-        zelle: '',
-        venmoEnabled: false,
-        zelleEnabled: 'disabled',
-    });
-    const [deleteAccountModal, setDeleteAccountModal] = useState(false);
-
-    const debouncedPublicID = useDebounce(publicID, 500);
-    const [isIDAvailable, setIsIDAvailable] = useState<boolean | null>(null);
-    const [isCheckingID, setIsCheckingID] = useState(false);
+        if (zelle !== 'disabled') setZelleUpset([]);
+    }, [zelle]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -130,9 +127,8 @@ const SettingsModal = ({
                     phoneNumber: formattedPhone,
                     role: data.role,
                     venmo: data.venmo || '',
-                    zelle: data.zelle || '',
+                    zelle: data.zelle || 'disabled',
                     venmoEnabled: data.venmoEnabled,
-                    zelleEnabled: data.zelleEnabled || 'disabled',
                 };
 
                 setName(data.name || '');
@@ -147,8 +143,7 @@ const SettingsModal = ({
                 setVenmoLink(data.venmo || '');
                 setVenmo(data.venmo?.substring(data.venmo?.indexOf('/u/') + 3) || '');
                 setVenmoEnabled(data.venmoEnabled);
-                setZelle(data.zelle || '');
-                setZelleEnabled(data.zelleEnabled || 'disabled');
+                setZelle(data.zelle || 'disabled');
             }
             setIsLoading(false);
         };
@@ -237,8 +232,7 @@ const SettingsModal = ({
             originalInfo.current.role === role &&
             originalInfo.current.venmo === venmoLink &&
             originalInfo.current.zelle === zelle &&
-            originalInfo.current.venmoEnabled === venmoEnabled &&
-            originalInfo.current.zelleEnabled === zelleEnabled
+            originalInfo.current.venmoEnabled === venmoEnabled
         ) {
             failToast('Update at least one field to save changes');
             return;
@@ -259,7 +253,6 @@ const SettingsModal = ({
         if (venmoLink !== originalInfo.current.venmo) formData.venmo = venmoLink;
         if (zelle !== originalInfo.current.zelle) formData.zelle = zelle;
         if (venmoEnabled !== originalInfo.current.venmoEnabled) formData.venmoEnabled = venmoEnabled;
-        if (zelleEnabled !== originalInfo.current.zelleEnabled) formData.zelleEnabled = zelleEnabled;
         if (role !== originalInfo.current.role) switchResult = await switchAccountRole();
 
         if (finalImageBlob) formData.image = finalImageBlob;
@@ -608,7 +601,7 @@ const SettingsModal = ({
                                                     </div>
                                                 </div>
 
-                                                <div className='flex flex-col gap-4 w-full mt-2'>
+                                                <div className='flex flex-col gap-2 w-full mt-2'>
                                                     <div className='flex items-center gap-2'>
                                                         <label className='text-xs font-bold ml-1 text-gray-500 uppercase flex items-center gap-1.5'>
                                                             <Image src='/zelle-logo.png' alt='zelle' width={20} height={20} className='w-4 h-4' />
@@ -617,81 +610,23 @@ const SettingsModal = ({
                                                         <button
                                                             type='button'
                                                             onClick={() => {
-                                                                if (zelleEnabled !== 'disabled') setZelleEnabled('disabled');
-                                                                else if (zelle.includes('zellepay.com')) setZelleEnabled('link');
-                                                                else setZelleUpset(['link', 'phone', 'email']);
+                                                                if (zelle !== 'disabled') setZelle('disabled');
+                                                                else setZelleUpset(['phone', 'email']);
                                                             }}
                                                             className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
-                                                                zelleEnabled !== 'disabled' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                                zelle !== 'disabled' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
                                                             }`}
                                                         >
                                                             <motion.div
                                                                 className='h-3 w-3 rounded-full bg-white shadow-sm'
-                                                                animate={{ x: zelleEnabled !== 'disabled' ? 16 : 0 }}
+                                                                animate={{ x: zelle !== 'disabled' ? 16 : 0 }}
                                                                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                                                             />
                                                         </button>
                                                     </div>
 
-                                                    <span className='text-sm ml-4 text-gray-500'>
-                                                        <div className='flex items-center relative min-h-[26px] gap-2'>
-                                                            <span
-                                                                className={cn(
-                                                                    'text-gray-500 absolute top-0 left-0 px-2 py-0.5 border border-gray-200 shadow-sm rounded-lg',
-                                                                    zelleUpset.includes('link') ? 'border-red-300' : ''
-                                                                )}
-                                                            >
-                                                                Option #1
-                                                            </span>
-                                                            <span className='ml-[90px]'>
-                                                                Paste your <span className='font-semibold'>Zelle QR Link</span> here.
-                                                            </span>
-                                                        </div>
-                                                        <span className='block text-xs text-gray-400 mt-1'>(Open your banking app &gt; Zelle &gt; QR Code &gt; Share/Copy Link)</span>
-                                                    </span>
-
-                                                    <div className='relative ml-4'>
-                                                        <QrCode
-                                                            className={cn(
-                                                                'absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4',
-                                                                zelle && zelle.length > 0 ? 'text-black' : 'text-gray-400'
-                                                            )}
-                                                        />
-                                                        <input
-                                                            value={zelle}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                setZelle(val);
-                                                                if (val.includes('zellepay.com')) setZelleEnabled('link');
-                                                                else if (val.length === 0) setZelleEnabled('disabled');
-                                                            }}
-                                                            className={cn(
-                                                                'w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors',
-                                                                zelle && zelle.includes('zellepay.com')
-                                                                    ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
-                                                                    : zelleUpset.includes('link')
-                                                                      ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-                                                                      : 'border-gray-200 focus:border-primary focus:ring-primary/10'
-                                                            )}
-                                                            placeholder='https://enroll.zellepay.com/qr-codes?data=...'
-                                                            autoCorrect='off'
-                                                            autoComplete='off'
-                                                            spellCheck={false}
-                                                        />
-                                                    </div>
-
-                                                    <span className='text-sm ml-4 text-gray-500 mt-2'>
-                                                        <div className='flex items-center relative min-h-[26px] gap-2'>
-                                                            <span
-                                                                className={cn(
-                                                                    'text-gray-500 absolute top-0 left-0 px-2 py-0.5 border border-gray-200 shadow-sm rounded-lg',
-                                                                    zelleUpset.includes('phone') || zelleUpset.includes('email') ? 'border-red-300' : ''
-                                                                )}
-                                                            >
-                                                                Option #2
-                                                            </span>
-                                                            <span className='ml-[90px]'>Use email or phone number.</span>
-                                                        </div>
+                                                    <span className='text-sm ml-4 text-gray-500 mb-2'>
+                                                        <span>Use email or phone number.</span>
                                                         <span className='block text-xs text-gray-400 mt-1'>(You must have Zelle set up in order to do this)</span>
                                                     </span>
 
@@ -702,19 +637,14 @@ const SettingsModal = ({
                                                                     <label className='text-xs font-bold text-gray-500 uppercase'>Phone Number</label>
                                                                     <button
                                                                         type='button'
-                                                                        onClick={() => {
-                                                                            if (zelleEnabled === 'phone') setZelleEnabled('disabled');
-                                                                            else if (zelleEnabled === 'disabled' && !zelle.includes('zellepay.com')) setZelleEnabled('phone');
-                                                                            else if (zelleEnabled === 'link') setZelleUpset(['link']);
-                                                                            else if (zelleEnabled === 'email') setZelleEnabled('phone');
-                                                                        }}
+                                                                        onClick={() => setZelle((prev) => (prev === 'phone' ? 'disabled' : 'phone'))}
                                                                         className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
-                                                                            zelleEnabled === 'phone' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                                            zelle === 'phone' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
                                                                         }`}
                                                                     >
                                                                         <motion.div
                                                                             className='h-3 w-3 rounded-full bg-white shadow-sm'
-                                                                            animate={{ x: zelleEnabled === 'phone' ? 16 : 0 }}
+                                                                            animate={{ x: zelle === 'phone' ? 16 : 0 }}
                                                                             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                                                                         />
                                                                     </button>
@@ -735,14 +665,14 @@ const SettingsModal = ({
                                                                 <label className='text-xs font-bold text-gray-500 uppercase'>Email</label>
                                                                 <button
                                                                     type='button'
-                                                                    onClick={() => setZelleEnabled((prev) => (prev === 'email' ? 'disabled' : prev !== 'link' ? 'email' : prev))}
+                                                                    onClick={() => setZelle((prev) => (prev === 'email' ? 'disabled' : 'email'))}
                                                                     className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
-                                                                        zelleEnabled === 'email' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                                        zelle === 'email' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
                                                                     }`}
                                                                 >
                                                                     <motion.div
                                                                         className='h-3 w-3 rounded-full bg-white shadow-sm'
-                                                                        animate={{ x: zelleEnabled === 'email' ? 16 : 0 }}
+                                                                        animate={{ x: zelle === 'email' ? 16 : 0 }}
                                                                         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                                                                     />
                                                                 </button>
@@ -778,8 +708,7 @@ const SettingsModal = ({
                                 originalInfo.current.role === role &&
                                 originalInfo.current.venmo === venmoLink &&
                                 originalInfo.current.zelle === zelle &&
-                                originalInfo.current.venmoEnabled === venmoEnabled &&
-                                originalInfo.current.zelleEnabled === zelleEnabled
+                                originalInfo.current.venmoEnabled === venmoEnabled
                             ) {
                                 setOpen(false);
                             } else setCloseModal(true);
@@ -801,8 +730,7 @@ const SettingsModal = ({
                                 originalInfo.current.role === role &&
                                 originalInfo.current.venmo === venmoLink &&
                                 originalInfo.current.zelle === zelle &&
-                                originalInfo.current.venmoEnabled === venmoEnabled &&
-                                originalInfo.current.zelleEnabled === zelleEnabled)
+                                originalInfo.current.venmoEnabled === venmoEnabled)
                         }
                         type='submit'
                         className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
@@ -822,8 +750,7 @@ const SettingsModal = ({
                         originalInfo.current.role === role &&
                         originalInfo.current.venmo === venmoLink &&
                         originalInfo.current.zelle === zelle &&
-                        originalInfo.current.venmoEnabled === venmoEnabled &&
-                        originalInfo.current.zelleEnabled === zelleEnabled
+                        originalInfo.current.venmoEnabled === venmoEnabled
                     ) {
                         setOpen(false);
                     } else setCloseModal(true);

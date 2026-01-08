@@ -1,11 +1,11 @@
 import { getRelations } from '@/app/actions/client-relations';
 import { getBraiderData } from '@/app/actions/jobs';
 import { cn } from '@/lib/utils';
-import { MapPin, X, CalendarIcon, Clock, CircleArrowRight, PlusCircle } from 'lucide-react';
+import { MapPin, X, CalendarIcon, CircleArrowRight, PlusCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
-import { getParts } from '../_calendar/AddShowForm';
+
 import Image from 'next/image';
 import { getHorses } from '@/app/actions/horses';
 
@@ -45,40 +45,6 @@ export const ViewShowDetailsModal = ({
                         <p className='text-sm font-medium text-gray-900'>
                             {format(new Date(show.startDate), 'MMM d')} - {format(new Date(show.endDate), 'MMM d, yyyy')}
                         </p>
-                    </div>
-                </div>
-
-                <div>
-                    <p className='text-xs font-bold text-gray-400 uppercase tracking-wide mb-2'>Schedule</p>
-                    <div className='space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar'>
-                        {show.days.map((day: any, idx: number) => {
-                            const startParts = getParts(day.startTime);
-                            const endParts = getParts(day.endTime);
-
-                            return (
-                                <div
-                                    key={idx}
-                                    className={cn(
-                                        'flex items-center justify-between text-sm p-2 rounded-lg',
-                                        day.skipped ? 'bg-gray-50 text-gray-400' : 'bg-white border border-gray-100'
-                                    )}
-                                >
-                                    <div className={cn('flex items-center justify-between gap-2', day.skipped ? 'w-full' : 'w-auto')}>
-                                        <span className={cn('font-bold', day.skipped ? 'text-gray-400' : 'text-gray-700')}>{format(new Date(day.date), 'MMM d')}</span>
-                                        {day.skipped && <span className='text-[10px] px-1.5 py-0.5 bg-gray-100 rounded-full font-medium'>Skipped</span>}
-                                    </div>
-                                    {!day.skipped && (
-                                        <div className='flex items-center gap-1.5 text-gray-600 font-medium'>
-                                            <Clock size={12} className='text-primaryh hidden @min-[270px]/show-details:block' />
-                                            <span>
-                                                {format(new Date().setHours(startParts.hour, startParts.minute), 'h:mm a')} -{' '}
-                                                {format(new Date().setHours(endParts.hour, endParts.minute), 'h:mm a')}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
                     </div>
                 </div>
 

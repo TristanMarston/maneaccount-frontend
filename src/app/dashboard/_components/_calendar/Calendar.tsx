@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar as CalendarIcon,
@@ -44,10 +44,14 @@ import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { failToast, successToast, usaStates } from '@/app/context';
-import AddShowForm, { getParts } from './AddShowForm';
+import AddShowForm from './AddShowForm';
 import { getJobs } from '@/app/actions/jobs';
 import { JobDetailView, HorseDetailView } from '../_tasks/Tasks';
 import Image from 'next/image';
+import { markAllTypeAsRead } from '@/app/actions/notifications';
+import { NotificationType } from '@prisma/client';
+import { useNotifications } from '@/app/NotificationContext';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 type CalendarViewType = 'month' | 'week' | 'list';
 
@@ -59,10 +63,11 @@ export interface Show {
     country: string;
     startDate: Date;
     endDate: Date;
-    days: { date: Date; startTime: string; endTime: string; skipped: boolean }[];
+
     type?: 'show' | 'job';
     jobData?: any;
     isOwner?: boolean;
+    invites?: any[];
     inviteStatus?: string | null;
     inviterName?: string | null;
     inviteId?: string;
@@ -194,40 +199,6 @@ const ShowDetailsModal = ({
                                     </p>
                                 </div>
                             </div>
-
-                            <div>
-                                <p className='text-xs font-bold text-gray-400 uppercase tracking-wide mb-2'>Schedule</p>
-                                <div className='space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar'>
-                                    {show.days.map((day, idx) => {
-                                        const startParts = getParts(day.startTime);
-                                        const endParts = getParts(day.endTime);
-
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className={cn(
-                                                    'flex items-center justify-between text-sm p-2 rounded-lg',
-                                                    day.skipped ? 'bg-gray-50 text-gray-400' : 'bg-white border border-gray-100'
-                                                )}
-                                            >
-                                                <div className={cn('flex items-center justify-between gap-2', day.skipped ? 'w-full' : 'w-auto')}>
-                                                    <span className={cn('font-bold', day.skipped ? 'text-gray-400' : 'text-gray-700')}>{format(new Date(day.date), 'MMM d')}</span>
-                                                    {day.skipped && <span className='text-[10px] px-1.5 py-0.5 bg-gray-100 rounded-full font-medium'>Skipped</span>}
-                                                </div>
-                                                {!day.skipped && (
-                                                    <div className='flex items-center gap-1.5 text-gray-600 font-medium'>
-                                                        <Clock size={12} className='text-primaryh hidden @min-[270px]/show-details:block' />
-                                                        <span>
-                                                            {format(new Date().setHours(startParts.hour, startParts.minute), 'h:mm a')} -{' '}
-                                                            {format(new Date().setHours(endParts.hour, endParts.minute), 'h:mm a')}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
                         </div>
                     </motion.div>
                 </motion.div>
@@ -337,7 +308,15 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
     const showDetailsRef = useRef<HTMLDivElement>(null);
 
-    const loadShows = async () => {
+    const { refreshCounts } = useNotifications();
+
+    useEffect(() => {
+        markAllTypeAsRead(NotificationType.calendar_invite).then(() => {
+            refreshCounts();
+        });
+    }, [refreshCounts]);
+
+    const loadShows = useCallback(async () => {
         setLoading(true);
         const result = await getDashboardData(role);
 
@@ -351,27 +330,14 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
 
         const mappedJobs: Show[] = (jobsData as any[])
             .map((job) => {
-                if (!job.scheduledStartTime) return null;
-
-                const start = new Date(job.scheduledStartTime);
-                const end = job.scheduledEndTime ? new Date(job.scheduledEndTime) : new Date(start.getTime() + 60 * 60 * 1000);
-
                 return {
                     id: job.id,
                     name: job.show?.name || 'Job',
                     city: job.show?.city || '',
                     state: job.show?.state || '',
                     country: 'USA',
-                    startDate: start,
-                    endDate: end,
-                    days: [
-                        {
-                            date: start,
-                            startTime: format(start, 'HH:mm'),
-                            endTime: format(end, 'HH:mm'),
-                            skipped: false,
-                        },
-                    ],
+                    startDate: job.scheduledDate,
+                    endDate: job.scheduledDate,
                     type: 'job' as 'show' | 'job',
                     jobData: job,
                     isOwner: true,
@@ -380,13 +346,11 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
             .filter((item) => item !== null);
 
         // @ts-ignore
-        setShows([...showsData, ...mappedJobs]);
+        setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
         setLoading(false);
-    };
+    }, [role]);
 
-    useEffect(() => {
-        loadShows();
-    }, [userEmail]);
+    useAutoRefresh(loadShows);
 
     const navigate = (direction: 'prev' | 'next') => {
         if (view === 'month') {
@@ -600,6 +564,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                 {selectedJob && (
                     <JobDetailView
                         job={selectedJob}
+                        setJob={setSelectedJob}
                         role={role}
                         userEmail={userEmail}
                         onClose={() => setSelectedJob(null)}
@@ -610,6 +575,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                         }}
                         setSelectedHorse={setSelectedHorse}
                         setCheckMarkedCompleted={() => {}}
+                        canMarkCompleted={false}
                         type='calendar'
                     />
                 )}
@@ -862,7 +828,15 @@ const MonthView = ({
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
     const getShowsForDay = (day: Date) => {
-        return shows.filter((show) => show.days.some((d) => isSameDay(new Date(d.date), day) && !d.skipped));
+        return shows.filter((show) => {
+            const start = new Date(show.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(show.endDate);
+            end.setHours(0, 0, 0, 0);
+            const current = new Date(day);
+            current.setHours(0, 0, 0, 0);
+            return current >= start && current <= end;
+        });
     };
 
     return (
@@ -880,13 +854,7 @@ const MonthView = ({
                         {days.map((day, i) => {
                             let dayShows = getShowsForDay(day);
                             if (dayShows.length > 1) {
-                                dayShows = dayShows.sort((a, b) => {
-                                    const aDay = a.days.find((d) => isEqual(d.date.setHours(0, 0, 0, 0), day.setHours(0, 0, 0, 0)));
-                                    const bDay = b.days.find((d) => isEqual(d.date.setHours(0, 0, 0, 0), day.setHours(0, 0, 0, 0)));
-
-                                    if (!aDay || !bDay) return 0;
-                                    return aDay.startTime.localeCompare(bDay.startTime);
-                                });
+                                dayShows = dayShows.sort((a, b) => a.name.localeCompare(b.name));
                             }
 
                             return (
@@ -1006,21 +974,15 @@ const WeekView = ({
     const scrollWidthRef = useRef<HTMLDivElement>(null);
 
     const getShowsForDay = (day: Date) => {
-        return shows.filter((show) => show.days.some((d) => isSameDay(new Date(d.date), day) && !d.skipped));
-    };
-
-    const getEventStyle = (startTime: string, endTime: string) => {
-        const start = getParts(startTime);
-        const end = getParts(endTime);
-        const startMinutes = start.hour * 60 + start.minute;
-        const endMinutes = end.hour * 60 + end.minute;
-        const top = (startMinutes / 1440) * 100;
-        const height = ((endMinutes - startMinutes) / 1440) * 100;
-
-        return {
-            top: `${top}%`,
-            height: `${height}%`,
-        };
+        return shows.filter((show) => {
+            const start = new Date(show.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(show.endDate);
+            end.setHours(0, 0, 0, 0);
+            const current = new Date(day);
+            current.setHours(0, 0, 0, 0);
+            return current >= start && current <= end;
+        });
     };
 
     useEffect(() => {
@@ -1050,8 +1012,6 @@ const WeekView = ({
             <div ref={scrollRef} className='flex-1 overflow-auto relative font-figtree'>
                 <div className='relative @min-[850px]/week-calendar:w-full @min-[550px]/week-calendar:w-[140%] @min-[450px]/week-calendar:w-[175%] @min-[330px]/week-calendar:w-[233.33%] w-[350%] min-h-full'>
                     <div className='flex sticky top-0 z-30 bg-primary-extra-light border-b-2 border-gray-100 h-[70px] uppercase'>
-                        <div className='w-14 sticky left-0 top-0 z-40 bg-primary-extra-light border-r border-gray-100 flex-none' />
-
                         <div ref={scrollWidthRef} className='flex-1 flex'>
                             {days.map((day, i) => (
                                 <div key={i} className='flex-1 py-3 text-center border-r border-gray-100 last:border-r-0'>
@@ -1070,99 +1030,38 @@ const WeekView = ({
                         </div>
                     </div>
 
-                    <div className='flex relative min-h-[1440px]'>
-                        <div className='w-14 flex-none border-r border-gray-100 bg-white sticky left-0 z-20'>
-                            {Array.from({ length: 24 }).map((_, i) => (
-                                <div key={i} className='h-[60px] relative border-b border-gray-50'>
-                                    <span className='absolute -top-2.5 text-xs text-gray-400 font-medium bg-white px-1 w-full h-full flex justify-center'>
-                                        {i === 0 ? '' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
-                                    </span>
+                    <div className='flex-1 flex min-h-0'>
+                        {days.map((day, i) => {
+                            let dayShows = getShowsForDay(day);
+                            if (dayShows.length > 1) {
+                                dayShows = dayShows.sort((a, b) => a.name.localeCompare(b.name));
+                            }
+
+                            return (
+                                <div key={i} className='flex-1 border-r border-gray-100 last:border-r-0 relative h-full bg-white flex flex-col gap-2 p-2 overflow-y-auto'>
+                                    {dayShows.length === 0 && <div className='flex items-center justify-center h-20 text-gray-300 text-sm font-medium'>No events</div>}
+                                    {dayShows.map((show) => (
+                                        <button
+                                            key={show.id}
+                                            onClick={() => onShowClick(show)}
+                                            className={cn(
+                                                'w-full text-left p-3 rounded-xl border border-gray-100 shadow-sm transition-all hover:shadow-md cursor-pointer group',
+                                                show.type === 'job' ? 'bg-blue-50 border-blue-200' : 'bg-white hover:border-primary/30',
+                                                show.inviteStatus === 'pending' ? 'opacity-80' : ''
+                                            )}
+                                        >
+                                            <p className={cn('font-bold text-sm truncate', show.type === 'job' ? 'text-blue-600' : 'text-gray-900 group-hover:text-primary')}>
+                                                {show.name}
+                                            </p>
+                                            <div className='flex items-center gap-1 mt-1 text-xs text-gray-500'>
+                                                <MapPin size={12} className='shrink-0' />
+                                                <span className='truncate'>{show.city}</span>
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className='flex-1 flex'>
-                            {days.map((day, i) => {
-                                let dayShows = getShowsForDay(day);
-                                if (dayShows.length > 1) {
-                                    dayShows = dayShows.sort((a, b) => {
-                                        const aDay = a.days.find((d) => isSameDay(new Date(d.date), day));
-                                        const bDay = b.days.find((d) => isSameDay(new Date(d.date), day));
-
-                                        if (!aDay || !bDay) return 0;
-                                        return aDay.startTime.localeCompare(bDay.startTime);
-                                    });
-                                }
-
-                                const overlap = Array.from({ length: dayShows.length }, () => false);
-                                for (let i = 0; i < dayShows.length; i++) {
-                                    const dayA = dayShows[i].days.find((d) => isSameDay(new Date(d.date), day));
-                                    if (!dayA) continue;
-                                    if (i + 1 > dayShows.length - 1) continue;
-                                    const dayB = dayShows[i + 1].days.find((d) => isSameDay(new Date(d.date), day));
-                                    if (!dayB) continue;
-
-                                    const aParts = getParts(dayA.endTime);
-                                    const bParts = getParts(dayB.startTime);
-
-                                    if (new Date().setHours(aParts.hour, aParts.minute) > new Date().setHours(bParts.hour, bParts.minute)) overlap[i + 1] = true;
-                                }
-
-                                return (
-                                    <div key={i} className='flex-1 border-r border-gray-100 last:border-r-0 relative h-full bg-white/50 even:bg-white'>
-                                        {Array.from({ length: 24 }).map((_, h) => (
-                                            <div key={h} className='h-[60px] border-b-2 border-gray-50/50 w-full' />
-                                        ))}
-
-                                        {dayShows.map((show, index) => {
-                                            const daySchedule = show.days.find((d) => isSameDay(new Date(d.date), day));
-                                            if (!daySchedule) return null;
-
-                                            const style = getEventStyle(daySchedule.startTime, daySchedule.endTime);
-
-                                            return (
-                                                <button
-                                                    key={show.id}
-                                                    style={style}
-                                                    onClick={() => onShowClick(show)}
-                                                    className={cn(
-                                                        'absolute inset-x-1 rounded-lg cursor-pointer bg-primary-extra-light border border-primary/20 p-1.5 overflow-hidden hover:brightness-95 transition-all text-left group z-10',
-                                                        show.type === 'job' ? 'bg-blue-50 border border-blue-200 hover:bg-blue-100' : '',
-                                                        show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
-                                                        show.jobData &&
-                                                            (show.jobData.status === 'completed' ||
-                                                                show.jobData.status === 'denied' ||
-                                                                show.jobData.status === 'canceled' ||
-                                                                show.jobData.status === 'sub_declined')
-                                                            ? 'opacity-50'
-                                                            : '',
-                                                        index - 1 >= 0 && overlap[index - 1] && overlap[index] ? 'ml-8' : overlap[index] ? 'ml-4' : '',
-                                                        show.jobData && show.jobData.status === 'sub_requested' && role === 'subcontractor' && show.jobData.subcontractorId
-                                                            ? 'bg-background opacity-80 hover:bg-blue-50'
-                                                            : ''
-                                                    )}
-                                                >
-                                                    <div className='flex flex-col h-full'>
-                                                        <span
-                                                            className={cn(
-                                                                'text-[11.5px] font-bold text-primary truncate group-hover:whitespace-normal leading-tight',
-                                                                show.type === 'job' ? 'text-blue-500' : ''
-                                                            )}
-                                                        >
-                                                            {show.name}
-                                                        </span>
-                                                        <span className='text-[10.5px] text-gray-500 truncate'>
-                                                            {format(parseISO(`2000-01-01T${daySchedule.startTime}`), 'h:mm')} -{' '}
-                                                            {format(parseISO(`2000-01-01T${daySchedule.endTime}`), 'h:mm a')}
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -1193,16 +1092,15 @@ const ListView = ({
     onShowClick: (show: Show) => void;
     role: string;
 }) => {
-    const allOccurrences = shows.flatMap((show) =>
-        show.days
-            .filter((day) => !day.skipped)
-            .map((day) => ({
-                ...show,
-                occurrenceDate: new Date(day.date),
-                startTime: day.startTime,
-                endTime: day.endTime,
-            }))
-    );
+    const allOccurrences = shows.flatMap((show) => {
+        const start = new Date(show.startDate);
+        const end = new Date(show.endDate);
+        const days = eachDayOfInterval({ start, end });
+        return days.map((day) => ({
+            ...show,
+            occurrenceDate: day,
+        }));
+    });
 
     const groupedByDate: { [key: string]: typeof allOccurrences } = {};
     allOccurrences.forEach((occ) => {
@@ -1234,7 +1132,7 @@ const ListView = ({
         <div className='h-full overflow-y-auto custom-scrollbar bg-white @min-[700px]/calendar:grid grid-cols-[2fr_1fr] @container/list-calendar'>
             <div className='h-full p-5 @min-[350px]/list-calendar:p-6 @min-[550px]/list-calendar:p-8 space-y-4 w-full @min-[700px]/list-calendar:min-w-[520px] max-w-4xl font-figtree'>
                 {sortedDates.map((dateKey, index) => {
-                    const dayOccurrences = [...groupedByDate[dateKey]].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                    const dayOccurrences = [...groupedByDate[dateKey]];
                     const [year, month, day] = dateKey.split('-').map(Number);
                     const date = new Date(year, month - 1, day);
 
@@ -1320,10 +1218,6 @@ const ListView = ({
                                                         <span className='truncate'>
                                                             {occ.city}, {occ.state || occ.country}
                                                         </span>
-                                                    </span>
-                                                    <span className='flex items-center gap-2 font-medium'>
-                                                        <Clock size={16} className='text-primary/50' />
-                                                        {format(parseISO(`2000-01-01T${occ.startTime}`), 'h:mm a')} - {format(parseISO(`2000-01-01T${occ.endTime}`), 'h:mm a')}
                                                     </span>
                                                 </div>
                                             </div>

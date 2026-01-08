@@ -43,9 +43,13 @@
     --breakpoint-max: 1800px;
 
     /* arbitrary breakpoints */
-    --breakpoint-hero-lg: 800px;
-    --breakpoint-hero-xl: 1000px;
-    --breakpoint-hero-max: 1200px;
+    --breakpoint-hero-xs: 450px;
+    --breakpoint-hero-sm: 515px;
+    --breakpoint-hero-cm: 720px;
+    --breakpoint-hero-md: 800px;
+    --breakpoint-hero-lg: 830px;
+    --breakpoint-hero-xl: 915px;
+    --breakpoint-hero-max: 1080px;
 
     --breakpoint-navbar-desktop: 1000px;
     --breakpoint-navbar-lg: 1080px;

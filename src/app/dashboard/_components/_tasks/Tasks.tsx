@@ -20,21 +20,31 @@ import {
     Trash2,
     ChevronRight,
     CheckCircle2,
+    CalendarCheck,
     Info,
+    ChevronsRight,
+    Square,
+    CheckSquare,
+    CircleCheck,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { createJob, cancelJob, getJobs, updateJobStatus, addNote, getBraiderData, reRequestJob, deleteJob, markJobCompleted } from '@/app/actions/jobs';
+import { createJob, cancelJob, getJobs, updateJobStatus, addNote, getBraiderData, reRequestJob, deleteJob, markJobCompleted, toggleServiceCompletion } from '@/app/actions/jobs';
 import { getRelations } from '@/app/actions/client-relations';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay, addHours } from 'date-fns';
-import { getParts } from '../_calendar/AddShowForm';
 import { RequestWorkModal, ViewShowDetailsModal } from './RequestWorkModals';
 import { createPortal } from 'react-dom';
 import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, scrollVariants } from '@/app/context';
+import { markAllTypeAsRead } from '@/app/actions/notifications';
+import { NotificationType } from '@prisma/client';
+import { useNotifications } from '@/app/NotificationContext';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { addShowToCalendar } from '@/app/actions/calendar';
+import DatePicker from '../DatePicker';
+import { getIDByEmail } from '@/app/actions/join';
 
 type Job = {
     id: string;
@@ -43,15 +53,15 @@ type Job = {
     client: { name: string; image?: string; email: string };
     paidAt?: Date;
     subcontractor?: { name: string; image?: string; email: string };
-    show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date };
+    show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date; invites: any[] };
     assignments: {
         id: string;
         horse: { id: string; showName: string; barnName: string; profileImage: string; gender: string; notes: string; color: string };
         services: { id: string; name: string; priceUSD: number }[];
+        completedServiceIds: string[];
     }[];
     notes: { id: string; content: string; createdAt: Date; author: { name: string; image?: string } }[];
-    scheduledStartTime?: Date;
-    scheduledEndTime?: Date;
+    scheduledDate?: Date;
     createdAt: Date;
 };
 
@@ -80,14 +90,14 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
     const [checkMarkedCompleted, setCheckMarkedCompleted] = useState({ open: false, id: '' });
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
 
-    useEffect(() => {
-        const loadJobs = async () => {
-            const data = await getJobs(userEmail, role);
-            setJobs(data as any);
-            setLoading(false);
-        };
-        loadJobs();
+    const loadJobs = useCallback(async () => {
+        const data = await getJobs(userEmail, role);
+        console.log(data);
+        setJobs(data as any);
+        setLoading(false);
     }, [userEmail, role]);
+
+    useAutoRefresh(loadJobs);
 
     const handleCreateJob = async (data: any) => {
         const res = await createJob(data);
@@ -118,6 +128,27 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
     const handleCancelJobModal = () => {
         setCancelJobModal(true);
     };
+
+    const { refreshCounts } = useNotifications();
+
+    useEffect(() => {
+        const markRead = async () => {
+            await markAllTypeAsRead(NotificationType.job_request);
+            await markAllTypeAsRead(NotificationType.job_status_change);
+            await markAllTypeAsRead(NotificationType.job_completed);
+            await markAllTypeAsRead(NotificationType.job_paid);
+            refreshCounts();
+        };
+        markRead();
+    }, [refreshCounts]);
+
+    useEffect(() => {
+        if (notesJob) {
+            markAllTypeAsRead(NotificationType.new_message, notesJob.id).then(() => {
+                refreshCounts();
+            });
+        }
+    }, [notesJob, refreshCounts]);
 
     const refreshJobs = async () => {
         const updated = await getJobs(userEmail, role);
@@ -192,7 +223,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                     </div>
                 ) : (
                     <div className='grid grid-cols-1 gap-4'>
-                        {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied').length === 0 &&
+                        {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && j.status !== 'completed').length === 0 &&
                             (role === 'client' ? (
                                 <div
                                     onClick={() => setRequestModalOpen(true)}
@@ -205,7 +236,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                 </div>
                             ) : (
                                 <div
-                                    onClick={() => setSelectedPage('Clients')}
+                                    onClick={() => setSelectedPage(role === 'braider' ? 'Clients' : 'Team')}
                                     className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                                 >
                                     <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
@@ -357,6 +388,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                 {selectedJob && (
                     <JobDetailView
                         job={selectedJob}
+                        setJob={setSelectedJob}
                         role={role}
                         userEmail={userEmail}
                         onClose={() => setSelectedJob(null)}
@@ -364,6 +396,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                         handleCancelJobModal={handleCancelJobModal}
                         setSelectedHorse={setSelectedHorse}
                         setCheckMarkedCompleted={setCheckMarkedCompleted}
+                        canMarkCompleted={true}
                     />
                 )}
             </Modal>
@@ -524,16 +557,20 @@ const JobCard = ({
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'client' ? `With ${job.braider.name}` : `Client: ${job.client.name}`}</p>
 
-                    {job.scheduledStartTime && (
-                        <div className='flex items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
-                            <span className='flex items-center gap-1'>
-                                <Calendar className='w-4 h-4' />
-                                {new Date(job.scheduledStartTime).toLocaleDateString()}
-                            </span>
-                            <span className='flex items-center gap-1'>
-                                <Clock className='w-4 h-4' />
-                                {new Date(job.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                    {job.scheduledDate && (
+                        <div className='flex gap-2 items-center'>
+                            <div className='flex items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
+                                <span className='flex items-center gap-1'>
+                                    <Calendar className='w-4 h-4' />
+                                    {format(new Date(job.scheduledDate), 'MMM d, yyyy')}
+                                </span>
+                            </div>
+                            <div className='flex items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
+                                <span className='flex items-center gap-1'>
+                                    <CircleCheck className='w-4 h-4' />
+                                    {`${job.assignments.reduce((acc, a) => acc + a.completedServiceIds.length, 0)}/${job.assignments.reduce((acc, a) => acc + a.services.length, 0)} Completed`}
+                                </span>
+                            </div>
                         </div>
                     )}
                     {job.subcontractor && role !== 'subcontractor' && (
@@ -552,15 +589,17 @@ const JobCard = ({
                 )}
             >
                 <div className='flex items-center gap-2'>
-                    {(role === 'braider' || role === 'subcontractor') && (job.status === 'accepted' || job.status === 'delegated') && (
-                        <button
-                            onClick={handleMarkCompleted}
-                            className='p-2 rounded-full cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
-                            title='Mark as Completed'
-                        >
-                            <CheckCircle2 size={28} />
-                        </button>
-                    )}
+                    {(role === 'braider' || role === 'subcontractor') &&
+                        (job.status === 'accepted' || job.status === 'delegated') &&
+                        !(job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.completedServiceIds.includes(s.id)).length, 0) > 0) && (
+                            <button
+                                onClick={handleMarkCompleted}
+                                className='p-2 rounded-full cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
+                                title='Mark as Completed'
+                            >
+                                <CheckCircle2 size={28} />
+                            </button>
+                        )}
                     {!completed && !canceled && (
                         <button
                             onClick={(e) => {
@@ -593,11 +632,12 @@ const JobCard = ({
                         if (role !== 'subcontractor') setSelectedPage('Invoices');
                     }}
                     className={cn(
-                        'cursor-pointer font-figtree uppercase font-bold absolute -top-3 right-2 text-[15px] tracking-wide px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 hover:bg-amber-200 transition-all',
+                        'cursor-pointer flex items-center gap-2 font-figtree uppercase font-bold absolute -top-3 right-2 text-[15px] tracking-wide px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 hover:bg-amber-200 transition-all',
                         role === 'subcontractor' ? 'pointer-events-none' : ''
                     )}
                 >
-                    {role === 'client' ? 'Payment Required' : 'Invoice Sent to Braider'}
+                    {role === 'client' ? 'Payment Required' : 'Invoice Sent to Client'}
+                    {role !== 'subcontractor' && <ChevronsRight className='w-5 h-5' />}
                 </div>
             )}
         </div>
@@ -606,6 +646,7 @@ const JobCard = ({
 
 export const JobDetailView = ({
     job,
+    setJob,
     role,
     userEmail,
     onClose,
@@ -613,9 +654,11 @@ export const JobDetailView = ({
     handleCancelJobModal,
     setSelectedHorse,
     setCheckMarkedCompleted,
+    canMarkCompleted = true,
     type = 'tasks',
 }: {
     job: Job;
+    setJob: React.Dispatch<React.SetStateAction<Job | null>>;
     role: string;
     userEmail: string;
     onClose: () => void;
@@ -623,15 +666,13 @@ export const JobDetailView = ({
     handleCancelJobModal: () => void;
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
     setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string }>>;
+    canMarkCompleted?: boolean;
     type?: 'tasks' | 'calendar';
 }) => {
-    const [date, setDate] = useState<Date | null>(job.scheduledStartTime ? new Date(job.scheduledStartTime) : null);
-    const [startTime, setStartTime] = useState(
-        job.scheduledStartTime ? new Date(job.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '08:00'
-    );
-    const [endTime, setEndTime] = useState(job.scheduledEndTime ? new Date(job.scheduledEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '');
+    const [date, setDate] = useState<Date | null>(job.scheduledDate ? new Date(job.scheduledDate) : null);
     const [team, setTeam] = useState<any[]>([]);
     const [selectedSub, setSelectedSub] = useState('');
+    const [userId, setUserId] = useState('');
 
     useEffect(() => {
         const getTeam = async () => {
@@ -639,29 +680,52 @@ export const JobDetailView = ({
             setTeam(relations.filter((r) => r.role === 'subcontractor'));
         };
 
+        const getUserId = async () => {
+            const res = await getIDByEmail(userEmail);
+            console.log(res);
+            if (res.success) setUserId(res.success.id);
+        };
+
         if (role === 'braider') getTeam();
+        else getUserId();
     }, [role, userEmail]);
 
     const handleAction = async (status: 'accepted' | 'delegated' | 'denied' | 'sub_requested' | 'sub_declined', subId?: string) => {
-        let scheduledStart = undefined;
-        let scheduledEnd = undefined;
-        if ((status === 'accepted' || status === 'sub_requested') && date && startTime) {
-            scheduledStart = new Date(`${format(date, 'yyyy-MM-dd')}T${startTime}`);
-            if (endTime) {
-                scheduledEnd = new Date(`${format(date, 'yyyy-MM-dd')}T${endTime}`);
-            }
-        }
-
         const res = await updateJobStatus(job.id, status, {
-            scheduledStartTime: scheduledStart,
-            scheduledEndTime: scheduledEnd,
+            scheduledDate: date || undefined,
             subcontractorId: subId || selectedSub || undefined,
         });
 
         if (res.success) {
-            successToast(`Job updated`);
+            successToast(`Job ${status === 'sub_requested' ? 'requested' : status === 'sub_declined' || status === 'denied' ? 'declined' : status}`);
             refresh();
             onClose();
+        } else {
+            failToast('Failed to update');
+        }
+    };
+
+    const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
+        e.stopPropagation();
+        const res = await toggleServiceCompletion(assignmentId, serviceId);
+        if (res.success) {
+            setJob((prev) => {
+                if (!prev) return null;
+
+                return {
+                    ...prev,
+                    assignments: prev.assignments.map((assignment) => {
+                        if (assignment.id !== assignmentId) return assignment;
+
+                        const hasService = assignment.completedServiceIds.includes(serviceId);
+                        const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
+
+                        return { ...assignment, completedServiceIds: newServices };
+                    }),
+                };
+            });
+
+            refresh();
         } else {
             failToast('Failed to update');
         }
@@ -754,33 +818,27 @@ export const JobDetailView = ({
                     </span>
                 </div>
 
-                {job.scheduledStartTime && (
-                    <div className='flex items-center gap-3 p-4 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px]'>
-                        <div
-                            title={format(job.scheduledStartTime, 'PPPppp')}
-                            className='min-w-12 h-12 rounded-full overflow-hidden bg-primary-light/15 flex flex-col justify-center items-center text-primary-dark'
-                        >
-                            <span className='uppercase font-bold text-xs'>{format(job.scheduledStartTime, 'MMM')}</span>
-                            <span className='uppercase font-bold text-xs'>{format(job.scheduledStartTime, 'dd')}</span>
+                {job.scheduledDate && (
+                    <div className='flex flex-col @min-[450px]/job-detail:flex-row @min-[450px]/job-detail:items-center gap-2 w-full justify-between p-4 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px]'>
+                        <div>
+                            <p className='font-bold text-primary-dark'>Expected Completion Date</p>
+                            <h3 className='text-[13px] font-bold text-primary uppercase'>{format(job.scheduledDate, 'PPPP')}</h3>
                         </div>
-                        <div className='flex items-center justify-between w-full gap-2'>
-                            <div>
-                                <p className='font-bold text-primary-dark'>Hours</p>
-                                <h3 className='text-[13px] font-bold text-primary uppercase'>
-                                    {format(job.scheduledStartTime, 'p')}
-                                    {job.scheduledEndTime ? ` - ${format(job.scheduledEndTime, 'p')}` : ` - ${format(addHours(job.scheduledStartTime, 1), 'p')}`}
-                                </h3>
+                        {role !== 'braider' && job.show.invites.filter((invite) => invite && invite.inviteeId === userId && invite.status === 'accepted').length === 0 && (
+                            <div
+                                onClick={handleAddToCalendar}
+                                className='bg-primary-light/30 flex items-center gap-2 px-4 py-1 rounded-[10px] cursor-pointer hover:bg-primary-light/40 transition-all text-primary shadow-sm text-sm font-semibold border border-primary'
+                            >
+                                <Calendar className='w-4 h-4' />
+                                Add to Calendar
                             </div>
-                            {role !== 'braider' && (
-                                <div
-                                    onClick={handleAddToCalendar}
-                                    className='bg-primary-light/30 flex items-center gap-2 px-4 py-1 rounded-[10px] cursor-pointer hover:bg-primary-light/40 transition-all text-primary shadow-sm text-sm font-semibold border border-primary'
-                                >
-                                    <Calendar className='w-4 h-4' />
-                                    Add to Calendar
-                                </div>
-                            )}
-                        </div>
+                        )}
+                        {role !== 'braider' && job.show.invites.filter((invite) => invite && invite.inviteeId === userId && invite.status === 'accepted').length === 1 && (
+                            <div className='bg-primary-light/30 flex items-center gap-2 px-4 py-1 rounded-[10px] cursor-pointer transition-all text-primary shadow-sm text-sm font-semibold border border-primary'>
+                                <CalendarCheck className='w-4 h-4' />
+                                Added to Calendar
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -816,46 +874,92 @@ export const JobDetailView = ({
                 <div>
                     <h3 className='text-sm font-bold text-gray-500 uppercase mb-3'>Assignments • {format(job.createdAt, 'P')}</h3>
                     <div className='space-y-4 px-2'>
-                        {job.assignments.map((assignment, i) => (
-                            <div key={i} className='bg-white rounded-2xl border border-gray-200 p-4 shadow-sm'>
-                                {/* Horse Info */}
-                                <div onClick={() => setSelectedHorse(assignment.horse)} className='flex justify-between items-center gap-1 cursor-pointer group mb-3'>
-                                    <div className='flex items-center gap-3 min-w-0'>
-                                        <div className='min-w-10 min-h-10 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
-                                            {assignment.horse.profileImage ? (
-                                                <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover' />
-                                            ) : (
-                                                <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-xs font-figtree'>
-                                                    {assignment.horse.barnName[0]}
-                                                </div>
-                                            )}
+                        {job.assignments
+                            .sort((a, b) => a.horse.barnName.localeCompare(b.horse.barnName.toUpperCase()))
+                            .map((assignment, i) => (
+                                <div
+                                    key={i}
+                                    className={cn(
+                                        'bg-white rounded-2xl border border-gray-200 p-4 shadow-sm',
+                                        assignment.services.length === [...new Set(assignment.completedServiceIds)].length ? 'bg-primary-extra-light border-primary/20' : ''
+                                    )}
+                                >
+                                    <div onClick={() => setSelectedHorse(assignment.horse)} className='flex justify-between items-center gap-1 cursor-pointer group mb-3'>
+                                        <div className='flex items-center gap-3 min-w-0'>
+                                            <div className='min-w-10 min-h-10 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
+                                                {assignment.horse.profileImage ? (
+                                                    <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover' />
+                                                ) : (
+                                                    <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-xs font-figtree'>
+                                                        {assignment.horse.barnName[0]}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className='flex flex-col min-w-0 flex-1'>
+                                                <span className='font-bold text-gray-900 truncate group-hover:text-primary transition-colors'>{assignment.horse.barnName}</span>
+                                                <span className='text-gray-500 text-[13px] truncate -mt-0.5'>{assignment.horse.showName}</span>
+                                            </div>
                                         </div>
-                                        <div className='flex flex-col min-w-0 flex-1'>
-                                            <span className='font-bold text-gray-900 truncate group-hover:text-primary transition-colors'>{assignment.horse.barnName}</span>
-                                            <span className='text-gray-500 text-[13px] truncate -mt-0.5'>{assignment.horse.showName}</span>
+                                        <div className='rounded-full p-1.5 transition-all text-gray-400 group-hover:bg-primary-extra-light group-hover:text-primary'>
+                                            <Info size={20} />
                                         </div>
                                     </div>
-                                    <div className='rounded-full p-1.5 transition-all text-gray-400 group-hover:bg-primary-extra-light group-hover:text-primary'>
-                                        <Info size={20} />
-                                    </div>
-                                </div>
 
-                                {/* Services */}
-                                <div className='space-y-2 pl-1'>
-                                    {assignment.services.map((service, idx) => (
-                                        <div key={idx} className='flex justify-between items-center text-sm min-w-0'>
-                                            <span className='text-gray-700 font-medium truncate'>{service.name}</span>
-                                            <span className='font-bold font-lusitana text-primary'>${service.priceUSD}</span>
+                                    <div className='space-y-2 pl-1'>
+                                        {assignment.services.map((service, idx) => {
+                                            const isCompleted = assignment.completedServiceIds?.includes(service.id);
+                                            const isBraiderOrSub = role === 'braider' || (role === 'subcontractor' && job.status === 'delegated');
+                                            const canEdit = isBraiderOrSub && job.status !== 'completed' && job.status !== 'canceled';
+
+                                            return (
+                                                <div key={idx} className='flex justify-between items-center text-sm min-w-0 py-1'>
+                                                    <div className='flex items-center gap-3 min-w-0 flex-1'>
+                                                        {job.scheduledDate &&
+                                                            (isBraiderOrSub ? (
+                                                                <button
+                                                                    type='button'
+                                                                    disabled={!canMarkCompleted}
+                                                                    onClick={(e) => canMarkCompleted && canEdit && handleToggleService(e, assignment.id, service.id)}
+                                                                    className={cn(
+                                                                        'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:hover:border-black/15 disabled:opacity-50 disabled:cursor-not-allowed',
+                                                                        canEdit ? 'cursor-pointer hover:border-primary' : 'opacity-50',
+                                                                        isCompleted ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300'
+                                                                    )}
+                                                                >
+                                                                    {isCompleted && <CheckSquare size={14} strokeWidth={3} />}
+                                                                </button>
+                                                            ) : (
+                                                                isCompleted && <CheckCircle2 size={16} className='text-primary' />
+                                                            ))}
+                                                        <span
+                                                            className={cn(
+                                                                'text-gray-700 font-medium truncate',
+                                                                isCompleted && 'text-gray-400 line-through',
+                                                                assignment.services.length === [...new Set(assignment.completedServiceIds)].length ? 'text-primary-light/80' : ''
+                                                            )}
+                                                        >
+                                                            {service.name}
+                                                        </span>
+                                                    </div>
+                                                    <span className='font-bold font-lusitana text-primary pl-2'>${service.priceUSD}</span>
+                                                </div>
+                                            );
+                                        })}
+                                        <div className='border-t border-dashed border-gray-200 my-2' />
+                                        <div className='flex justify-between items-center'>
+                                            <span
+                                                className={cn(
+                                                    'text-xs font-bold text-gray-400 uppercase tracking-wider',
+                                                    assignment.services.length === [...new Set(assignment.completedServiceIds)].length ? 'text-primary-light' : ''
+                                                )}
+                                            >
+                                                Subtotal
+                                            </span>
+                                            <span className='font-bold text-gray-900 font-lusitana'>${assignment.services.reduce((a, b) => a + b.priceUSD, 0)}</span>
                                         </div>
-                                    ))}
-                                    <div className='border-t border-dashed border-gray-200 my-2' />
-                                    <div className='flex justify-between items-center'>
-                                        <span className='text-xs font-bold text-gray-400 uppercase tracking-wider'>Subtotal</span>
-                                        <span className='font-bold text-gray-900 font-lusitana'>${assignment.services.reduce((a, b) => a + b.priceUSD, 0)}</span>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
 
                         <div className='flex justify-between items-center px-3 pt-2 mt-4 border-t border-gray-100'>
                             <span className='font-bold text-gray-700 text-lg'>Total</span>
@@ -870,53 +974,41 @@ export const JobDetailView = ({
                     <div className='p-4 rounded-xl bg-primary/5 border border-primary/10 shadow-sm font-figtree mb-0'>
                         <h3 className='text-sm font-bold text-primary mb-3 uppercase'>Schedule & Assign</h3>
 
-                        <div className='mb-4 flex flex-col gap-1.5'>
-                            <label className='text-xs font-bold text-gray-500 uppercase'>Date</label>
-                            <SelectDateDropdown value={date} onChange={setDate} showStart={new Date(job.show.startDate)} showEnd={new Date(job.show.endDate)} />
-                        </div>
+                        {type === 'tasks' && (
+                            <div className='mb-6 flex flex-col gap-1.5 min-w-0'>
+                                <label className='text-xs font-bold text-gray-500 uppercase'>Assign To</label>
+                                <SelectSubcontractorDropdown value={selectedSub} onChange={setSelectedSub} team={team} />
+                            </div>
+                        )}
 
-                        <div className='grid grid-cols-1 @min-[320px]/job-detail:grid-cols-2 gap-3 mb-4'>
-                            <div className='flex flex-col gap-1.5'>
-                                <label className='text-xs font-bold text-gray-500 uppercase'>Start Time</label>
-                                <SelectTime value={startTime} onChange={setStartTime} startTime={{ hour: 0, minute: 0 }} disabled={!date} />
-                            </div>
-                            <div className='flex flex-col gap-1.5'>
-                                <label className='text-xs font-bold text-gray-500 uppercase'>End Time (Optional)</label>
-                                <SelectTime
-                                    value={endTime}
-                                    onChange={setEndTime}
-                                    startTime={{
-                                        hour: parseInt(startTime.split(':')[0], 10),
-                                        minute: parseInt(startTime.split(':')[1], 10),
-                                    }}
-                                    disabled={!date}
-                                />
-                            </div>
+                        <div className='mb-4 flex flex-col gap-1.5 w-full'>
+                            <label className='text-xs font-bold text-gray-500 uppercase'>When will {selectedSub ? 'they' : 'you'} be finished?</label>
+                            <DatePicker
+                                onDateSelect={(d) => setDate(d)}
+                                noDateBefore={new Date()}
+                                selectedDate={date}
+                                showStartDate={new Date(job.show.startDate)}
+                                showEndDate={new Date(job.show.endDate)}
+                                size='big'
+                            />
                         </div>
 
                         {type === 'tasks' && (
-                            <>
-                                <div className='mb-6 flex flex-col gap-1.5 min-w-0'>
-                                    <label className='text-xs font-bold text-gray-500 uppercase'>Assign To</label>
-                                    <SelectSubcontractorDropdown value={selectedSub} onChange={setSelectedSub} team={team} />
-                                </div>
-
-                                <div className='flex flex-col @min-[320px]/job-detail:flex-row gap-2'>
-                                    <button
-                                        onClick={() => handleAction('denied')}
-                                        className='flex-1 py-2 cursor-pointer rounded-[10px] bg-background red-border-hover text-red-600 font-bold'
-                                    >
-                                        Decline
-                                    </button>
-                                    <button
-                                        onClick={() => handleAction(selectedSub ? 'sub_requested' : 'accepted')}
-                                        disabled={!date || !startTime}
-                                        className='flex-1 py-2 cursor-pointer rounded-[10px] bg-primary-light primary-border-hover text-background font-bold disabled:opacity-50 disabled:pointer-events-none'
-                                    >
-                                        {selectedSub ? 'Assign to Sub' : 'Accept Request'}
-                                    </button>
-                                </div>
-                            </>
+                            <div className='flex flex-col @min-[320px]/job-detail:flex-row gap-2'>
+                                <button
+                                    onClick={() => handleAction('denied')}
+                                    className='flex-1 py-2 cursor-pointer rounded-[10px] bg-background red-border-hover text-red-600 font-bold'
+                                >
+                                    Decline
+                                </button>
+                                <button
+                                    onClick={() => handleAction(selectedSub ? 'sub_requested' : 'accepted')}
+                                    disabled={!date}
+                                    className='flex-1 py-2 cursor-pointer rounded-[10px] bg-primary-light primary-border-hover text-background font-bold disabled:opacity-50 disabled:pointer-events-none'
+                                >
+                                    {selectedSub ? 'Assign to Sub' : 'Accept Request'}
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
@@ -959,14 +1051,15 @@ export const JobDetailView = ({
                             </div>
                         )}
                         {((role === 'subcontractor' && job.status === 'delegated') || (role === 'braider' && job.status === 'accepted')) && (
-                            <div
+                            <button
+                                disabled={job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.completedServiceIds.includes(s.id)).length, 0) > 0}
                                 onClick={() => {
                                     setCheckMarkedCompleted({ open: true, id: job.id });
                                 }}
-                                className='w-full grid place-items-center font-figtree font-bold text-background bg-primary-light primary-border-hover rounded-[10px] py-1.5 text-lg cursor-pointer'
+                                className='w-full grid place-items-center font-figtree font-bold text-background bg-primary-light primary-border-hover rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none'
                             >
                                 Mark Complete
-                            </div>
+                            </button>
                         )}
                     </div>
                 )}
@@ -1328,6 +1421,11 @@ const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string;
 const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 const ITEM_HEIGHT = 48;
+
+const getParts = (value: string) => {
+    const [hour, minute] = value.split(':').map(Number);
+    return { hour, minute };
+};
 
 const SelectTime = ({ value, onChange, startTime, disabled }: { value: string; onChange: (val: string) => void; startTime: { hour: number; minute: number }; disabled: boolean }) => {
     const [isOpen, setIsOpen] = useState(false);

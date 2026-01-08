@@ -50,12 +50,6 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
         switch (selectedPage) {
             case 'Dashboard':
                 return <DashboardHome role='braider' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
-            case 'Horses':
-                return (
-                    <div className='p-8'>
-                        <h1 className='text-2xl font-bold'>Horses View Coming Soon</h1>
-                    </div>
-                );
             case 'Calendar':
                 return <Calendar role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Tasks':

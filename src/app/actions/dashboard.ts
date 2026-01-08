@@ -17,7 +17,6 @@ export async function getDashboardData(role: string) {
             include: {
                 shows: {
                     include: {
-                        days: true,
                         invites: { include: { invitee: true, inviter: true } },
                     },
                     orderBy: { startDate: 'asc' },
@@ -27,7 +26,6 @@ export async function getDashboardData(role: string) {
                     include: {
                         show: {
                             include: {
-                                days: true,
                                 invites: { include: { invitee: true, inviter: true } },
                                 user: true,
                             },
@@ -39,7 +37,6 @@ export async function getDashboardData(role: string) {
 
         if (!user) return { error: 'User not found' };
 
-        // Fetch Jobs
         let jobsWhereClause: any = {};
         if (role === 'client') jobsWhereClause = { clientId: user.id };
         else if (role === 'braider') jobsWhereClause = { braiderId: user.id };
@@ -66,7 +63,6 @@ export async function getDashboardData(role: string) {
             orderBy: { createdAt: 'desc' },
         });
 
-        // Map Show Data
         const ownedShows = user.shows.map((s) => ({ ...s, isOwner: true }));
         const invitedShows = user.receivedShowInvites.map((invite) => ({
             ...invite.show,

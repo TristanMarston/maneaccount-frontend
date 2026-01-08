@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { PlusCircle, Search, Trash2, User, Copy, Share2, Phone, Mail, Check, X, Clock, ArrowRight, ArrowLeft, Scissors, Loader2, RefreshCcw } from 'lucide-react';
 import Image from 'next/image';
-import { getTeamMembers, getPendingRequests, inviteUser, removeMember, acceptRequest, getUserByPublicID } from '@/app/actions/team';
+import { getTeamMembers, inviteUser, removeMember, acceptRequest, getUserByPublicID, getTeamRequests } from '@/app/actions/team';
 import QRCode from 'react-qr-code';
 import { cn } from '@/lib/utils';
 import { failToast, successToast } from '@/app/context';
 import Link from 'next/link';
 import Modal from '../Modal';
 import useScreenWidth from '@/hooks/useScreenWidth';
+import { markAllTypeAsRead } from '@/app/actions/notifications';
+import { NotificationType } from '@prisma/client';
+import { useNotifications } from '@/app/NotificationContext';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const getInitials = (name: string) => (name ? name.substring(0, 2).toUpperCase() : '??');
 
@@ -48,19 +52,29 @@ const Team = ({
     const [inviteLoading, setInviteLoading] = useState(false);
     const [checkModal, setCheckModal] = useState<{ name: string; connectionID: string; open: boolean }>({ name: '', connectionID: '', open: false });
 
-    const refreshData = async () => {
-        const [memberData, pendingData] = await Promise.all([getTeamMembers(userEmail), getPendingRequests(userEmail)]);
+    const refreshDataFn = useCallback(async () => {
+        setLoading(true);
+        const [memberData, pendingData] = await Promise.all([getTeamMembers(userEmail), getTeamRequests(userEmail)]);
 
         // @ts-ignore - Prisma Date objects
         setMembers(memberData);
         // @ts-ignore
         setPending(pendingData);
         setLoading(false);
-    };
+    }, []);
+
+    useAutoRefresh(refreshDataFn);
+
+    const { refreshCounts } = useNotifications();
 
     useEffect(() => {
-        refreshData();
-    }, [userEmail]);
+        const markRead = async () => {
+            await markAllTypeAsRead(NotificationType.team_invite);
+            await markAllTypeAsRead(NotificationType.team_status_change);
+            refreshCounts();
+        };
+        markRead();
+    }, [refreshCounts]);
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -71,7 +85,7 @@ const Team = ({
             successToast(result.message);
             setIsInviting(false);
             setInviteInput('');
-            refreshData(); // Refresh pending list
+            refreshDataFn(); // Refresh pending list
         } else {
             failToast(result.error || 'Failed to invite');
         }
@@ -82,17 +96,17 @@ const Team = ({
         const result = await acceptRequest(connectionID);
         if (result.success) {
             successToast('Welcome to the team!');
-            refreshData();
+            refreshDataFn();
         } else {
             failToast('Failed to accept');
         }
     };
 
     const handleRemove = async (connectionID: string, isPending: boolean = false) => {
-        const result = await removeMember(connectionID);
+        const result = await removeMember(connectionID, isPending);
 
         if (result.success) {
-            successToast(isPending ? 'Request cancelled' : 'Member removed');
+            successToast(isPending ? 'Request denied' : 'Member removed');
             if (isPending) {
                 setPending((prev) => ({
                     incoming: prev.incoming.filter((m) => m.connectionID !== connectionID),
@@ -124,7 +138,7 @@ const Team = ({
                         <button
                             onClick={() => {
                                 setLoading(true);
-                                refreshData();
+                                refreshDataFn();
                             }}
                             className='font-figtree w-full @min-[490px]/team:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/team:text-lg text-nowrap rounded-[14px] @min-[490px]/team:rounded-[20px] @min-[735px]/team:rounded-[10px] py-2 px-6 @min-[490px]/team:p-3 @min-[735px]/team:py-2 @min-[735px]/team:px-6 bg-background text-primary primary-border-hover'
                         >
@@ -260,13 +274,15 @@ const Team = ({
                                 Send your first invite
                             </button>
                         </div>
-                        <div
-                            onClick={() => setSelectedPage('Clients')}
-                            className='flex gap-2 w-fit items-start text-primary font-figtree py-2 px-4 rounded-full hover:bg-primary-extra-light cursor-pointer transition-all'
-                        >
-                            <ArrowRight className='w-6 h-6' />
-                            <p>Looking for where to invite horse owners/clients?</p>
-                        </div>
+                        {role === 'braider' && (
+                            <div
+                                onClick={() => setSelectedPage('Clients')}
+                                className='flex gap-2 w-fit items-start text-primary font-figtree py-2 px-4 rounded-full hover:bg-primary-extra-light cursor-pointer transition-all'
+                            >
+                                <ArrowRight className='w-6 h-6' />
+                                <p>Looking for where to invite horse owners/clients?</p>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className='grid grid-cols-1 @min-[800px]/team:grid-cols-2 @min-[1200px]/team:grid-cols-3 gap-6'>

@@ -35,8 +35,8 @@ export const metadata: Metadata = {
     icons: {
         icon: [
             {
-                url: '/mane-account-M.png',
-                href: '/mane-account-M.png',
+                url: '/maneaccount-M-192x192.png',
+                href: '/maneaccount-M-192x192.png',
             },
         ],
     },
@@ -49,9 +49,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang='en' className={`${figtree.variable} ${lusitana.variable} ${lustria.variable} ${reenieBeanie.variable}`}>
-            <body className={`overflow-x-hidden h-screen w-screen p-0 bg-background`}>
-                {children}
-            </body>
+            <body className={`overflow-x-hidden h-screen w-screen p-0 bg-background`}>{children}</body>
         </html>
     );
 }

@@ -133,6 +133,16 @@ export async function establishConnection(email: string) {
                     cookieStore.delete('join_request_user');
 
                     return { success: true };
+                } else if (existing.success) {
+                    if (existing.success.status === 'pending' && existing.success.senderId !== dbUser.id) {
+                        await prisma.connection.update({
+                            where: { id: existing.success.id },
+                            data: { status: 'accepted' },
+                        });
+                    }
+
+                    cookieStore.delete('join_request_user');
+                    return { success: true };
                 } else {
                     cookieStore.delete('join_request_user');
                     return { error: 'invalid connection, or existing connection' };

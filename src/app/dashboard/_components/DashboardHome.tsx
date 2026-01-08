@@ -85,7 +85,10 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
         }
     }, [userEmail, role]);
 
-    useAutoRefresh(fetchData);
+    // useAutoRefresh(fetchData);
+    useEffect(() => {
+        fetchData();
+    }, []);
 
     const upcomingShows = shows
         .filter((s) => new Date(s.endDate) >= new Date(new Date().setHours(0, 0, 0, 0)))

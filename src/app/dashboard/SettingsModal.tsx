@@ -62,7 +62,7 @@ const SettingsModal = ({
     const [isVerifying, setIsVerifying] = useState(false);
     const [verificationStep, setVerificationStep] = useState<'idle' | 'sent'>('idle');
     const [verificationCode, setVerificationCode] = useState('');
-    const [role, setRole] = useState<'braider' | 'subcontractor' | 'client' | 'admin'>('client');
+    const [role, setRole] = useState<'braider' | 'subcontractor' | 'barn' | 'admin'>('barn');
     const [roleModal, setRoleModal] = useState(false);
     const [closeModal, setCloseModal] = useState(false);
 
@@ -475,7 +475,7 @@ const SettingsModal = ({
                                                         </div>
                                                     </div>
 
-                                                    {role !== 'client' && originalInfo.current.role === role && (
+                                                    {role !== 'barn' && originalInfo.current.role === role && (
                                                         <button
                                                             type='button'
                                                             onClick={() => setRoleModal(true)}
@@ -529,7 +529,7 @@ const SettingsModal = ({
                                         <div className='flex flex-col gap-4'>
                                             <div className='ml-1'>
                                                 <label className='text-sm font-bold text-gray-500 uppercase'>Payment Links</label>
-                                                <p className='text-xs font-semibold text-gray-500'>Add links to your Venmo or Zelle to easily receive payments from clients.</p>
+                                                <p className='text-xs font-semibold text-gray-500'>Add links to your Venmo or Zelle to easily receive payments from barns.</p>
                                             </div>
 
                                             <div className='flex flex-col gap-4'>
@@ -786,14 +786,14 @@ const SettingsModal = ({
                     <p className='text-gray-800 text-[17px] font-figtree mt-2'>
                         {originalInfo.current.role === 'subcontractor' ? (
                             <span>
-                                You are currently a subcontractor. By switching to braider, you will gain client management features but{' '}
+                                You are currently a subcontractor. By switching to braider, you will gain barn management features but{' '}
                                 <span className='font-bold'>lose access to subcontractor functionalities and user connections.</span> You may switch back at any time.
                             </span>
                         ) : (
                             originalInfo.current.role === 'braider' && (
                                 <span>
                                     You are currently a braider. By switching to subcontractor, you will{' '}
-                                    <span className='font-bold'>lose client management features and any existing user connections.</span> You may switch back at any time.
+                                    <span className='font-bold'>lose barn management features and any existing user connections.</span> You may switch back at any time.
                                 </span>
                             )
                         )}

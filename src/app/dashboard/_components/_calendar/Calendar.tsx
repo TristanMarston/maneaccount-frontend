@@ -571,7 +571,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                         refresh={loadShows}
                         handleCancelJobModal={() => {
                             setSelectedJob(null);
-                            setSelectedPage(role === 'client' ? 'Services' : 'Tasks');
+                            setSelectedPage(role === 'barn' ? 'Services' : 'Tasks');
                         }}
                         setSelectedHorse={setSelectedHorse}
                         setCheckMarkedCompleted={() => {}}

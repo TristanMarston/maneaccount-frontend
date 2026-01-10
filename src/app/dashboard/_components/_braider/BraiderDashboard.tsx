@@ -54,7 +54,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
                 return <Calendar role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
                 return <Tasks role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
-            case 'Clients':
+            case 'Barns':
                 return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Invoices':
                 return <Invoices role='braider' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={setSettingsModalOpen} />;

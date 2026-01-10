@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Search, Shield, Users, Scissors, Calendar, Mail, RefreshCcw, LogOut, Trash2, Briefcase } from 'lucide-react';
+import { Search, Shield, Users, Scissors, Calendar, Mail, RefreshCcw, LogOut, Trash2, Briefcase, Warehouse } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import Logo from '@/app/_components/_navbar/Logo';
 import { useRouter } from 'next/navigation';
@@ -18,7 +18,7 @@ type User = {
     id: string;
     name: string;
     email: string;
-    role: 'admin' | 'braider' | 'subcontractor' | 'client';
+    role: 'admin' | 'braider' | 'subcontractor' | 'barn';
     createdAt: string;
 };
 
@@ -83,7 +83,7 @@ const AdminDashboard = () => {
         { label: 'Total Users', value: users.length, icon: Users },
         { label: 'Braiders', value: users.filter((u) => u.role === 'braider').length, icon: Scissors },
         { label: 'Subcontractors', value: users.filter((u) => u.role === 'subcontractor').length, icon: Users },
-        { label: 'Clients', value: users.filter((u) => u.role === 'client').length, icon: Briefcase },
+        { label: 'Barns', value: users.filter((u) => u.role === 'barn').length, icon: Briefcase },
     ];
 
     return (
@@ -334,14 +334,14 @@ const RoleBadge = ({ role }: { role: string }) => {
         admin: 'bg-red-50 text-red-700 border-red-100',
         braider: 'bg-primary/10 text-primary border-primary/20',
         subcontractor: 'bg-purple-50 text-purple-700 border-purple-100',
-        client: 'bg-orange-50 text-orange-700 border-orange-100',
+        barn: 'bg-orange-50 text-orange-700 border-orange-100',
     };
 
     const icons = {
         admin: Shield,
         braider: Scissors,
         subcontractor: Users,
-        client: Briefcase,
+        barn: Warehouse,
     };
 
     const Style = styles[role as keyof typeof styles] || 'bg-gray-100 text-gray-600';

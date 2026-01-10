@@ -1,7 +1,7 @@
 'use client';
 
 import { updateShow, createShow } from '@/app/actions/calendar';
-import { getRelations } from '@/app/actions/client-relations';
+import { getRelations } from '@/app/actions/barn-relations';
 import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, usaStates } from '@/app/context';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
@@ -103,10 +103,10 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
     useEffect(() => {
         const getAllRelations = async () => {
             setConnectionsLoading(true);
-            const [clientData, subcontractorData] = await Promise.all([getRelations(userEmail), getTeamMembers(userEmail)]);
+            const [barnData, subcontractorData] = await Promise.all([getRelations(userEmail), getTeamMembers(userEmail)]);
 
             setConnectionsLoading(false);
-            setConnections([...clientData, ...subcontractorData]);
+            setConnections([...barnData, ...subcontractorData]);
         };
 
         if (step === totalSteps && connections.length === 0) getAllRelations();
@@ -307,7 +307,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                     ) : (
                         <div className='space-y-4 mt-6'>
                             <p className='text-gray-500 text-[15px] @min-[240px]/add-show:text-base font-figtree mt-0 @min-[240px]/add-show:mt-1 mb-4 w-full'>
-                                Invite users to this show. They will receive a notification to accept or decline.
+                                Invite barns or subcontractors to this show. They will receive a notification to accept or decline.
                             </p>
 
                             <div className='relative w-full'>

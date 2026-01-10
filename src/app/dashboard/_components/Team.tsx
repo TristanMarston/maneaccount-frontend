@@ -276,11 +276,11 @@ const Team = ({
                         </div>
                         {role === 'braider' && (
                             <div
-                                onClick={() => setSelectedPage('Clients')}
+                                onClick={() => setSelectedPage('Barns')}
                                 className='flex gap-2 w-fit items-start text-primary font-figtree py-2 px-4 rounded-full hover:bg-primary-extra-light cursor-pointer transition-all'
                             >
                                 <ArrowRight className='w-6 h-6' />
-                                <p>Looking for where to invite horse owners/clients?</p>
+                                <p>Looking for where to invite barns?</p>
                             </div>
                         )}
                     </>
@@ -459,7 +459,7 @@ const InviteModal = ({
                 if (!user || user.error || publicID === invitePublicID) {
                     setLoadingUser('fail');
                     return;
-                } else if (user.user?.publicID === invitePublicID && user.user.role.toLowerCase() !== role.toLowerCase() && user.user.role.toLowerCase() !== 'client') {
+                } else if (user.user?.publicID === invitePublicID && user.user.role.toLowerCase() !== role.toLowerCase() && user.user.role.toLowerCase() !== 'barn') {
                     const { name, image } = user.user;
                     setInvitedUser({ publicID: user.user.publicID, name: name || '', image: image || '' });
                     setLoadingUser('success');

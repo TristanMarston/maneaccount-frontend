@@ -1,4 +1,4 @@
-import { getRelations } from '@/app/actions/client-relations';
+import { getRelations } from '@/app/actions/barn-relations';
 import { getBraiderData } from '@/app/actions/jobs';
 import { cn } from '@/lib/utils';
 import { MapPin, X, CalendarIcon, CircleArrowRight, PlusCircle } from 'lucide-react';

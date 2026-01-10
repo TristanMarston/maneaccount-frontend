@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { createJob, cancelJob, getJobs, updateJobStatus, addNote, getBraiderData, reRequestJob, deleteJob, markJobCompleted, toggleServiceCompletion } from '@/app/actions/jobs';
-import { getRelations } from '@/app/actions/client-relations';
+import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -50,7 +50,7 @@ type Job = {
     id: string;
     status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'delegated' | 'sub_requested' | 'sub_declined' | 'completed';
     braider: { name: string; image?: string; email: string };
-    client: { name: string; image?: string; email: string };
+    barn: { name: string; image?: string; email: string };
     paidAt?: Date;
     subcontractor?: { name: string; image?: string; email: string };
     show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date; invites: any[] };
@@ -176,10 +176,10 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
             <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-6 @container/tasks'>
                 <header className='flex flex-col gap-4 @min-[400px]/tasks:gap-0 @min-[400px]/tasks:flex-row @min-[400px]/tasks:justify-between @min-[400px]/tasks:items-center'>
                     <div>
-                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'client' ? 'Services' : 'Tasks'}</h1>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'barn' ? 'Services' : 'Tasks'}</h1>
                         <p className='text-gray-500 font-figtree mt-1 @min-[400px]/tasks:mt-1.5'>Manage your braiding schedule and requests.</p>
                     </div>
-                    {role === 'client' && (
+                    {role === 'barn' && (
                         <button
                             onClick={() => setRequestModalOpen(true)}
                             className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
@@ -198,7 +198,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                     </div>
                 ) : jobs.length === 0 ? (
                     <div className='grid grid-cols-1'>
-                        {role === 'client' ? (
+                        {role === 'barn' ? (
                             <div
                                 onClick={() => setRequestModalOpen(true)}
                                 className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
@@ -210,12 +210,12 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                             </div>
                         ) : (
                             <div
-                                onClick={() => setSelectedPage('Clients')}
+                                onClick={() => setSelectedPage('Barns')}
                                 className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                             >
                                 <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
                                 <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
-                                    No upcoming jobs. Connect with {role === 'braider' ? 'clients' : 'braiders'} to get started.
+                                    No upcoming jobs. Connect with {role === 'braider' ? 'barns' : 'braiders'} to get started.
                                 </p>
                             </div>
                         )}
@@ -223,7 +223,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                 ) : (
                     <div className='grid grid-cols-1 gap-4'>
                         {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && j.status !== 'completed').length === 0 &&
-                            (role === 'client' ? (
+                            (role === 'barn' ? (
                                 <div
                                     onClick={() => setRequestModalOpen(true)}
                                     className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
@@ -235,12 +235,12 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                 </div>
                             ) : (
                                 <div
-                                    onClick={() => setSelectedPage(role === 'braider' ? 'Clients' : 'Team')}
+                                    onClick={() => setSelectedPage(role === 'braider' ? 'Barns' : 'Team')}
                                     className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                                 >
                                     <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
                                     <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
-                                        No upcoming jobs. Connect with {role === 'braider' ? 'clients' : 'braiders'} to start getting paid.
+                                        No upcoming jobs. Connect with {role === 'braider' ? 'barns' : 'braiders'} to start getting paid.
                                     </p>
                                 </div>
                             ))}
@@ -448,13 +448,13 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                         <p className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
                             {role === 'braider' && (
                                 <span>
-                                    This action will mark this request as completed. An invoice will be sent to the client, and they will pay for the service. Payments occur outside of
+                                    This action will mark this request as completed. An invoice will be sent to the barn, and they will pay for the service. Payments occur outside of
                                     the ManeAccount platform, but it is advised to track them in the <span className='font-bold'>Invoices</span> panel.
                                 </span>
                             )}
                             {role === 'subcontractor' && (
                                 <span>
-                                    This action will mark this request as completed. An invoice will be sent to the client, and they will pay the braider for the service. Payments occur
+                                    This action will mark this request as completed. An invoice will be sent to the barn, and they will pay the braider for the service. Payments occur
                                     outside of the platform, so you must connect with the braider outside of the ManeAccount platform to receive your share of the earnings.
                                 </span>
                             )}
@@ -522,17 +522,17 @@ const JobCard = ({
         >
             <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>
                 <div className='w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-figtree'>
-                    {role === 'client' ? (
+                    {role === 'barn' ? (
                         job.braider?.image ? (
                             <Image src={job.braider.image} alt='Braider' width={48} height={48} className='rounded-full object-cover w-full h-full' />
                         ) : (
                             <div className='w-full h-full bg-primary/20 rounded-full flex items-center justify-center text-primary text-lg font-bold'>{job.braider.name[0]}</div>
                         )
-                    ) : job.client?.image ? (
-                        <Image src={job.client.image} alt='Client' width={48} height={48} className='rounded-full object-cover w-full h-full' />
+                    ) : job.barn?.image ? (
+                        <Image src={job.barn.image} alt='Barn' width={48} height={48} className='rounded-full object-cover w-full h-full' />
                     ) : (
                         <div className='w-full h-full bg-primary/20 rounded-full flex items-center justify-center text-primary text-lg font-bold'>
-                            {job.client?.name?.charAt(0) || '?'}
+                            {job.barn?.name?.charAt(0) || '?'}
                         </div>
                     )}
                 </div>
@@ -554,7 +554,7 @@ const JobCard = ({
                                     : job.status.replace('_', ' ')}
                         </span>
                     </div>
-                    <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'client' ? `With ${job.braider.name}` : `Client: ${job.client.name}`}</p>
+                    <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>
 
                     {job.scheduledDate && (
                         <div className='flex gap-2 items-center'>
@@ -635,7 +635,7 @@ const JobCard = ({
                         role === 'subcontractor' ? 'pointer-events-none' : ''
                     )}
                 >
-                    {role === 'client' ? 'Payment Required' : 'Invoice Sent to Client'}
+                    {role === 'barn' ? 'Payment Required' : 'Invoice Sent to Barn'}
                     {role !== 'subcontractor' && <ChevronsRight className='w-5 h-5' />}
                 </div>
             )}
@@ -784,21 +784,21 @@ export const JobDetailView = ({
             <div className='flex-1 overflow-y-auto px-7 py-5 space-y-4 font-figtree @container/job-detail'>
                 <div className='flex items-center gap-3 p-4 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] relative'>
                     <div className='relative min-w-12 h-12 rounded-full overflow-hidden bg-primary-light/15 grid place-items-center'>
-                        {role === 'client' ? (
+                        {role === 'barn' ? (
                             job.braider.image ? (
                                 <Image src={job.braider.image} alt='Braider' fill className='object-cover' />
                             ) : (
                                 <h4 className='uppercase font-bold text-lg text-primary-dark w-full h-full grid place-items-center'>{job.braider.name[0]}</h4>
                             )
-                        ) : job.client.image ? (
-                            <Image src={job.client.image} alt='Client' fill className='object-cover' />
+                        ) : job.barn.image ? (
+                            <Image src={job.barn.image} alt='Barn' fill className='object-cover' />
                         ) : (
-                            <h4 className='uppercase font-bold text-lg text-primary-dark w-full h-full grid place-items-center'>{job.client.name[0]}</h4>
+                            <h4 className='uppercase font-bold text-lg text-primary-dark w-full h-full grid place-items-center'>{job.barn.name[0]}</h4>
                         )}
                     </div>
                     <div className='min-w-0'>
-                        <p className='font-bold text-primary-dark truncate'>{role === 'client' ? job.braider.name : job.client.name}</p>
-                        <p className='text-[13px] text-primary uppercase font-bold'>{role === 'client' ? 'Braider' : 'Client'}</p>
+                        <p className='font-bold text-primary-dark truncate'>{role === 'barn' ? job.braider.name : job.barn.name}</p>
+                        <p className='text-[13px] text-primary uppercase font-bold'>{role === 'barn' ? 'Braider' : 'Barn'}</p>
                     </div>
                     <span
                         className={cn(
@@ -1039,7 +1039,7 @@ export const JobDetailView = ({
                             job.status !== 'canceled' &&
                             job.status !== 'denied' &&
                             job.status !== 'completed' &&
-                            ((role === 'client' && job.status === 'pending') || job.status !== 'pending')) ||
+                            ((role === 'barn' && job.status === 'pending') || job.status !== 'pending')) ||
                             (role === 'subcontractor' && job.status === 'delegated')) && (
                             <div
                                 onClick={handleCancelJobModal}
@@ -1070,7 +1070,7 @@ export const JobDetailView = ({
                         >
                             Delete Request
                         </div>
-                        {role === 'client' && (
+                        {role === 'barn' && (
                             <div
                                 onClick={handleReRequestJob}
                                 className='w-full grid place-items-center font-figtree font-bold text-primary primary-border-hover rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer'
@@ -1086,7 +1086,7 @@ export const JobDetailView = ({
                         onClick={handleCancelJobModal}
                         className='w-full grid place-items-center font-figtree font-bold text-primary bg-background primary-border-hover rounded-[10px] py-1.5 text-lg cursor-pointer'
                     >
-                        Go to {role === 'client' ? 'Services' : 'Tasks'}
+                        Go to {role === 'barn' ? 'Services' : 'Tasks'}
                     </div>
                 )}
             </div>
@@ -1135,7 +1135,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                             className={cn(
                                 'flex flex-col',
                                 note.author.name ===
-                                    (role === 'client' ? job.client.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
+                                    (role === 'barn' ? job.barn.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
                                     ? 'self-end items-end'
                                     : 'self-start items-start'
                             )}
@@ -1144,8 +1144,8 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                 className={cn(
                                     'p-3 rounded-2xl text-sm font-figtree shadow-sm',
                                     note.author.name ===
-                                        (role === 'client'
-                                            ? job.client.name
+                                        (role === 'barn'
+                                            ? job.barn.name
                                             : role === 'subcontractor'
                                               ? job.subcontractor
                                                   ? job.subcontractor.name

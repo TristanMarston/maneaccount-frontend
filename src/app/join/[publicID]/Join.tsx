@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { GradientBackground } from '@/app/_components/GradientBackground';
 import Logo from '@/app/_components/_navbar/Logo';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, Check, Shield, User, Users, Briefcase, Scissors } from 'lucide-react';
+import { ArrowRight, Check, Shield, User, Users, Briefcase, Scissors, Warehouse } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
@@ -106,9 +106,9 @@ const Join = ({ inviterID }: { inviterID: string }) => {
     let validRoles: string[] = [];
     const senderRole = inviter?.role.toLowerCase();
 
-    if (senderRole === 'braider') validRoles = ['subcontractor', 'client'];
+    if (senderRole === 'braider') validRoles = ['subcontractor', 'barn'];
     else if (senderRole === 'subcontractor') validRoles = ['braider'];
-    else if (senderRole === 'client') validRoles = ['braider'];
+    else if (senderRole === 'barn') validRoles = ['braider'];
 
     const setJoinCookie = () => {
         document.cookie = `join_request_user=${inviter?.publicID}; path=/; max-age=3600; SameSite=Lax`;
@@ -130,14 +130,14 @@ const Join = ({ inviterID }: { inviterID: string }) => {
         if (userRole) {
             if (role === 'braider') {
                 if (userRole === 'subcontractor') return { label: 'Braider', icon: Scissors, action: 'join their team' };
-                if (userRole === 'client') return { label: 'Braider', icon: Scissors, action: 'hire them' };
+                if (userRole === 'barn') return { label: 'Braider', icon: Scissors, action: 'hire them' };
             }
             if (role === 'subcontractor') return { label: 'Subcontractor', icon: Users, action: 'add them to your team' };
-            if (role === 'client') return { label: 'Client', icon: Briefcase, action: 'work for them' };
+            if (role === 'barn') return { label: 'barn', icon: Warehouse, action: 'work for them' };
         } else {
             if (role === 'braider') return { label: 'Braider', icon: Scissors, action: 'join their team or hire them' };
             if (role === 'subcontractor') return { label: 'Subcontractor', icon: Users, action: 'add them to your team' };
-            if (role === 'client') return { label: 'Client', icon: Briefcase, action: 'work for them' };
+            if (role === 'barn') return { label: 'barn', icon: Warehouse, action: 'work for them' };
         }
         return { label: 'User', icon: User, action: 'connect with them' };
     };

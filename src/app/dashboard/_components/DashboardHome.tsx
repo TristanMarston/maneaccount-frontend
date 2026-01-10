@@ -23,6 +23,7 @@ import {
     MailCheck,
     SquareArrowOutUpRight,
     Trash2,
+    Warehouse,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
@@ -115,7 +116,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
                 <div className='space-y-8 animate-in fade-in duration-500 font-figtree overflow-y-auto pb-28 dashboard-sm:pb-8 pr-1'>
                     {role === 'braider' && <BraiderView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
                     {role === 'subcontractor' && <SubcontractorView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
-                    {role === 'client' && <ClientView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
+                    {role === 'barn' && <BarnView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
                 </div>
             )}
         </div>
@@ -298,15 +299,15 @@ const Notification = ({
                                 ? 'Calendar'
                                 : notification.type.startsWith('job')
                                   ? 'Tasks'
-                                  : notification.type.startsWith('client')
-                                    ? 'Clients'
+                                  : notification.type.startsWith('barn')
+                                    ? 'Barns'
                                     : notification.type.startsWith('team')
                                       ? 'Team'
                                       : notification.type === 'new_message'
                                         ? 'Messages'
                                         : ''
                         );
-                    } else if (role === 'client') {
+                    } else if (role === 'barn') {
                         setSelectedPage(
                             notification.type === 'calendar_invite'
                                 ? 'Calendar'
@@ -314,7 +315,7 @@ const Notification = ({
                                   ? 'Invoices'
                                   : notification.type.startsWith('job')
                                     ? 'Services'
-                                    : notification.type.startsWith('client')
+                                    : notification.type.startsWith('barn')
                                       ? 'Braiders'
                                       : notification.type.startsWith('team')
                                         ? 'Team'
@@ -420,7 +421,7 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
                 <h3 className='text-lg font-bold font-figtree text-gray-900 mb-4'>Quick Actions</h3>
                 <div className='grid grid-cols-2 @min-[500px]/home:grid-cols-4 gap-4'>
                     <ActionCard icon={Calendar} label='Calendar' onClick={() => setSelectedPage('Calendar')} />
-                    <ActionCard icon={Users} label='Clients' onClick={() => setSelectedPage('Clients')} />
+                    <ActionCard icon={Warehouse} label='Barns' onClick={() => setSelectedPage('Barns')} />
                     <ActionCard icon={Banknote} label='Invoices' onClick={() => setSelectedPage('Invoices')} />
                     <ActionCard icon={UserPlus} label='Team' onClick={() => setSelectedPage('Team')} />
                 </div>
@@ -505,7 +506,7 @@ const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingS
     );
 };
 
-const ClientView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
+const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
     const pendingAmount = unpaidJobs.reduce(
         (acc, j) => acc + j.assignments.reduce((sAcc: number, s: any) => sAcc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0),
@@ -550,7 +551,7 @@ const ClientView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: S
 
                 <SectionContainer title='Invoices to Pay' onViewAll={() => setSelectedPage('Invoices')}>
                     {unpaidJobs.length > 0 ? (
-                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='client' />)
+                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='barn' />)
                     ) : (
                         <EmptyState message='All caught up on invoices!' icon={CheckCircle2} />
                     )}
@@ -680,7 +681,7 @@ const InvoicePreviewCard = ({ job, role }: { job: any; role: string }) => {
                     <DollarSign size={20} strokeWidth={2.5} />
                 </div>
                 <div className='min-w-0'>
-                    <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'client' ? job.braider.name : job.client.name}</p>
+                    <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'barn' ? job.braider.name : job.barn.name}</p>
                     <p className='text-xs text-gray-500 font-medium'>{format(new Date(job.scheduledDate), 'MMM d, yyyy')}</p>
                 </div>
             </div>

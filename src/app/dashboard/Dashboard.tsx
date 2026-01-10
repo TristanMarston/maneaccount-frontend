@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import BraiderDashboard from './_components/_braider/BraiderDashboard';
 import SubcontractorDashboard from './_components/_subcontractor/SubcontractorDashboard';
-import OwnerDashboard from './_components/_owner/OwnerDashboard';
+import BarnDashboard from './_components/_owner/BarnDashboard';
 import { GradientBackground } from '../_components/GradientBackground';
 import { establishConnection } from '../actions/join';
 
-export type UserRole = 'client' | 'subcontractor' | 'braider' | 'admin' | '';
+export type UserRole = 'barn' | 'subcontractor' | 'braider' | 'admin' | '';
 
 const Dashboard = () => {
     const router = useRouter();
@@ -55,7 +55,7 @@ const Dashboard = () => {
             ) : role === 'subcontractor' ? (
                 <SubcontractorDashboard session={session} loading={loading} update={update} />
             ) : (
-                role === 'client' && <OwnerDashboard session={session} loading={loading} update={update} />
+                role === 'barn' && <BarnDashboard session={session} loading={loading} update={update} />
             )}
         </GradientBackground>
     ) : (

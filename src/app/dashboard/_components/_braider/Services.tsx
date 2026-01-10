@@ -110,7 +110,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
                 <header className='flex gap-6 flex-col justify-start items-start @sm/services:gap-0 @sm/services:flex-row @sm/services:justify-between @sm/services:items-center'>
                     <div>
                         <h1 className='text-[33px] @min-[300px]/services:text-4xl font-lusitana font-bold text-gray-900'>Services & Pricing</h1>
-                        <p className='text-gray-500 font-figtree mt-1.5 text-[15px] @min-[300px]/services:text-base'>Manage the services you offer to clients.</p>
+                        <p className='text-gray-500 font-figtree mt-1.5 text-[15px] @min-[300px]/services:text-base'>Manage the services you offer to barns.</p>
                     </div>
                     <button
                         onClick={() => setServiceModalOpen(true)}

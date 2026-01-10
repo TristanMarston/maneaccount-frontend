@@ -89,7 +89,7 @@ const Invoices = ({
     const { refreshCounts } = useNotifications();
 
     useEffect(() => {
-        if (role === 'client') {
+        if (role === 'barn') {
             markAllTypeAsRead(NotificationType.job_completed).then(() => {
                 refreshCounts();
             });
@@ -144,7 +144,7 @@ const Invoices = ({
             >
                 <div>
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Invoices</h1>
-                    <p className='text-gray-500 font-figtree mt-1'>{role === 'client' ? 'Manage your payments to braiders.' : 'Track your earnings and pending payments.'}</p>
+                    <p className='text-gray-500 font-figtree mt-1'>{role === 'barn' ? 'Manage your payments to braiders.' : 'Track your earnings and pending payments.'}</p>
                 </div>
                 <div className='flex flex-col gap-3 @min-[380px]/invoices:flex-row @min-[380px]/invoices:items-center @min-[380px]/invoices:gap-4 w-auto'>
                     <button
@@ -215,7 +215,7 @@ const Invoices = ({
             <div className='space-y-8 font-figtree'>
                 <section>
                     <h2 className='text-lg font-bold font-figtree mb-4 flex items-center gap-2'>
-                        {role === 'client' ? 'To Pay' : 'Pending Payment'}
+                        {role === 'barn' ? 'To Pay' : 'Pending Payment'}
                         {unpaidJobs.length > 0 && (
                             <span className='bg-primary text-white text-xs w-5.5 h-5.5 rounded-full aspect-square flex justify-center items-center text-center'>
                                 {unpaidJobs.length}
@@ -551,7 +551,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
 
                                         <div className='text-center text-gray-400 text-xs max-w-xs'>
                                             <p>
-                                                Ask the client to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like
+                                                Ask the barn to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like
                                                 to switch to {user.zelle === 'email' ? 'a phone number' : 'your email'},{' '}
                                                 <span
                                                     className='text-primary hover:text-primary-light underline cursor-pointer transition-all'
@@ -594,7 +594,7 @@ const InvoiceCard = ({ job, role, onAction, isHistory }: { job: any; role: strin
                     ${job.assignments.reduce((acc: any, s: any) => acc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0)}
                 </div>
                 <div className='min-w-0'>
-                    <h3 className='font-bold font-figtree text-gray-900 truncate'>{role === 'client' ? job.braider.name : job.client.name}</h3>
+                    <h3 className='font-bold font-figtree text-gray-900 truncate'>{role === 'barn' ? job.braider.name : job.barn.name}</h3>
                     <p className='text-xs text-gray-500 flex items-center gap-2'>
                         <span className='flex items-center gap-1'>
                             <Calendar size={10} /> {new Date(job.createdAt).toLocaleDateString()}
@@ -605,7 +605,7 @@ const InvoiceCard = ({ job, role, onAction, isHistory }: { job: any; role: strin
                 </div>
             </div>
 
-            {((isHistory && job.paidAt) || (!isHistory && role === 'client')) && (
+            {((isHistory && job.paidAt) || (!isHistory && role === 'barn')) && (
                 <div className='flex items-center gap-6 w-full @min-[490px]/invoices:w-auto justify-between @min-[490px]/invoices:justify-end'>
                     {isHistory && job.paidAt && (
                         <div className='text-left @min-[490px]/invoices:text-right w-full text-xs text-green-600 font-bold uppercase text-nowrap'>
@@ -623,7 +623,7 @@ const InvoiceCard = ({ job, role, onAction, isHistory }: { job: any; role: strin
                         </div>
                     )}
 
-                    {!isHistory && role === 'client' && (
+                    {!isHistory && role === 'barn' && (
                         <button
                             onClick={onAction}
                             className='bg-primary-light w-full text-nowrap text-background primary-border-hover mr-2 px-4 py-2 rounded-[10px] font-bold text-base shadow-sm cursor-pointer'

@@ -117,9 +117,9 @@ export async function establishConnection(email: string) {
                 const existing = await getConnection(dbUser.id, targetUser.id);
 
                 let validConnection = false;
-                if (targetUser.role === 'braider' && (dbUser.role === 'client' || dbUser.role === 'subcontractor')) validConnection = true;
+                if (targetUser.role === 'braider' && (dbUser.role === 'barn' || dbUser.role === 'subcontractor')) validConnection = true;
                 if (targetUser.role === 'subcontractor' && dbUser.role === 'braider') validConnection = true;
-                if (targetUser.role === 'client' && dbUser.role === 'braider') validConnection = true;
+                if (targetUser.role === 'barn' && dbUser.role === 'braider') validConnection = true;
 
                 if (existing.error && validConnection) {
                     await prisma.connection.create({

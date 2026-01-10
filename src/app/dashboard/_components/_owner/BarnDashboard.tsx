@@ -13,10 +13,10 @@ import Calendar from '../_calendar/Calendar';
 import Tasks from '../_tasks/Tasks';
 import Invoices from '../_invoices/Invoices';
 
-const OwnerDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
+const BarnDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
     const [name, setName] = useState('');
-    const [role, setRole] = useState<UserRole>('client');
+    const [role, setRole] = useState<UserRole>('barn');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
     const [publicID, setPublicID] = useState('');
@@ -52,7 +52,7 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
             case 'Horses':
                 return <Horses userEmail={email} />;
             case 'Braiders':
-                return <Relations userEmail={email} role='client' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
+                return <Relations userEmail={email} role='barn' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Calendar':
                 return <Calendar role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Services':
@@ -74,7 +74,7 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
     return (
         <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-lg'>
             <DashboardSidebar
-                dashboard='client'
+                dashboard='barn'
                 name={name}
                 image={image}
                 session={session}
@@ -91,4 +91,4 @@ const OwnerDashboard = ({ session, loading, update }: { session: Session | null;
     );
 };
 
-export default OwnerDashboard;
+export default BarnDashboard;

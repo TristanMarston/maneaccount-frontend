@@ -4,7 +4,7 @@ import { getProviders, signIn, useSession } from 'next-auth/react';
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Toaster } from 'react-hot-toast';
-import { Eye, EyeOff, Scissors, Users, Building2, LucideProps, Briefcase } from 'lucide-react'; // Added icons
+import { Eye, EyeOff, Scissors, Users, Building2, LucideProps, Warehouse } from 'lucide-react'; // Added icons
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import { GradientBackground } from '../_components/GradientBackground';
@@ -12,7 +12,7 @@ import { failToast, scrollVariants } from '../context';
 import Logo from '../_components/_navbar/Logo';
 import { cn } from '@/lib/utils';
 
-type UserRole = 'braider' | 'subcontractor' | 'client';
+type UserRole = 'braider' | 'subcontractor' | 'barn';
 
 type FormData = {
     firstName: string;
@@ -38,7 +38,7 @@ const SignInPage = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const passedMode = searchParams.get('mode');
-    const validRoles = searchParams.get('validRoles')?.split(',') || ['client', 'braider', 'subcontractor'];
+    const validRoles = searchParams.get('validRoles')?.split(',') || ['barn', 'braider', 'subcontractor'];
     const [mode, setMode] = useState<'signin' | 'signup'>(passedMode === 'signin' || passedMode === 'signup' ? passedMode : 'signup');
 
     const [formData, setFormData] = useState<FormData>({
@@ -150,7 +150,7 @@ const SignInPage = () => {
                                     {[
                                         { id: 'braider', label: 'Braider', icon: Scissors },
                                         { id: 'subcontractor', label: 'Subcontractor', icon: Users },
-                                        { id: 'client', label: 'Client', icon: Briefcase },
+                                        { id: 'barn', label: 'Barn', icon: Warehouse },
                                     ].map((type) => (
                                         <ShiftButton
                                             key={type.id}

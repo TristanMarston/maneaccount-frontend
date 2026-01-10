@@ -5,7 +5,7 @@ import { motion, AnimatePresence, Variants } from 'motion/react';
 import { PlusCircle, Search, Trash2, User, Copy, Share2, Phone, Mail, Check, X, ArrowRight, ArrowLeft, Loader2, RefreshCcw, Briefcase } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
-import { getRelations, getPendingRelations, inviteRelation, removeRelation, acceptRelationRequest, getRelationByPublicID } from '@/app/actions/client-relations';
+import { getRelations, getPendingRelations, inviteRelation, removeRelation, acceptRelationRequest, getRelationByPublicID } from '@/app/actions/barn-relations';
 import QRCode from 'react-qr-code';
 import { cn } from '@/lib/utils';
 import { failToast, successToast } from '@/app/context';
@@ -53,9 +53,9 @@ const Relations = ({
     const [inviteLoading, setInviteLoading] = useState(false);
     const [checkModal, setCheckModal] = useState<{ name: string; connectionID: string; open: boolean }>({ name: '', connectionID: '', open: false });
 
-    const isClient = role.toLowerCase() === 'client';
-    const targetLabel = isClient ? 'Braider' : 'Client';
-    const pluralLabel = isClient ? 'My Braiders' : 'My Clients';
+    const isBarn = role.toLowerCase() === 'barn';
+    const targetLabel = isBarn ? 'Braider' : 'Barn';
+    const pluralLabel = isBarn ? 'My Braiders' : 'My Barns';
 
     const refreshDataFn = async () => {
         setLoading(true);
@@ -78,8 +78,8 @@ const Relations = ({
 
     useEffect(() => {
         const markRead = async () => {
-            await markAllTypeAsRead(NotificationType.client_invite);
-            await markAllTypeAsRead(NotificationType.client_status_change);
+            await markAllTypeAsRead(NotificationType.barn_invite);
+            await markAllTypeAsRead(NotificationType.barn_status_change);
             refreshCounts();
         };
         markRead();
@@ -137,7 +137,7 @@ const Relations = ({
                     <div>
                         <h1 className='text-3xl @min-[280px]/relations:text-[33px] @min-[310px]/relations:text-4xl font-lusitana font-bold text-gray-900'>{pluralLabel}</h1>
                         <p className='text-gray-500 font-figtree mt-1 @min-[310px]/relations:mt-1.5 text-[15px] @min-[300px]/relations:text-base'>
-                            {isClient ? 'Connect with braiders to schedule appointments.' : 'Manage your client list and send invoices.'}
+                            {isBarn ? 'Connect with braiders to schedule appointments.' : 'Manage your barn list and send invoices.'}
                         </p>
                     </div>
                     <div className='flex flex-col w-full @min-[375px]/relations:w-auto @min-[375px]/relations:flex-row gap-3 @min-[375px]/relations:gap-4'>
@@ -272,7 +272,7 @@ const Relations = ({
                                 Send your first invite
                             </button>
                         </div>
-                        {targetLabel === 'Client' && (
+                        {targetLabel === 'Barn' && (
                             <div
                                 onClick={() => setSelectedPage('Team')}
                                 className='flex gap-2 w-fit items-start text-primary font-figtree py-2 px-4 rounded-full hover:bg-primary-extra-light cursor-pointer transition-all'
@@ -349,7 +349,7 @@ const Relations = ({
                                     Remove
                                 </button>
 
-                                {isClient && (
+                                {isBarn && (
                                     <button
                                         onClick={() => setSelectedPage('Tasks')}
                                         className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[290px]/relation-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[290px]/relation-card:py-2 transition-colors'
@@ -462,7 +462,7 @@ const InviteModal = ({
                     setLoadingUser('fail');
                 } else {
                     const foundRole = res.user?.role;
-                    const isValid = (role.toLowerCase() === 'braider' && foundRole === 'client') || (role.toLowerCase() === 'client' && foundRole === 'braider');
+                    const isValid = (role.toLowerCase() === 'braider' && foundRole === 'barn') || (role.toLowerCase() === 'barn' && foundRole === 'braider');
 
                     if (isValid) {
                         setInvitedUser({ name: res.user?.name || '', image: res.user?.image || '', publicID: res.user?.publicID || '' });
@@ -611,7 +611,7 @@ const InviteModal = ({
                                             <div className=''>
                                                 <h4 className='font-figtree text-xl font-bold truncate'>{invitedUser.name}</h4>
                                                 <h4 className='font-figtree text-xs font-semibold text-gray-600 truncate'>
-                                                    {role === 'braider' ? 'Add as a client' : 'Add as a braider'}
+                                                    {role === 'braider' ? 'Add as a barn' : 'Add as a braider'}
                                                 </h4>
                                             </div>
                                         </motion.div>

@@ -68,7 +68,7 @@ export const authOptions: AuthOptions = {
                     const roleCookie = cookieStore.get('signup_role');
                     const role = roleCookie?.value;
 
-                    if (role && ['braider', 'subcontractor', 'client', 'admin'].includes(role)) {
+                    if (role && ['braider', 'subcontractor', 'barn', 'admin'].includes(role)) {
                         if (user.email) {
                             await prisma.user.update({
                                 where: { email: user.email },

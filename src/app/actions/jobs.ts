@@ -13,8 +13,8 @@ export async function createJob(data: { braiderId: string; showId: string; assig
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        const client = await prisma.user.findUnique({ where: { email: session.user.email } });
-        if (!client) return { error: 'User not found' };
+        const barn = await prisma.user.findUnique({ where: { email: session.user.email } });
+        if (!barn) return { error: 'User not found' };
 
         if (!data.braiderId || !data.showId || data.assignments.length === 0) {
             return { error: 'Missing required fields' };
@@ -22,7 +22,7 @@ export async function createJob(data: { braiderId: string; showId: string; assig
 
         const job = await prisma.job.create({
             data: {
-                clientId: client.id,
+                barnId: barn.id,
                 braiderId: data.braiderId,
                 showId: data.showId,
                 status: 'pending',
@@ -38,7 +38,7 @@ export async function createJob(data: { braiderId: string; showId: string; assig
             include: { show: true },
         });
 
-        await createNotification(data.braiderId, NotificationType.job_request, `${client.name} requested work for ${job.show.name}`, job.id, client.id);
+        await createNotification(data.braiderId, NotificationType.job_request, `${barn.name} requested work for ${job.show.name}`, job.id, barn.id);
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -56,7 +56,7 @@ export async function getJobs(email: string, role: string) {
         if (!user) return [];
 
         let whereClause: any = {};
-        if (role === 'client') whereClause = { clientId: user.id };
+        if (role === 'barn') whereClause = { barnId: user.id };
         else if (role === 'braider') whereClause = { braiderId: user.id };
         else if (role === 'subcontractor') whereClause = { subcontractorId: user.id };
         else return [];
@@ -64,7 +64,7 @@ export async function getJobs(email: string, role: string) {
         const jobs = await prisma.job.findMany({
             where: whereClause,
             include: {
-                client: true,
+                barn: true,
                 braider: true,
                 subcontractor: true,
                 show: {
@@ -111,12 +111,12 @@ export async function updateJobStatus(
         const updatedJob = await prisma.job.update({
             where: { id: jobId },
             data: updateData,
-            include: { braider: true, subcontractor: true, client: true },
+            include: { braider: true, subcontractor: true, barn: true },
         });
 
         if (status === 'accepted' || status === 'denied') {
             await createNotification(
-                updatedJob.clientId,
+                updatedJob.barnId,
                 NotificationType.job_status_change,
                 `Your job request for ${updatedJob.braider.name} was ${status}`,
                 jobId,
@@ -191,11 +191,11 @@ export async function addNote(jobId: string, content: string) {
                 authorId: user.id,
                 content,
             },
-            include: { job: { include: { braider: true, client: true, subcontractor: true } } },
+            include: { job: { include: { braider: true, barn: true, subcontractor: true } } },
         });
 
         const job = await prisma.job.findUnique({ where: { id: jobId }, include: { show: true } });
-        const participants = [note.job.braiderId, note.job.clientId, note.job.subcontractorId].filter((id) => id && id !== user.id);
+        const participants = [note.job.braiderId, note.job.barnId, note.job.subcontractorId].filter((id) => id && id !== user.id);
         for (const participantId of participants) {
             await createNotification(participantId!, NotificationType.new_message, `New message from ${user.name} ${job ? `on ${job.show.name} job` : ''}`, jobId, user.id);
         }
@@ -219,7 +219,7 @@ export async function markJobCompleted(jobId: string) {
         });
 
         await createNotification(
-            job.clientId,
+            job.barnId,
             NotificationType.job_completed,
             `Job completed by ${job.subcontractor?.name || job.braider.name}. Please pay the invoice.`,
             jobId,
@@ -249,7 +249,7 @@ export async function markJobPaid(jobId: string, paymentPlatform: string) {
                 },
             });
 
-            createNotification(job.braiderId, NotificationType.job_paid, `The ${job.show.name} job has been paid for`, jobId, job.clientId);
+            createNotification(job.braiderId, NotificationType.job_paid, `The ${job.show.name} job has been paid for`, jobId, job.barnId);
 
             revalidatePath('/dashboard');
             return { success: true };

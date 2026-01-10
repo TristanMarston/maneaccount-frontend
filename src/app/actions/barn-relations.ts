@@ -21,7 +21,7 @@ export async function getRelations(email: string) {
 
         if (!user) return [];
 
-        const targetRole = user.role === 'client' ? 'braider' : 'client';
+        const targetRole = user.role === 'barn' ? 'braider' : 'barn';
 
         // 1. Sent Connections (I invited them)
         const sent = user.sentConnections
@@ -60,7 +60,7 @@ export async function getPendingRelations(email: string) {
 
         if (!user) return { incoming: [], outgoing: [] };
 
-        const targetRole = user.role === 'client' ? 'braider' : 'client';
+        const targetRole = user.role === 'barn' ? 'braider' : 'barn';
 
         const incoming = user.receivedConnections
             .filter((c) => c.sender.role === targetRole)
@@ -102,9 +102,9 @@ export async function inviteRelation(publicID: string) {
 
         if (sender.id === receiver.id) return { error: 'Cannot invite yourself' };
 
-        const validBraiderClient = (sender.role === 'braider' && receiver.role === 'client') || (sender.role === 'client' && receiver.role === 'braider');
+        const validBraiderBarn = (sender.role === 'braider' && receiver.role === 'barn') || (sender.role === 'barn' && receiver.role === 'braider');
 
-        if (!validBraiderClient) {
+        if (!validBraiderBarn) {
             return { error: `You cannot add a ${receiver.role.toLowerCase()} here.` };
         }
 
@@ -129,7 +129,7 @@ export async function inviteRelation(publicID: string) {
             },
         });
 
-        await createNotification(receiver.id, NotificationType.client_invite, `${sender.name} sent you a connection request`, null, sender.id);
+        await createNotification(receiver.id, NotificationType.barn_invite, `${sender.name} sent you a connection request`, null, sender.id);
 
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
@@ -149,7 +149,7 @@ export async function removeRelation(connectionId: string, rejected: boolean) {
             if (connection) {
                 createNotification(
                     connection.sender.id,
-                    NotificationType.client_status_change,
+                    NotificationType.barn_status_change,
                     `${connection.receiver.name} rejected your connection request`,
                     null,
                     connection.receiver.id
@@ -181,7 +181,7 @@ export async function acceptRelationRequest(connectionId: string) {
 
         await createNotification(
             connection.senderId,
-            NotificationType.client_status_change,
+            NotificationType.barn_status_change,
             `${connection.receiver.name} accepted your connection request`,
             null,
             connection.receiverId

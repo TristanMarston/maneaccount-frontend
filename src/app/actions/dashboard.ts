@@ -38,14 +38,14 @@ export async function getDashboardData(role: string) {
         if (!user) return { error: 'User not found' };
 
         let jobsWhereClause: any = {};
-        if (role === 'client') jobsWhereClause = { clientId: user.id };
+        if (role === 'barn') jobsWhereClause = { barnId: user.id };
         else if (role === 'braider') jobsWhereClause = { braiderId: user.id };
         else if (role === 'subcontractor') jobsWhereClause = { subcontractorId: user.id };
 
         const jobsData = await prisma.job.findMany({
             where: jobsWhereClause,
             include: {
-                client: true,
+                barn: true,
                 braider: true,
                 subcontractor: true,
                 show: true,

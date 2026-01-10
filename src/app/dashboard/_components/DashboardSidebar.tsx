@@ -22,6 +22,7 @@ import {
     X,
     Briefcase,
     Wallet,
+    Warehouse,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
 import { AnimatePresence, motion, Variants } from 'motion/react';
@@ -46,14 +47,14 @@ type Page = {
 const HorseIcon = () => <Icon className='w-full h-full max-h-5 max-w-5 dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
 
 const pages: Page[] = [
-    { title: 'Dashboard', path: '/dashboard/', icon: Home, accountTypes: ['client', 'subcontractor', 'braider', 'admin'] },
-    { title: 'Calendar', path: '/dashboard/calendar', icon: Calendar, accountTypes: ['braider', 'subcontractor', 'client'] },
+    { title: 'Dashboard', path: '/dashboard/', icon: Home, accountTypes: ['barn', 'subcontractor', 'braider', 'admin'] },
+    { title: 'Calendar', path: '/dashboard/calendar', icon: Calendar, accountTypes: ['braider', 'subcontractor', 'barn'] },
     { title: 'Tasks', path: '/dashboard/tasks', icon: ClipboardCheck, accountTypes: ['braider', 'subcontractor'] },
-    { title: 'Services', path: '/dashboard/services', icon: Briefcase, accountTypes: ['client'] },
-    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider', 'client'] },
-    { title: 'Braiders', path: '/dashboard/braiders', icon: Scissors, accountTypes: ['client'] },
-    { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['client'] },
-    { title: 'Clients', path: '/dashboard/clients', icon: Users, accountTypes: ['braider'] },
+    { title: 'Services', path: '/dashboard/services', icon: Briefcase, accountTypes: ['barn'] },
+    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider', 'barn'] },
+    { title: 'Braiders', path: '/dashboard/braiders', icon: Scissors, accountTypes: ['barn'] },
+    { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['barn'] },
+    { title: 'Barns', path: '/dashboard/barns', icon: Warehouse, accountTypes: ['braider'] },
     { title: 'Team', path: '/dashboard/team', icon: UserPlus, accountTypes: ['braider', 'subcontractor'] },
     { title: 'Pricing', path: '/dashboard/pricing', icon: BadgeDollarSign, accountTypes: ['braider'] },
 ];
@@ -107,8 +108,8 @@ const DashboardSidebar = ({
         if (page.title === 'Team') {
             return (unreadCounts.byType[NotificationType.team_invite] || 0) + (unreadCounts.byType[NotificationType.team_status_change] || 0);
         }
-        if (page.title === 'Clients' || page.title === 'Braiders') {
-            return (unreadCounts.byType[NotificationType.client_invite] || 0) + (unreadCounts.byType[NotificationType.client_status_change] || 0);
+        if (page.title === 'Barns' || page.title === 'Braiders') {
+            return (unreadCounts.byType[NotificationType.barn_invite] || 0) + (unreadCounts.byType[NotificationType.barn_status_change] || 0);
         }
         return 0;
     };
@@ -187,8 +188,8 @@ const DashboardSidebar = ({
                                                 <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
                                             </div>
                                             <div className='flex items-center gap-1 mt-0.5'>
-                                                {dashboard === 'client' ? (
-                                                    <Briefcase className='w-3 h-3 text-gray-500' />
+                                                {dashboard === 'barn' ? (
+                                                    <Warehouse className='w-3 h-3 text-gray-500' />
                                                 ) : dashboard === 'subcontractor' ? (
                                                     <Users className='w-3 h-3 text-gray-500' />
                                                 ) : (
@@ -432,8 +433,8 @@ const DashboardSidebar = ({
                                                     <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
                                                 </div>
                                                 <div className='flex items-center gap-1 mt-0.5'>
-                                                    {dashboard === 'client' ? (
-                                                        <Briefcase className='w-3 h-3 text-gray-500' />
+                                                    {dashboard === 'barn' ? (
+                                                        <Warehouse className='w-3 h-3 text-gray-500' />
                                                     ) : dashboard === 'subcontractor' ? (
                                                         <Users className='w-3 h-3 text-gray-500' />
                                                     ) : (

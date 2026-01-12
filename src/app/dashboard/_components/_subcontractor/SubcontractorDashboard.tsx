@@ -58,7 +58,7 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
     };
 
     return (
-        <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-lg'>
+        <div className='w-full min-h-full flex bg-stone-50/50 dashboard-sm:rounded-[18px] dashboard-sm:shadow-xl'>
             <DashboardSidebar
                 dashboard='subcontractor'
                 name={name}
@@ -71,7 +71,7 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
                 settingsModalOpen={settingsModalOpen}
                 setSettingsModalOpen={setSettingsModalOpen}
             />
-            <main className='flex-1 h-full overflow-y-auto bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
+            <main className='flex-1 h-full overflow-y-auto hide-scrollbar bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>
     );
 };

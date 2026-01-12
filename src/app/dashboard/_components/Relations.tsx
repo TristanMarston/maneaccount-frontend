@@ -566,7 +566,7 @@ const InviteModal = ({
                         <motion.div key='id' initial='closed' animate={inviteMode === 'id' ? 'open' : 'closed'} exit='closed' variants={idVariants}>
                             <form ref={idRef} onSubmit={handleInvite}>
                                 <p className='text-base text-gray-500 font-figtree'>
-                                    Enter the unique <strong>Public ID</strong> of the person you want to add.
+                                    Enter the unique <strong>Public ID</strong> of the {role === 'braider' ? 'subcontractor or barn' : 'braider'} you want to add.
                                 </p>
                                 <div className='relative mt-2'>
                                     <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4', inviteInput.length > 0 ? 'text-black' : 'text-gray-400')} />

@@ -57,7 +57,7 @@ const DatePicker = ({
     };
 
     return (
-        <div className='w-full h-auto p-3 rounded-xl bg-white border-[0.5px] border-gray-300 shadow-lg'>
+        <div className='w-full font-figtree h-auto p-3 rounded-xl bg-white border-[0.5px] border-gray-300 shadow-lg overflow-y-auto'>
             <div className='flex justify-between items-center'>
                 <span
                     onClick={() => setCurrentDate((prev) => subMonths(prev, 1))}

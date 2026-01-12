@@ -26,6 +26,9 @@ import {
     Square,
     CheckSquare,
     CircleCheck,
+    Mail,
+    Phone,
+    Copy,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { createJob, cancelJob, getJobs, updateJobStatus, addNote, getBraiderData, reRequestJob, deleteJob, markJobCompleted, toggleServiceCompletion } from '@/app/actions/jobs';
@@ -34,7 +37,8 @@ import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay, addHours } from 'date-fns';
-import { RequestWorkModal, ViewShowDetailsModal } from './RequestWorkModals';
+import { JobDetailSubpage } from './JobDetailSubpage';
+import { ViewShowDetailsModal, RequestWorkModal } from './RequestWorkModals';
 import { createPortal } from 'react-dom';
 import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, scrollVariants } from '@/app/context';
@@ -45,10 +49,12 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { addShowToCalendar } from '@/app/actions/calendar';
 import DatePicker from '../DatePicker';
 import { getIDByEmail } from '@/app/actions/join';
+import { formatPhoneNumber } from '../../SettingsModal';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
-type Job = {
+export type Job = {
     id: string;
-    status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'delegated' | 'sub_requested' | 'sub_declined' | 'completed';
+    status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'completed';
     braider: { name: string; image?: string; email: string };
     barn: { name: string; image?: string; email: string };
     paidAt?: Date;
@@ -56,23 +62,32 @@ type Job = {
     show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date; invites: any[] };
     assignments: {
         id: string;
-        horse: { id: string; showName: string; barnName: string; profileImage: string; gender: string; notes: string; color: string };
+        horse: {
+            id: string;
+            showName: string;
+            barnName: string;
+            profileImage: string;
+            gender: string;
+            notes: string;
+            color: string;
+            client: { name: string; email: string; phone?: string };
+        };
         services: { id: string; name: string; priceUSD: number }[];
         completedServiceIds: string[];
+        canceledServiceIds: string[];
+        canceledAt?: Date;
+        subcontractor: { name: string; image?: string; email: string; id: string } | null;
     }[];
     notes: { id: string; content: string; createdAt: Date; author: { name: string; image?: string } }[];
     scheduledDate?: Date;
     createdAt: Date;
 };
 
-const statusColors = {
+export const statusColors = {
     pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     accepted: 'bg-blue-100 text-blue-700 border-blue-200',
     denied: 'bg-red-100 text-red-700 border-red-200',
     canceled: 'bg-orange-100 text-orange-700 border-orange-200',
-    delegated: 'bg-purple-100 text-purple-700 border-purple-200',
-    sub_requested: 'bg-teal-100 text-teal-700 border-teal-200',
-    sub_declined: 'bg-red-100 text-red-700 border-red-200',
     completed: 'bg-green-100 text-green-700 border-green-200',
     paid: 'bg-yellow-100 text-yellow-700 border-yellow-200',
 };
@@ -92,6 +107,8 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
 
     const loadJobs = useCallback(async () => {
         const data = await getJobs(userEmail, role);
+        console.log(data);
+
         setJobs(data as any);
         setLoading(false);
     }, [userEmail, role]);
@@ -173,206 +190,245 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
 
     return (
         <>
-            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-6 @container/tasks'>
-                <header className='flex flex-col gap-4 @min-[400px]/tasks:gap-0 @min-[400px]/tasks:flex-row @min-[400px]/tasks:justify-between @min-[400px]/tasks:items-center'>
-                    <div>
-                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'barn' ? 'Services' : 'Tasks'}</h1>
-                        <p className='text-gray-500 font-figtree mt-1 @min-[400px]/tasks:mt-1.5'>Manage your braiding schedule and requests.</p>
-                    </div>
-                    {role === 'barn' && (
-                        <button
-                            onClick={() => setRequestModalOpen(true)}
-                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
+            <div className='w-full'>
+                <AnimatePresence mode='wait'>
+                    {!selectedJob ? (
+                        <motion.div
+                            key='list'
+                            initial={{ x: 100, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: -100, opacity: 0 }}
+                            transition={{ type: 'spring', bounce: 0.4, duration: jobs.length > 0 ? 0.5 : 0 }}
+                            className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-6 @container/tasks'
                         >
-                            <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
-                            <span className='block @min-[400px]/tasks:hidden @min-[560px]/tasks:block'>Request Work</span>
-                        </button>
-                    )}
-                </header>
+                            <header className='flex flex-col gap-4 @min-[400px]/tasks:gap-0 @min-[400px]/tasks:flex-row @min-[400px]/tasks:justify-between @min-[400px]/tasks:items-center'>
+                                <div>
+                                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'barn' ? 'Services' : 'Tasks'}</h1>
+                                    <p className='text-gray-500 font-figtree mt-1 @min-[400px]/tasks:mt-1.5'>Manage your braiding schedule and requests.</p>
+                                </div>
+                                {role === 'barn' && (
+                                    <button
+                                        onClick={() => setRequestModalOpen(true)}
+                                        className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
+                                    >
+                                        <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
+                                        <span className='block @min-[400px]/tasks:hidden @min-[560px]/tasks:block'>Request Work</span>
+                                    </button>
+                                )}
+                            </header>
 
-                {loading ? (
-                    <div className='grid grid-cols-1 gap-4 animate-pulse'>
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className='h-40 bg-gray-100 rounded-3xl' />
-                        ))}
-                    </div>
-                ) : jobs.length === 0 ? (
-                    <div className='grid grid-cols-1'>
-                        {role === 'barn' ? (
-                            <div
-                                onClick={() => setRequestModalOpen(true)}
-                                className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
-                            >
-                                <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
-                                <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
-                                    Request services from braiders.
-                                </p>
-                            </div>
-                        ) : (
-                            <div
-                                onClick={() => setSelectedPage('Barns')}
-                                className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
-                            >
-                                <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
-                                <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
-                                    No upcoming jobs. Connect with {role === 'braider' ? 'barns' : 'braiders'} to get started.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className='grid grid-cols-1 gap-4'>
-                        {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && j.status !== 'completed').length === 0 &&
-                            (role === 'barn' ? (
-                                <div
-                                    onClick={() => setRequestModalOpen(true)}
-                                    className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
-                                >
-                                    <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
-                                    <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
-                                        Request services from braiders.
-                                    </p>
+                            {loading ? (
+                                <div className='grid grid-cols-1 gap-4 animate-pulse'>
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className='h-40 bg-gray-100 rounded-3xl' />
+                                    ))}
+                                </div>
+                            ) : jobs.length === 0 ? (
+                                <div className='grid grid-cols-1'>
+                                    {role === 'barn' ? (
+                                        <div
+                                            onClick={() => setRequestModalOpen(true)}
+                                            className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
+                                        >
+                                            <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
+                                            <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
+                                                Request services from braiders.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => setSelectedPage('Barns')}
+                                            className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
+                                        >
+                                            <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
+                                            <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
+                                                No upcoming jobs. Connect with {role === 'braider' ? 'barns' : 'braiders'} to get started.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <div
-                                    onClick={() => setSelectedPage(role === 'braider' ? 'Barns' : 'Team')}
-                                    className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
-                                >
-                                    <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
-                                    <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
-                                        No upcoming jobs. Connect with {role === 'braider' ? 'barns' : 'braiders'} to start getting paid.
-                                    </p>
+                                <div className='grid grid-cols-1 gap-4'>
+                                    {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && j.status !== 'completed').length === 0 &&
+                                        (role === 'barn' ? (
+                                            <div
+                                                onClick={() => setRequestModalOpen(true)}
+                                                className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
+                                            >
+                                                <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
+                                                <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
+                                                    Request services from braiders.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => setSelectedPage(role === 'braider' ? 'Barns' : 'Team')}
+                                                className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
+                                            >
+                                                <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
+                                                <p className='text-gray-500 group-hover:text-primary font-figtree font-semibold text-[17px] @min-[340px]/tasks:text-lg mt-2'>
+                                                    No upcoming jobs. Connect with {role === 'braider' ? 'barns' : 'braiders'} to start getting paid.
+                                                </p>
+                                            </div>
+                                        ))}
+                                    {jobs
+                                        .filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt))
+                                        .map((job) => (
+                                            <JobCard
+                                                key={job.id}
+                                                job={job}
+                                                role={role}
+                                                setSelectedJob={setSelectedJob}
+                                                setNotesJob={setNotesJob}
+                                                refresh={refreshJobs}
+                                                setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                                setSelectedPage={setSelectedPage}
+                                            />
+                                        ))}
+                                    {jobs.filter((j) => (j.status === 'completed' && j.paidAt) || j.status === 'canceled' || j.status === 'denied').length > 0 &&
+                                        jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt)).length > 0 && (
+                                            <div className='h-[0.5px] bg-gray-200 rounded-full' />
+                                        )}
+                                    {jobs.filter((j) => j.status === 'completed' && j.paidAt).length > 0 && (
+                                        <>
+                                            <span
+                                                onClick={() => setShowCompletedEvents((prev) => !prev)}
+                                                className='font-figtree uppercase text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-2'
+                                            >
+                                                <div>Completed & Paid Services</div>{' '}
+                                                <motion.div
+                                                    initial={{ rotate: 0 }}
+                                                    animate={showCompletedEvents ? { rotate: 180 } : { rotate: 0 }}
+                                                    transition={{ duration: 0.5, type: 'spring', bounce: 0.5 }}
+                                                >
+                                                    <ChevronDown />
+                                                </motion.div>
+                                            </span>
+                                            <AnimatePresence>
+                                                {showCompletedEvents && (
+                                                    <motion.div
+                                                        className='grid grid-cols-1 gap-4'
+                                                        variants={{
+                                                            hidden: {
+                                                                opacity: 0,
+                                                                y: 10,
+                                                            },
+                                                            visible: {
+                                                                opacity: 1,
+                                                                y: 0,
+                                                            },
+                                                        }}
+                                                        initial='hidden'
+                                                        animate={showCompletedEvents ? 'visible' : 'hidden'}
+                                                        exit='hidden'
+                                                    >
+                                                        {jobs
+                                                            .filter((j) => j.status === 'completed' && j.paidAt)
+                                                            .map((job) => (
+                                                                <JobCard
+                                                                    key={job.id}
+                                                                    job={job}
+                                                                    role={role}
+                                                                    completed={true}
+                                                                    setSelectedJob={setSelectedJob}
+                                                                    setNotesJob={setNotesJob}
+                                                                    refresh={refreshJobs}
+                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                                                    setSelectedPage={setSelectedPage}
+                                                                />
+                                                            ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </>
+                                    )}
+                                    {jobs.filter((j) => j.status === 'canceled' || j.status === 'denied').length > 0 && (
+                                        <>
+                                            <span
+                                                onClick={() => setShowCanceledEvents((prev) => !prev)}
+                                                className='font-figtree uppercase text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-2'
+                                            >
+                                                <div>Canceled Events</div>{' '}
+                                                <motion.div
+                                                    initial={{ rotate: 0 }}
+                                                    animate={showCanceledEvents ? { rotate: 180 } : { rotate: 0 }}
+                                                    transition={{ duration: 0.5, type: 'spring', bounce: 0.5 }}
+                                                >
+                                                    <ChevronDown />
+                                                </motion.div>
+                                            </span>
+                                            <AnimatePresence>
+                                                {showCanceledEvents && (
+                                                    <motion.div
+                                                        className='grid grid-cols-1 gap-4'
+                                                        variants={{
+                                                            hidden: {
+                                                                opacity: 0,
+                                                                y: 10,
+                                                            },
+                                                            visible: {
+                                                                opacity: 1,
+                                                                y: 0,
+                                                            },
+                                                        }}
+                                                        initial='hidden'
+                                                        animate={showCanceledEvents ? 'visible' : 'hidden'}
+                                                        exit='hidden'
+                                                    >
+                                                        {jobs
+                                                            .filter((j) => j.status === 'canceled' || j.status === 'denied')
+                                                            .map((job) => (
+                                                                <JobCard
+                                                                    key={job.id}
+                                                                    job={job}
+                                                                    canceled={true}
+                                                                    role={role}
+                                                                    setSelectedJob={setSelectedJob}
+                                                                    setNotesJob={setNotesJob}
+                                                                    refresh={refreshJobs}
+                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                                                    setSelectedPage={setSelectedPage}
+                                                                />
+                                                            ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </>
+                                    )}
                                 </div>
-                            ))}
-                        {jobs
-                            .filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt))
-                            .map((job) => (
-                                <JobCard
-                                    key={job.id}
-                                    job={job}
-                                    role={role}
-                                    setSelectedJob={setSelectedJob}
-                                    setNotesJob={setNotesJob}
-                                    refresh={refreshJobs}
-                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                    setSelectedPage={setSelectedPage}
-                                />
-                            ))}
-                        {jobs.filter((j) => (j.status === 'completed' && j.paidAt) || j.status === 'canceled' || j.status === 'denied').length > 0 &&
-                            jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt)).length > 0 && (
-                                <div className='h-[0.5px] bg-gray-200 rounded-full' />
                             )}
-                        {jobs.filter((j) => j.status === 'completed' && j.paidAt).length > 0 && (
-                            <>
-                                <span
-                                    onClick={() => setShowCompletedEvents((prev) => !prev)}
-                                    className='font-figtree uppercase text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-2'
-                                >
-                                    <div>Completed & Paid Services</div>{' '}
-                                    <motion.div
-                                        initial={{ rotate: 0 }}
-                                        animate={showCompletedEvents ? { rotate: 180 } : { rotate: 0 }}
-                                        transition={{ duration: 0.5, type: 'spring', bounce: 0.5 }}
-                                    >
-                                        <ChevronDown />
-                                    </motion.div>
-                                </span>
-                                <AnimatePresence>
-                                    {showCompletedEvents && (
-                                        <motion.div
-                                            className='grid grid-cols-1 gap-4'
-                                            variants={{
-                                                hidden: {
-                                                    opacity: 0,
-                                                    y: 10,
-                                                },
-                                                visible: {
-                                                    opacity: 1,
-                                                    y: 0,
-                                                },
-                                            }}
-                                            initial='hidden'
-                                            animate={showCompletedEvents ? 'visible' : 'hidden'}
-                                            exit='hidden'
-                                        >
-                                            {jobs
-                                                .filter((j) => j.status === 'completed' && j.paidAt)
-                                                .map((job) => (
-                                                    <JobCard
-                                                        key={job.id}
-                                                        job={job}
-                                                        role={role}
-                                                        completed={true}
-                                                        setSelectedJob={setSelectedJob}
-                                                        setNotesJob={setNotesJob}
-                                                        refresh={refreshJobs}
-                                                        setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                                        setSelectedPage={setSelectedPage}
-                                                    />
-                                                ))}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </>
-                        )}
-                        {jobs.filter((j) => j.status === 'canceled' || j.status === 'denied').length > 0 && (
-                            <>
-                                <span
-                                    onClick={() => setShowCanceledEvents((prev) => !prev)}
-                                    className='font-figtree uppercase text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-2'
-                                >
-                                    <div>Canceled Events</div>{' '}
-                                    <motion.div
-                                        initial={{ rotate: 0 }}
-                                        animate={showCanceledEvents ? { rotate: 180 } : { rotate: 0 }}
-                                        transition={{ duration: 0.5, type: 'spring', bounce: 0.5 }}
-                                    >
-                                        <ChevronDown />
-                                    </motion.div>
-                                </span>
-                                <AnimatePresence>
-                                    {showCanceledEvents && (
-                                        <motion.div
-                                            className='grid grid-cols-1 gap-4'
-                                            variants={{
-                                                hidden: {
-                                                    opacity: 0,
-                                                    y: 10,
-                                                },
-                                                visible: {
-                                                    opacity: 1,
-                                                    y: 0,
-                                                },
-                                            }}
-                                            initial='hidden'
-                                            animate={showCanceledEvents ? 'visible' : 'hidden'}
-                                            exit='hidden'
-                                        >
-                                            {jobs
-                                                .filter((j) => j.status === 'canceled' || j.status === 'denied')
-                                                .map((job) => (
-                                                    <JobCard
-                                                        key={job.id}
-                                                        job={job}
-                                                        canceled={true}
-                                                        role={role}
-                                                        setSelectedJob={setSelectedJob}
-                                                        setNotesJob={setNotesJob}
-                                                        refresh={refreshJobs}
-                                                        setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                                        setSelectedPage={setSelectedPage}
-                                                    />
-                                                ))}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </>
-                        )}
-                    </div>
-                )}
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key='details'
+                            initial={{ x: 100, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: -100, opacity: 0 }}
+                            transition={{ type: 'spring', bounce: 0.4, duration: 0.5 }}
+                            className='w-full h-full'
+                        >
+                            <JobDetailSubpage
+                                job={selectedJob}
+                                role={role}
+                                userEmail={userEmail}
+                                onBack={() => setSelectedJob(null)}
+                                refresh={refreshJobs}
+                                handleCancelJobModal={handleCancelJobModal}
+                                setSelectedHorse={setSelectedHorse}
+                                setCheckMarkedCompleted={setCheckMarkedCompleted}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
             <Modal isOpen={requestModalOpen} setIsOpen={setRequestModalOpen} className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-y-auto'>
-                <RequestWorkModal userEmail={userEmail} onClose={() => setRequestModalOpen(false)} setShowDetailsModal={setShowDetailsModal} onSubmit={handleCreateJob} />
+                <RequestWorkModal
+                    userEmail={userEmail}
+                    onClose={() => setRequestModalOpen(false)}
+                    setSelectedHorse={setSelectedHorse}
+                    setShowDetailsModal={setShowDetailsModal}
+                    onSubmit={handleCreateJob}
+                />
             </Modal>
 
             <Modal
@@ -381,23 +437,6 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                 className='bg-white p-0 w-full max-w-sm overflow-hidden rounded-[18px] primary-border-bold overflow-y-auto @container/show-details'
             >
                 {showDetailsModal.show !== null && <ViewShowDetailsModal show={showDetailsModal.show} setShowDetailsModal={setShowDetailsModal} onSelect={showDetailsModal.onSelect} />}
-            </Modal>
-
-            <Modal isOpen={!!selectedJob} setIsOpen={() => setSelectedJob(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
-                {selectedJob && (
-                    <JobDetailView
-                        job={selectedJob}
-                        setJob={setSelectedJob}
-                        role={role}
-                        userEmail={userEmail}
-                        onClose={() => setSelectedJob(null)}
-                        refresh={refreshJobs}
-                        handleCancelJobModal={handleCancelJobModal}
-                        setSelectedHorse={setSelectedHorse}
-                        setCheckMarkedCompleted={setCheckMarkedCompleted}
-                        canMarkCompleted={true}
-                    />
-                )}
             </Modal>
 
             <Modal isOpen={!!selectedHorse} setIsOpen={() => setSelectedHorse(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
@@ -539,19 +578,8 @@ const JobCard = ({
                 <div className='flex flex-col gap-1 min-w-0 flex-1 font-figtree'>
                     <div className='flex items-center gap-x-2 flex-wrap min-w-0'>
                         <h3 className='font-bold text-lg text-gray-900 truncate min-w-0'>{job.show.name}</h3>
-                        <span
-                            className={cn(
-                                'text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1',
-                                statusColors[job.paidAt ? 'paid' : role === 'subcontractor' && job.status === 'delegated' ? 'accepted' : job.status]
-                            )}
-                        >
-                            {job.paidAt
-                                ? 'paid'
-                                : job.status === 'delegated' && role === 'subcontractor'
-                                  ? 'accepted'
-                                  : role === 'subcontractor' && job.status.startsWith('sub')
-                                    ? job.status.replace('sub_', '')
-                                    : job.status.replace('_', ' ')}
+                        <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1', statusColors[job.paidAt ? 'paid' : job.status])}>
+                            {job.paidAt ? 'paid' : job.status}
                         </span>
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>
@@ -589,7 +617,7 @@ const JobCard = ({
             >
                 <div className='flex items-center gap-2'>
                     {(role === 'braider' || role === 'subcontractor') &&
-                        (job.status === 'accepted' || job.status === 'delegated') &&
+                        job.status === 'accepted' &&
                         !(job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.completedServiceIds.includes(s.id)).length, 0) > 0) && (
                             <button
                                 onClick={handleMarkCompleted}
@@ -639,457 +667,6 @@ const JobCard = ({
                     {role !== 'subcontractor' && <ChevronsRight className='w-5 h-5' />}
                 </div>
             )}
-        </div>
-    );
-};
-
-export const JobDetailView = ({
-    job,
-    setJob,
-    role,
-    userEmail,
-    onClose,
-    refresh,
-    handleCancelJobModal,
-    setSelectedHorse,
-    setCheckMarkedCompleted,
-    canMarkCompleted = true,
-    type = 'tasks',
-}: {
-    job: Job;
-    setJob: React.Dispatch<React.SetStateAction<Job | null>>;
-    role: string;
-    userEmail: string;
-    onClose: () => void;
-    refresh: () => void;
-    handleCancelJobModal: () => void;
-    setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
-    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string }>>;
-    canMarkCompleted?: boolean;
-    type?: 'tasks' | 'calendar';
-}) => {
-    const [date, setDate] = useState<Date | null>(job.scheduledDate ? new Date(job.scheduledDate) : null);
-    const [team, setTeam] = useState<any[]>([]);
-    const [selectedSub, setSelectedSub] = useState('');
-    const [userId, setUserId] = useState('');
-
-    useEffect(() => {
-        const getTeam = async () => {
-            const relations = await getTeamMembers(userEmail);
-            setTeam(relations.filter((r) => r.role === 'subcontractor'));
-        };
-
-        const getUserId = async () => {
-            const res = await getIDByEmail(userEmail);
-            if (res.success) setUserId(res.success.id);
-        };
-
-        if (role === 'braider') getTeam();
-        else getUserId();
-    }, [role, userEmail]);
-
-    const handleAction = async (status: 'accepted' | 'delegated' | 'denied' | 'sub_requested' | 'sub_declined', subId?: string) => {
-        const res = await updateJobStatus(job.id, status, {
-            scheduledDate: date || undefined,
-            subcontractorId: subId || selectedSub || undefined,
-        });
-
-        if (res.success) {
-            successToast(`Job ${status === 'sub_requested' ? 'requested' : status === 'sub_declined' || status === 'denied' ? 'declined' : status}`);
-            refresh();
-            onClose();
-        } else {
-            failToast('Failed to update');
-        }
-    };
-
-    const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
-        e.stopPropagation();
-        const res = await toggleServiceCompletion(assignmentId, serviceId);
-        if (res.success) {
-            setJob((prev) => {
-                if (!prev) return null;
-
-                return {
-                    ...prev,
-                    assignments: prev.assignments.map((assignment) => {
-                        if (assignment.id !== assignmentId) return assignment;
-
-                        const hasService = assignment.completedServiceIds.includes(serviceId);
-                        const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
-
-                        return { ...assignment, completedServiceIds: newServices };
-                    }),
-                };
-            });
-
-            refresh();
-        } else {
-            failToast('Failed to update');
-        }
-    };
-
-    const handleReRequestJob = async () => {
-        const res = await reRequestJob(job.id);
-
-        if (res.success) {
-            successToast(`Job updated`);
-            refresh();
-            onClose();
-        } else {
-            failToast('Failed to update');
-        }
-    };
-
-    const handleDeleteJob = async () => {
-        const res = await deleteJob(job.id);
-
-        if (res.success) {
-            successToast(`Job deleted`);
-            refresh();
-            onClose();
-        } else {
-            failToast('Failed to delete');
-        }
-    };
-
-    const handleAddToCalendar = async () => {
-        const res = await addShowToCalendar(job.show.id);
-
-        if (res.success) {
-            successToast(`Event added to calendar!`);
-            refresh();
-        } else {
-            failToast('Failed to add to calendar');
-        }
-    };
-
-    return (
-        <div className='flex flex-col bg-white'>
-            <div className='flex justify-between items-start p-7 pb-2 border-b border-gray-50'>
-                <div className='min-w-0'>
-                    <h2 className='text-3xl font-lusitana font-bold text-gray-900 truncate'>{job.show.name}</h2>
-                    <span className='text-gray-500 flex gap-1 items-center mt-0.5'>
-                        <MapPin className='min-w-5 w-5' />
-                        <p className='font-figtree truncate'>
-                            {job.show.city}, {job.show.state}
-                        </p>
-                    </span>
-                </div>
-                <button onClick={onClose} className='p-2 cursor-pointer text-gray-500 hover:scale-105 transition-all'>
-                    <X size={20} />
-                </button>
-            </div>
-
-            <div className='flex-1 overflow-y-auto px-7 py-5 space-y-4 font-figtree @container/job-detail'>
-                <div className='flex items-center gap-3 p-4 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] relative'>
-                    <div className='relative min-w-12 h-12 rounded-full overflow-hidden bg-primary-light/15 grid place-items-center'>
-                        {role === 'barn' ? (
-                            job.braider.image ? (
-                                <Image src={job.braider.image} alt='Braider' fill className='object-cover' />
-                            ) : (
-                                <h4 className='uppercase font-bold text-lg text-primary-dark w-full h-full grid place-items-center'>{job.braider.name[0]}</h4>
-                            )
-                        ) : job.barn.image ? (
-                            <Image src={job.barn.image} alt='Barn' fill className='object-cover' />
-                        ) : (
-                            <h4 className='uppercase font-bold text-lg text-primary-dark w-full h-full grid place-items-center'>{job.barn.name[0]}</h4>
-                        )}
-                    </div>
-                    <div className='min-w-0'>
-                        <p className='font-bold text-primary-dark truncate'>{role === 'barn' ? job.braider.name : job.barn.name}</p>
-                        <p className='text-[13px] text-primary uppercase font-bold'>{role === 'barn' ? 'Braider' : 'Barn'}</p>
-                    </div>
-                    <span
-                        className={cn(
-                            'text-xs absolute -top-3 right-2 font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1',
-                            statusColors[job.paidAt ? 'paid' : role === 'subcontractor' && job.status === 'delegated' ? 'accepted' : job.status]
-                        )}
-                    >
-                        {job.paidAt
-                            ? 'paid'
-                            : job.status === 'delegated' && role === 'subcontractor'
-                              ? 'accepted'
-                              : role === 'subcontractor' && job.status.startsWith('sub')
-                                ? job.status.replace('sub_', '')
-                                : job.status.replace('_', ' ')}
-                    </span>
-                </div>
-
-                {job.scheduledDate && (
-                    <div className='flex flex-col @min-[450px]/job-detail:flex-row @min-[450px]/job-detail:items-center gap-2 w-full justify-between p-4 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px]'>
-                        <div>
-                            <p className='font-bold text-primary-dark'>Expected Completion Date</p>
-                            <h3 className='text-[13px] font-bold text-primary uppercase'>{format(job.scheduledDate, 'PPPP')}</h3>
-                        </div>
-                        {role !== 'braider' && job.show.invites.filter((invite) => invite && invite.inviteeId === userId && invite.status === 'accepted').length === 0 && (
-                            <div
-                                onClick={handleAddToCalendar}
-                                className='bg-primary-light/30 flex items-center gap-2 px-4 py-1 rounded-[10px] cursor-pointer hover:bg-primary-light/40 transition-all text-primary shadow-sm text-sm font-semibold border border-primary'
-                            >
-                                <Calendar className='w-4 h-4' />
-                                Add to Calendar
-                            </div>
-                        )}
-                        {role !== 'braider' && job.show.invites.filter((invite) => invite && invite.inviteeId === userId && invite.status === 'accepted').length === 1 && (
-                            <div className='bg-primary-light/30 flex items-center gap-2 px-4 py-1 rounded-[10px] cursor-pointer transition-all text-primary shadow-sm text-sm font-semibold border border-primary'>
-                                <CalendarCheck className='w-4 h-4' />
-                                Added to Calendar
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {job.subcontractor && role !== 'subcontractor' ? (
-                    <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
-                        <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
-                            {job.subcontractor.image ? (
-                                <Image src={job.subcontractor.image} alt='Sub' fill className='object-cover' />
-                            ) : (
-                                <User className='w-full h-full p-2 text-blue-300' />
-                            )}
-                        </div>
-                        <div className='min-w-0'>
-                            <p className='text-xs text-blue-500 uppercase font-bold'>Assigned To</p>
-                            <p className='font-bold text-blue-900 truncate'>{job.subcontractor.name}</p>
-                        </div>
-                    </div>
-                ) : (
-                    job.subcontractor &&
-                    role === 'subcontractor' && (
-                        <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
-                            <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
-                                {job.braider.image ? <Image src={job.braider.image} alt='Sub' fill className='object-cover' /> : <User className='w-full h-full p-2 text-blue-300' />}
-                            </div>
-                            <div className='min-w-0'>
-                                <p className='text-xs text-blue-500 uppercase font-bold'>Assigned By</p>
-                                <p className='font-bold text-blue-900 truncate'>{job.braider.name}</p>
-                            </div>
-                        </div>
-                    )
-                )}
-
-                <div>
-                    <h3 className='text-sm font-bold text-gray-500 uppercase mb-3'>Assignments • {format(job.createdAt, 'P')}</h3>
-                    <div className='space-y-4 px-2'>
-                        {job.assignments
-                            .sort((a, b) => a.horse.barnName.localeCompare(b.horse.barnName.toUpperCase()))
-                            .map((assignment, i) => (
-                                <div
-                                    key={i}
-                                    className={cn(
-                                        'bg-white rounded-2xl border border-gray-200 p-4 shadow-sm',
-                                        assignment.services.length === [...new Set(assignment.completedServiceIds)].length ? 'bg-primary-extra-light border-primary/20' : ''
-                                    )}
-                                >
-                                    <div onClick={() => setSelectedHorse(assignment.horse)} className='flex justify-between items-center gap-1 cursor-pointer group mb-3'>
-                                        <div className='flex items-center gap-3 min-w-0'>
-                                            <div className='min-w-10 min-h-10 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
-                                                {assignment.horse.profileImage ? (
-                                                    <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover' />
-                                                ) : (
-                                                    <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-xs font-figtree'>
-                                                        {assignment.horse.barnName[0]}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className='flex flex-col min-w-0 flex-1'>
-                                                <span className='font-bold text-gray-900 truncate group-hover:text-primary transition-colors'>{assignment.horse.barnName}</span>
-                                                <span className='text-gray-500 text-[13px] truncate -mt-0.5'>{assignment.horse.showName}</span>
-                                            </div>
-                                        </div>
-                                        <div className='rounded-full p-1.5 transition-all text-gray-400 group-hover:bg-primary-extra-light group-hover:text-primary'>
-                                            <Info size={20} />
-                                        </div>
-                                    </div>
-
-                                    <div className='space-y-2 pl-1'>
-                                        {assignment.services.map((service, idx) => {
-                                            const isCompleted = assignment.completedServiceIds?.includes(service.id);
-                                            const isBraiderOrSub = role === 'braider' || (role === 'subcontractor' && job.status === 'delegated');
-                                            const canEdit = isBraiderOrSub && job.status !== 'completed' && job.status !== 'canceled';
-
-                                            return (
-                                                <div key={idx} className='flex justify-between items-center text-sm min-w-0 py-1'>
-                                                    <div className='flex items-center gap-3 min-w-0 flex-1'>
-                                                        {job.scheduledDate &&
-                                                            (isBraiderOrSub ? (
-                                                                <button
-                                                                    type='button'
-                                                                    disabled={!canMarkCompleted}
-                                                                    onClick={(e) => canMarkCompleted && canEdit && handleToggleService(e, assignment.id, service.id)}
-                                                                    className={cn(
-                                                                        'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:hover:border-black/15 disabled:opacity-50 disabled:cursor-not-allowed',
-                                                                        canEdit ? 'cursor-pointer hover:border-primary' : 'opacity-50',
-                                                                        isCompleted ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300'
-                                                                    )}
-                                                                >
-                                                                    {isCompleted && <CheckSquare size={14} strokeWidth={3} />}
-                                                                </button>
-                                                            ) : (
-                                                                isCompleted && <CheckCircle2 size={16} className='text-primary' />
-                                                            ))}
-                                                        <span
-                                                            className={cn(
-                                                                'text-gray-700 font-medium truncate',
-                                                                isCompleted && 'text-gray-400 line-through',
-                                                                assignment.services.length === [...new Set(assignment.completedServiceIds)].length ? 'text-primary-light/80' : ''
-                                                            )}
-                                                        >
-                                                            {service.name}
-                                                        </span>
-                                                    </div>
-                                                    <span className='font-bold font-lusitana text-primary pl-2'>${service.priceUSD}</span>
-                                                </div>
-                                            );
-                                        })}
-                                        <div className='border-t border-dashed border-gray-200 my-2' />
-                                        <div className='flex justify-between items-center'>
-                                            <span
-                                                className={cn(
-                                                    'text-xs font-bold text-gray-400 uppercase tracking-wider',
-                                                    assignment.services.length === [...new Set(assignment.completedServiceIds)].length ? 'text-primary-light' : ''
-                                                )}
-                                            >
-                                                Subtotal
-                                            </span>
-                                            <span className='font-bold text-gray-900 font-lusitana'>${assignment.services.reduce((a, b) => a + b.priceUSD, 0)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-
-                        <div className='flex justify-between items-center px-3 pt-2 mt-4 border-t border-gray-100'>
-                            <span className='font-bold text-gray-700 text-lg'>Total</span>
-                            <span className='font-bold text-xl text-primary font-lusitana'>
-                                ${job.assignments.reduce((acc, a) => acc + a.services.reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {role === 'braider' && job.status === 'pending' && (
-                    <div className='p-4 rounded-xl bg-primary/5 border border-primary/10 shadow-sm font-figtree mb-0'>
-                        <h3 className='text-sm font-bold text-primary mb-3 uppercase'>Schedule & Assign</h3>
-
-                        {type === 'tasks' && (
-                            <div className='mb-6 flex flex-col gap-1.5 min-w-0'>
-                                <label className='text-xs font-bold text-gray-500 uppercase'>Assign To</label>
-                                <SelectSubcontractorDropdown value={selectedSub} onChange={setSelectedSub} team={team} />
-                            </div>
-                        )}
-
-                        <div className='mb-4 flex flex-col gap-1.5 w-full'>
-                            <label className='text-xs font-bold text-gray-500 uppercase'>When will {selectedSub ? 'they' : 'you'} be finished?</label>
-                            <DatePicker
-                                onDateSelect={(d) => setDate(d)}
-                                noDateBefore={new Date()}
-                                selectedDate={date}
-                                showStartDate={new Date(job.show.startDate)}
-                                showEndDate={new Date(job.show.endDate)}
-                                size='big'
-                            />
-                        </div>
-
-                        {type === 'tasks' && (
-                            <div className='flex flex-col @min-[320px]/job-detail:flex-row gap-2'>
-                                <button
-                                    onClick={() => handleAction('denied')}
-                                    className='flex-1 py-2 cursor-pointer rounded-[10px] bg-background red-border-hover text-red-600 font-bold'
-                                >
-                                    Decline
-                                </button>
-                                <button
-                                    onClick={() => handleAction(selectedSub ? 'sub_requested' : 'accepted')}
-                                    disabled={!date}
-                                    className='flex-1 py-2 cursor-pointer rounded-[10px] bg-primary-light primary-border-hover text-background font-bold disabled:opacity-50 disabled:pointer-events-none'
-                                >
-                                    {selectedSub ? 'Assign to Sub' : 'Accept Request'}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {role === 'subcontractor' && job.status === 'sub_requested' && type === 'tasks' && (
-                    <div className='p-4 rounded-xl bg-primary/5 border border-primary/10 text-center mb-0'>
-                        <p className='text-sm font-medium text-gray-700 mb-3'>
-                            You have been assigned this job by <span className='font-bold'>{job.braider.name}</span>.
-                        </p>
-                        <div className='flex flex-col @min-[265px]/job-detail:flex-row gap-2'>
-                            <button
-                                onClick={() => handleAction('sub_declined')}
-                                className='flex-1 py-2 cursor-pointer rounded-[10px] bg-background red-border-hover text-red-600 font-bold'
-                            >
-                                Decline
-                            </button>
-                            <button
-                                onClick={() => handleAction('delegated')}
-                                className='flex-1 py-2 cursor-pointer rounded-[10px] bg-primary-light primary-border-hover text-background font-bold disabled:opacity-50 disabled:pointer-events-none'
-                            >
-                                Accept Job
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {type === 'tasks' && (
-                    <div className='flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row'>
-                        {((role !== 'subcontractor' &&
-                            job.status !== 'canceled' &&
-                            job.status !== 'denied' &&
-                            job.status !== 'completed' &&
-                            ((role === 'barn' && job.status === 'pending') || job.status !== 'pending')) ||
-                            (role === 'subcontractor' && job.status === 'delegated')) && (
-                            <div
-                                onClick={handleCancelJobModal}
-                                className='w-full grid place-items-center font-figtree font-bold text-red-500 red-border-hover rounded-[10px] py-1.5 text-lg cursor-pointer'
-                            >
-                                Cancel Request
-                            </div>
-                        )}
-                        {((role === 'subcontractor' && job.status === 'delegated') || (role === 'braider' && job.status === 'accepted')) && (
-                            <button
-                                disabled={job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.completedServiceIds.includes(s.id)).length, 0) > 0}
-                                onClick={() => {
-                                    setCheckMarkedCompleted({ open: true, id: job.id });
-                                }}
-                                className='w-full grid place-items-center font-figtree font-bold text-background bg-primary-light primary-border-hover rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none'
-                            >
-                                Mark Complete
-                            </button>
-                        )}
-                    </div>
-                )}
-
-                {(job.status === 'canceled' || job.status === 'denied') && type === 'tasks' && (
-                    <div className='flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row'>
-                        <div
-                            onClick={handleDeleteJob}
-                            className='w-full grid place-items-center font-figtree font-bold text-red-500 red-border-hover rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer'
-                        >
-                            Delete Request
-                        </div>
-                        {role === 'barn' && (
-                            <div
-                                onClick={handleReRequestJob}
-                                className='w-full grid place-items-center font-figtree font-bold text-primary primary-border-hover rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer'
-                            >
-                                Re-Request Service{job.assignments.reduce((acc, a) => acc + a.services.length, 0) > 1 ? 's' : ''}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {type === 'calendar' && (
-                    <div
-                        onClick={handleCancelJobModal}
-                        className='w-full grid place-items-center font-figtree font-bold text-primary bg-background primary-border-hover rounded-[10px] py-1.5 text-lg cursor-pointer'
-                    >
-                        Go to {role === 'barn' ? 'Services' : 'Tasks'}
-                    </div>
-                )}
-            </div>
         </div>
     );
 };
@@ -1144,13 +721,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                 className={cn(
                                     'p-3 rounded-2xl text-sm font-figtree shadow-sm',
                                     note.author.name ===
-                                        (role === 'barn'
-                                            ? job.barn.name
-                                            : role === 'subcontractor'
-                                              ? job.subcontractor
-                                                  ? job.subcontractor.name
-                                                  : job.braider.name
-                                              : job.braider.name)
+                                        (role === 'barn' ? job.barn.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
                                         : 'bg-white text-gray-800 rounded-tl-sm'
                                 )}
@@ -1416,219 +987,6 @@ const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string;
     );
 };
 
-const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-const ITEM_HEIGHT = 48;
-
-const getParts = (value: string) => {
-    const [hour, minute] = value.split(':').map(Number);
-    return { hour, minute };
-};
-
-const SelectTime = ({ value, onChange, startTime, disabled }: { value: string; onChange: (val: string) => void; startTime: { hour: number; minute: number }; disabled: boolean }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [parts, setParts] = useState<{ hour: number; minute: number }>(getParts(value || '08:00'));
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const portalRef = useRef<HTMLDivElement>(null);
-
-    const hoursContainerRef = useCallback(
-        (ref: HTMLDivElement) => {
-            if (ref) ref.scrollTop = ITEM_HEIGHT * ((parts.hour % 12 === 0 ? 12 : parts.hour % 12) - 1);
-        },
-        [parts]
-    );
-    const minutesContainerRef = useCallback(
-        (ref: HTMLDivElement) => {
-            if (ref) ref.scrollTop = ITEM_HEIGHT * MINUTES.indexOf(parts.minute);
-        },
-        [parts]
-    );
-
-    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleClick = (e: MouseEvent) => {
-            const target = e.target as Node;
-            if (buttonRef.current?.contains(target)) return;
-            if (portalRef.current?.contains(target)) return;
-            setIsOpen(false);
-        };
-        window.addEventListener('mousedown', handleClick);
-        return () => window.removeEventListener('mousedown', handleClick);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAnchorRect(null);
-            return;
-        }
-        const updateRect = () => {
-            const rect = buttonRef.current?.getBoundingClientRect() ?? null;
-            if (rect) rect.width = 161;
-            setAnchorRect(rect);
-        };
-        updateRect();
-        window.addEventListener('resize', updateRect);
-        window.addEventListener('scroll', updateRect, true);
-        return () => {
-            window.removeEventListener('resize', updateRect);
-            window.removeEventListener('scroll', updateRect, true);
-        };
-    }, [isOpen]);
-
-    const partsToString = (parts: { hour: number; minute: number }) => {
-        const period = parts.hour >= 12 ? 'PM' : 'AM';
-        const hour12 = parts.hour % 12 === 0 ? 12 : parts.hour % 12;
-        return `${hour12.toString().padStart(2, '0')}:${parts.minute.toString().padStart(2, '0')} ${period}`;
-    };
-
-    useEffect(() => {
-        if (value) {
-            const newParts = getParts(value);
-            if (newParts.hour !== parts.hour || newParts.minute !== parts.minute) {
-                setParts(newParts);
-            }
-        }
-    }, [value]);
-
-    const handleTimeChange = (newParts: { hour: number; minute: number }) => {
-        setParts(newParts);
-        onChange(`${newParts.hour.toString().padStart(2, '0')}:${newParts.minute.toString().padStart(2, '0')}`);
-    };
-
-    return (
-        <div className={cn('relative w-full', disabled ? 'opacity-30 pointer-events-none' : '')}>
-            <button
-                ref={buttonRef}
-                type='button'
-                onClick={() => setIsOpen((s) => !s)}
-                className={`w-full text-sm cursor-pointer flex items-center justify-between gap-2 outline-none shadow-sm border px-3 py-2 rounded-xl transition-all ${
-                    isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300'
-                } bg-white`}
-            >
-                <div className='flex items-center gap-2'>
-                    <Clock size={16} className={cn(value ? 'text-black' : 'text-gray-400')} />
-                    <span className={cn('truncate', value ? 'text-gray-900' : 'text-gray-400')}>{value ? partsToString(parts) : 'Select Time'}</span>
-                </div>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isOpen &&
-                !disabled &&
-                anchorRect &&
-                createPortal(
-                    <AnimatePresence>
-                        <motion.div
-                            ref={portalRef}
-                            initial={wrapperVariants.closed}
-                            variants={wrapperVariants}
-                            animate={isOpen ? 'open' : 'closed'}
-                            exit='closed'
-                            transition={{ duration: 0.15 }}
-                            style={{
-                                position: 'fixed',
-                                top: anchorRect.bottom + 4,
-                                left: anchorRect.left,
-                                width: anchorRect.width,
-                                zIndex: 9999,
-                            }}
-                            className='max-w-41 h-45 grid grid-cols-3 gap-1 pr-1 bg-white rounded-xl border border-gray-100 shadow-xl overflow-hidden'
-                        >
-                            <div className='relative h-full overflow-y-auto'>
-                                <div
-                                    ref={hoursContainerRef}
-                                    className='overflow-y-auto flex flex-col gap-1 w-full h-full scrollbar-hide'
-                                    style={{
-                                        scrollbarWidth: 'none',
-                                        msOverflowStyle: 'none',
-                                    }}
-                                >
-                                    {HOURS.map((item, index) => (
-                                        <button
-                                            key={`${item}-${index}`}
-                                            onClick={() => {
-                                                handleTimeChange({ ...parts, hour: parts.hour <= 12 ? (item === 12 && parts.hour !== 12 ? 0 : item) : item + 12 });
-                                            }}
-                                            className={cn(
-                                                'font-figtree font-semibold text-lg rounded-xl cursor-pointer hover:bg-primary-extra-light transition-all h-11 aspect-square shrink-0 snap-center flex items-center justify-center',
-                                                (parts.hour % 12 === 0 ? 12 : parts.hour % 12) === item ? 'bg-primary-extra-light' : '',
-                                                (parts.hour > 12 ? item + 12 : item) < startTime.hour ? 'opacity-50 pointer-events-none' : ''
-                                            )}
-                                        >
-                                            {item}
-                                        </button>
-                                    ))}
-
-                                    <div className='h-[calc(50%-20px)]' />
-                                </div>
-                            </div>
-
-                            <div className='relative h-full overflow-y-auto'>
-                                <div
-                                    ref={minutesContainerRef}
-                                    className='overflow-y-auto flex flex-col gap-1 w-full h-full scrollbar-hide'
-                                    style={{
-                                        scrollbarWidth: 'none',
-                                        msOverflowStyle: 'none',
-                                    }}
-                                >
-                                    {MINUTES.map((item, index) => (
-                                        <button
-                                            key={`${item}-${index}`}
-                                            onClick={() => {
-                                                handleTimeChange({ ...parts, minute: item });
-                                            }}
-                                            className={cn(
-                                                'font-figtree font-semibold text-lg rounded-xl cursor-pointer hover:bg-primary-extra-light transition-all h-11 aspect-square shrink-0 snap-center flex items-center justify-center',
-                                                parts.minute === item ? 'bg-primary-extra-light' : '',
-                                                (parts.hour === startTime.hour && item <= startTime.minute) || parts.hour < startTime.hour ? 'opacity-50 pointer-events-none' : ''
-                                            )}
-                                        >
-                                            {MINUTES[MINUTES.length - 1] === 55 ? item.toString().padStart(2, '0') : item}
-                                        </button>
-                                    ))}
-
-                                    <div className='h-[calc(50%-20px)]' />
-                                </div>
-                            </div>
-
-                            <div className='overflow-y-auto flex flex-col justify-start gap-1 w-full h-auto snap-y snap-mandatory' style={{ scrollbarWidth: 'none' }}>
-                                <button
-                                    onClick={() => {
-                                        if (parts.hour >= 12) {
-                                            handleTimeChange({ ...parts, hour: parts.hour - 12 });
-                                        }
-                                    }}
-                                    className={cn(
-                                        'font-figtree cursor-pointer font-semibold text-lg rounded-xl hover:bg-primary-extra-light transition-all h-11 shrink-0 snap-center flex items-center justify-center',
-                                        parts.hour < 12 ? 'bg-primary-extra-light' : ''
-                                    )}
-                                >
-                                    AM
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (parts.hour < 12) {
-                                            handleTimeChange({ ...parts, hour: parts.hour + 12 });
-                                        }
-                                    }}
-                                    className={cn(
-                                        'font-figtree cursor-pointer font-semibold text-lg rounded-xl hover:bg-primary-extra-light transition-all h-11 shrink-0 snap-center flex items-center justify-center',
-                                        parts.hour >= 12 ? 'bg-primary-extra-light' : ''
-                                    )}
-                                >
-                                    PM
-                                </button>
-                            </div>
-                        </motion.div>
-                    </AnimatePresence>,
-                    document.body
-                )}
-        </div>
-    );
-};
-
 const wrapperVariants = {
     open: {
         opacity: 1,
@@ -1650,19 +1008,27 @@ const wrapperVariants = {
     },
 };
 
+const genderStyles = {
+    mare: 'bg-pink-50 text-pink-700 border-pink-100',
+    filly: 'bg-pink-50 text-pink-700 border-pink-100',
+    gelding: 'bg-blue-50 text-blue-700 border-blue-100',
+    colt: 'bg-blue-50 text-blue-700 border-blue-100',
+    stallion: 'bg-red-50 text-red-700 border-red-100',
+    null: 'bg-gray-50 text-gray-700 border-gray-100',
+    undefined: 'bg-gray-50 text-gray-700 border-gray-100',
+};
+
 export const HorseDetailView = ({ horse, onClose }: { horse: any; onClose: () => void }) => {
-    const genderStyles = {
-        mare: 'bg-pink-50 text-pink-700 border-pink-100',
-        filly: 'bg-pink-50 text-pink-700 border-pink-100',
-        gelding: 'bg-blue-50 text-blue-700 border-blue-100',
-        colt: 'bg-blue-50 text-blue-700 border-blue-100',
-        stallion: 'bg-red-50 text-red-700 border-red-100',
-        null: 'bg-gray-50 text-gray-700 border-gray-100',
-        undefined: 'bg-gray-50 text-gray-700 border-gray-100',
-    };
+    const [phoneNumberVisible, setPhoneNumberVisible] = useState(false);
+    const phoneNumberRef = useRef<HTMLDivElement>(null);
+    const [emailVisible, setEmailVisible] = useState(false);
+    const emailRef = useRef<HTMLDivElement>(null);
+
+    useOnClickOutside(phoneNumberRef, [], () => setPhoneNumberVisible(false));
+    useOnClickOutside(emailRef, [], () => setEmailVisible(false));
 
     return (
-        <div className='flex flex-col bg-primary-extra-light overflow-y-auto @container/horse-detail'>
+        <div className={cn('flex flex-col overflow-y-auto @container/horse-detail', horse.profileImage ? 'bg-primary-extra-light' : 'bg-white')}>
             {horse.profileImage && (
                 <div className='w-full bg-primary-extra-light flex justify-center p-4'>
                     <Image src={horse.profileImage} alt={horse.barnName} fill className='object-cover static! rounded-full w-full h-full max-w-48 max-h-48 shadow-lg' />
@@ -1679,6 +1045,70 @@ export const HorseDetailView = ({ horse, onClose }: { horse: any; onClose: () =>
                         </div>
                     </div>
 
+                    <div className='p-3 rounded-2xl mb-2 @min-[425px]/horse-detail:mb-4 border flex justify-between items-center transition-all bg-primary-light/10 text-primary border-primary-light/20'>
+                        <div className='flex flex-col min-w-0'>
+                            <span className='text-[13px] uppercase font-bold tracking-wide opacity-60'>Owner</span>
+                            <span className='text-lg font-bold font-figtree capitalize truncate'>{horse.client.name}</span>
+                        </div>
+                        <div className='flex gap-3 items-center pr-1'>
+                            <div
+                                onClick={() => setEmailVisible((prev) => !prev)}
+                                ref={emailRef}
+                                className='bg-primary-light/15 relative p-2 rounded-full cursor-pointer transition-all hover:bg-primary-light/10'
+                            >
+                                <Mail className='w-5 h-5' strokeWidth={2.5} />
+                                <AnimatePresence>
+                                    {emailVisible && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 10 }}
+                                            transition={{ duration: 0.2 }}
+                                            key={emailVisible ? 'visible' : 'hidden'}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigator.clipboard.writeText(horse.client.email);
+                                                successToast('Copied email!');
+                                            }}
+                                            className='absolute font-figtree flex text-sm -top-9 right-0 w-fit text-nowrap gap-2 items-center bg-[#F0F5F3] border-primary-light/20 shadow-sm border text-primary px-4 py-1 rounded-xl'
+                                        >
+                                            <Copy className='w-4 h-4' />
+                                            {horse.client.email}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                            {horse.client.phoneNumber && (
+                                <div
+                                    onClick={() => setPhoneNumberVisible((prev) => !prev)}
+                                    ref={phoneNumberRef}
+                                    className='bg-primary-light/15 relative p-2 rounded-full cursor-pointer transition-all hover:bg-primary-light/10'
+                                >
+                                    <Phone className='w-5 h-5' strokeWidth={2.5} />
+                                    <AnimatePresence>
+                                        {phoneNumberVisible && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 10 }}
+                                                transition={{ duration: 0.2 }}
+                                                key={phoneNumberVisible ? 'visible' : 'hidden'}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText(horse.client.phoneNumber);
+                                                    successToast('Copied phone number!');
+                                                }}
+                                                className='absolute font-figtree flex text-sm -top-9 right-0 w-fit text-nowrap gap-2 items-center bg-[#F0F5F3] border-primary-light/20 shadow-sm border text-primary px-4 py-1 rounded-xl'
+                                            >
+                                                <Copy className='w-4 h-4' />
+                                                {formatPhoneNumber(horse.client.phoneNumber)}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     <div className='grid grid-cols-1 gap-2 @min-[425px]/horse-detail:grid-cols-2 @min-[425px]/horse-detail:gap-4'>
                         <div className={cn('p-3 rounded-2xl border flex flex-col transition-all', genderStyles[horse.gender as keyof typeof genderStyles] || genderStyles.undefined)}>
                             <span className='text-[13px] uppercase font-bold tracking-wide opacity-60'>Gender</span>

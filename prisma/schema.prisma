@@ -60,6 +60,10 @@ model Horse {
   color             String? 
   profileImage      String?
   notes             String? 
+  
+  clientId          String?
+  client            Client?  @relation(fields: [clientId], references: [id])
+
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   jobAssignments    JobAssignment[]
@@ -117,6 +121,7 @@ model User {
   role            Role      @default(braider)
   services        Service[]
   horses          Horse[]
+  clients         Client[]
   shows           Show[]
 
   sentConnections     Connection[] @relation("sender")
@@ -129,6 +134,7 @@ model User {
   barnJobs          Job[] @relation("BarnJobs")
   braiderJobs       Job[] @relation("BraiderJobs")
   subcontractorJobs Job[] @relation("SubcontractorJobs")
+  subcontractorAssignments JobAssignment[] @relation("SubcontractorAssignments")
   notes             Note[]
   
   sentShowInvites      ShowInvite[] @relation("ShowInviter")
@@ -262,9 +268,6 @@ enum JobStatus {
   accepted
   denied
   canceled
-  delegated
-  sub_requested
-  sub_declined
   completed
 }
 
@@ -277,10 +280,29 @@ model JobAssignment {
   horse     Horse    @relation(fields: [horseId], references: [id], onDelete: Cascade)
   services  Service[]
 
+  subcontractorId String?
+  subcontractor   User?    @relation("SubcontractorAssignments", fields: [subcontractorId], references: [id])
+
   completedServiceIds String[] @default([])
+  canceledServiceIds  String[] @default([])
+  canceledAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  barnId      String
+  name        String
+  email       String
+  phoneNumber String?
+  
+  barn        User     @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  horses      Horse[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // npx prisma migrate dev --name "description"

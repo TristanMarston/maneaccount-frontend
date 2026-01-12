@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { eachDayOfInterval, format } from 'date-fns';
 import { CalendarIcon, MapPin, ChevronsLeft, ChevronsRight, X, ChevronDown, Check, Search, Users, PlusCircle } from 'lucide-react';
 import { motion, AnimatePresence, statsBuffer, Variants } from 'motion/react';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DatePicker from '../DatePicker';
 import { Show } from '@/app/dashboard/_components/_calendar/Calendar';
@@ -37,8 +37,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
     const [connectionsLoading, setConnectionsLoading] = useState(true);
     const startDateDropdownRef = useRef<HTMLDivElement>(null);
     const endDateDropdownRef = useRef<HTMLDivElement>(null);
-    useOnClickOutside(startDateDropdownRef, [], () => setStartDateSelectorOpen(false));
-    useOnClickOutside(endDateDropdownRef, [], () => setEndDateSelectorOpen(false));
+    // Date pickers now use Portal with backdrop for closing, so explicit click outside listeners are removed.
 
     const totalSteps = 2;
 
@@ -159,7 +158,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                     </div>
                 </div>
 
-                <div className={cn('flex-1 font-figtree overflow-y-visible')}>
+                <div className={cn('flex-1 font-figtree')}>
                     {step === 1 ? (
                         <div className='space-y-4 mt-6'>
                             <div className='flex flex-col gap-2 w-full'>
@@ -203,25 +202,20 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                                             <CalendarIcon className='w-4 h-4 mb-0.5' />
                                             <span className='truncate min-w-0'>{formData.startDate === null ? 'Start Date' : format(formData.startDate, 'PP')}</span>
                                         </button>
-                                        <AnimatePresence>
-                                            {startDateSelectorOpen && (
-                                                <motion.div
-                                                    initial='closed'
-                                                    variants={wrapperVariants}
-                                                    animate={startDateSelectorOpen ? 'open' : 'closed'}
-                                                    exit='closed'
-                                                    className='absolute top-[120%] left-1/2 translate-x-[-50%] @min-[256px]/pick-start-date:left-0 @min-[256px]/pick-start-date:translate-x-0 w-64 overflow-auto z-150'
-                                                >
-                                                    <DatePicker
-                                                        onDateSelect={(selectedDate: Date) => setFormData((prev) => ({ ...prev, startDate: selectedDate }))}
-                                                        selectedDate={formData.startDate}
-                                                        noDateBefore={new Date(new Date().setHours(0, 0, 0, 0))}
-                                                        today={formData.startDate ? formData.startDate : new Date()}
-                                                        startDateEffect={false}
-                                                    />
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                        <DropdownPortal
+                                            isOpen={startDateSelectorOpen}
+                                            onClose={() => setStartDateSelectorOpen(false)}
+                                            triggerRef={startDateDropdownRef}
+                                            className='w-64 max-h-[300px] overflow-auto hide-scrollbar'
+                                        >
+                                            <DatePicker
+                                                onDateSelect={(selectedDate: Date) => setFormData((prev) => ({ ...prev, startDate: selectedDate }))}
+                                                selectedDate={formData.startDate}
+                                                noDateBefore={new Date(new Date().setHours(0, 0, 0, 0))}
+                                                today={formData.startDate ? formData.startDate : new Date()}
+                                                startDateEffect={false}
+                                            />
+                                        </DropdownPortal>
                                     </motion.div>
                                 </div>
                                 <div className='flex flex-col gap-2 w-full @container/pick-end-date'>
@@ -245,25 +239,20 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                                             <CalendarIcon className='w-4 h-4 mb-0.5' />
                                             <span className='truncate min-w-0'>{formData.endDate === null ? 'End Date' : format(formData.endDate, 'PP')}</span>
                                         </button>
-                                        <AnimatePresence>
-                                            {endDateSelectorOpen && (
-                                                <motion.div
-                                                    initial='closed'
-                                                    variants={wrapperVariants}
-                                                    animate={endDateSelectorOpen ? 'open' : 'closed'}
-                                                    exit='closed'
-                                                    className='absolute top-[120%] left-1/2 translate-x-[-50%] @min-[256px]/pick-end-date:left-0 @min-[256px]/pick-end-date:translate-x-0 w-64 overflow-auto z-150'
-                                                >
-                                                    <DatePicker
-                                                        onDateSelect={(selectedDate: Date) => setFormData((prev) => ({ ...prev, endDate: selectedDate }))}
-                                                        selectedDate={formData.endDate}
-                                                        noDateBefore={formData.startDate ? formData.startDate : null}
-                                                        today={formData.endDate ? formData.endDate : formData.startDate ? formData.startDate : new Date()}
-                                                        startDateEffect
-                                                    />
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                        <DropdownPortal
+                                            isOpen={endDateSelectorOpen}
+                                            onClose={() => setEndDateSelectorOpen(false)}
+                                            triggerRef={endDateDropdownRef}
+                                            className='w-64 max-h-[300px] overflow-auto hide-scrollbar'
+                                        >
+                                            <DatePicker
+                                                onDateSelect={(selectedDate: Date) => setFormData((prev) => ({ ...prev, endDate: selectedDate }))}
+                                                selectedDate={formData.endDate}
+                                                noDateBefore={formData.startDate ? formData.startDate : null}
+                                                today={formData.endDate ? formData.endDate : formData.startDate ? formData.startDate : new Date()}
+                                                startDateEffect
+                                            />
+                                        </DropdownPortal>
                                     </motion.div>
                                 </div>
                             </div>
@@ -420,6 +409,75 @@ const wrapperVariants: Variants = {
     },
 };
 
+const DropdownPortal = ({
+    isOpen,
+    onClose,
+    children,
+    triggerRef,
+    className,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    children: React.ReactNode;
+    triggerRef: React.RefObject<any>;
+    className?: string;
+}) => {
+    const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    useLayoutEffect(() => {
+        if (isOpen && triggerRef.current) {
+            const updatePosition = () => {
+                if (triggerRef.current) {
+                    const rect = triggerRef.current.getBoundingClientRect();
+                    setCoords({
+                        top: rect.bottom + 8,
+                        left: rect.left,
+                        width: rect.width,
+                    });
+                }
+            };
+            updatePosition();
+            window.addEventListener('resize', updatePosition);
+            window.addEventListener('scroll', updatePosition, true);
+            return () => {
+                window.removeEventListener('resize', updatePosition);
+                window.removeEventListener('scroll', updatePosition, true);
+            };
+        }
+    }, [isOpen, triggerRef]);
+
+    return createPortal(
+        <AnimatePresence>
+            {isOpen && coords && (
+                <>
+                    <div
+                        className='fixed inset-0 z-[100]'
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                        }}
+                    />
+                    <motion.div
+                        initial='closed'
+                        variants={wrapperVariants}
+                        animate='open'
+                        exit='closed'
+                        className={cn('fixed z-[101]', className)}
+                        style={{
+                            top: coords.top,
+                            left: coords.left,
+                            width: className?.includes('w-') ? undefined : coords.width,
+                        }}
+                    >
+                        {children}
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>,
+        document.body
+    );
+};
+
 const SelectState = ({ value, onChange }: { value: string; onChange: (val: string) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -434,30 +492,25 @@ const SelectState = ({ value, onChange }: { value: string; onChange: (val: strin
                 <span className={cn('truncate min-w-0', value ? 'text-black' : 'text-gray-400')}>{value || 'Select State'}</span>
                 <ChevronDown className={cn('w-4 h-4 transition-transform', isOpen ? 'rotate-180' : '')} />
             </button>
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        initial='closed'
-                        variants={wrapperVariants}
-                        animate={isOpen ? 'open' : 'closed'}
-                        exit='closed'
-                        className='absolute top-[120%] left-0 w-full max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg z-10'
+            <DropdownPortal
+                isOpen={isOpen}
+                onClose={() => setIsOpen(false)}
+                triggerRef={dropdownRef}
+                className='max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg'
+            >
+                {usaStates.map((state) => (
+                    <div
+                        key={state}
+                        onClick={() => {
+                            onChange(state);
+                            setIsOpen(false);
+                        }}
+                        className='px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors'
                     >
-                        {usaStates.map((state) => (
-                            <div
-                                key={state}
-                                onClick={() => {
-                                    onChange(state);
-                                    setIsOpen(false);
-                                }}
-                                className='px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors'
-                            >
-                                {state}
-                            </div>
-                        ))}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        {state}
+                    </div>
+                ))}
+            </DropdownPortal>
         </div>
     );
 };

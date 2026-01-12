@@ -12,8 +12,9 @@ export async function getHorses(email: string) {
     try {
         const user = await prisma.user.findUnique({
             where: { email },
-            include: { horses: true },
+            include: { horses: { include: { client: true } } },
         });
+
         return user?.horses || [];
     } catch (error) {
         console.error('Failed to fetch horses:', error);
@@ -34,6 +35,7 @@ export async function addHorse(formData: any) {
     const color = formData.color as string;
     const profileImage = formData.profileImage as File;
     const notes = formData.notes as string;
+    const clientId = formData.clientId as string;
 
     if (!showName || !barnName) {
         return { error: 'Missing required fields' };
@@ -76,6 +78,7 @@ export async function addHorse(formData: any) {
                 color: color || '',
                 notes: notes || '',
                 profileImage: profileImageUrl || '',
+                client: clientId ? { connect: { id: clientId } } : undefined,
             },
         });
 
@@ -90,7 +93,7 @@ export async function addHorse(formData: any) {
 export async function editHorse(data: any, horseId: string) {
     const session = await auth();
 
-    if (!data.showName && !data.barnName && !data.gender && !data.color && !data.notes && !data.profileImage) return { error: 'Send a field to update' };
+    if (!data.showName && !data.barnName && !data.gender && !data.color && !data.notes && !data.profileImage && data.clientId === undefined) return { error: 'Send a field to update' };
 
     const profileImage = data.profileImage;
 

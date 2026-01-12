@@ -46,7 +46,8 @@ import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { failToast, successToast, usaStates } from '@/app/context';
 import AddShowForm from './AddShowForm';
 import { getJobs } from '@/app/actions/jobs';
-import { JobDetailView, HorseDetailView } from '../_tasks/Tasks';
+import { HorseDetailView, Job } from '../_tasks/Tasks';
+import { JobDetailReadOnly } from '../_tasks/JobDetailReadOnly';
 import Image from 'next/image';
 import { markAllTypeAsRead } from '@/app/actions/notifications';
 import { NotificationType } from '@prisma/client';
@@ -502,7 +503,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     if (!val) setEditingShow(null);
                 }}
                 closeOnOutsideClick={false}
-                className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-visible!'
+                className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-y-auto'
             >
                 <AddShowForm
                     onClose={() => {
@@ -562,21 +563,14 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
             />
             <Modal isOpen={!!selectedJob} setIsOpen={() => setSelectedJob(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {selectedJob && (
-                    <JobDetailView
+                    <JobDetailReadOnly
                         job={selectedJob}
-                        setJob={setSelectedJob}
                         role={role}
-                        userEmail={userEmail}
                         onClose={() => setSelectedJob(null)}
-                        refresh={loadShows}
-                        handleCancelJobModal={() => {
+                        goToTasks={() => {
                             setSelectedJob(null);
                             setSelectedPage(role === 'barn' ? 'Services' : 'Tasks');
                         }}
-                        setSelectedHorse={setSelectedHorse}
-                        setCheckMarkedCompleted={() => {}}
-                        canMarkCompleted={false}
-                        type='calendar'
                     />
                 )}
             </Modal>

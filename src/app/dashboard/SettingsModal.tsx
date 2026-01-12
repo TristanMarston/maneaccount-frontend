@@ -23,7 +23,7 @@ function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-const formatPhoneNumber = (value: string) => {
+export const formatPhoneNumber = (value: string) => {
     if (!value) return value;
     const phoneNumber = value.replace(/[^\d]/g, '');
     const phoneNumberLength = phoneNumber.length;
@@ -495,6 +495,7 @@ const SettingsModal = ({
                                                 <input
                                                     className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
                                                     name='phoneNumber'
+                                                    type='tel'
                                                     value={phoneNumber}
                                                     onChange={handlePhoneChange}
                                                     placeholder='(555) 123-4567'

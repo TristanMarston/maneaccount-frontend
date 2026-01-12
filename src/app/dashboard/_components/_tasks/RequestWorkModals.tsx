@@ -1,7 +1,7 @@
 import { getRelations } from '@/app/actions/barn-relations';
 import { getBraiderData } from '@/app/actions/jobs';
 import { cn } from '@/lib/utils';
-import { MapPin, X, CalendarIcon, CircleArrowRight, PlusCircle } from 'lucide-react';
+import { MapPin, X, CalendarIcon, CircleArrowRight, PlusCircle, Info } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -74,11 +74,13 @@ export const RequestWorkModal = ({
     userEmail,
     onClose,
     onSubmit,
+    setSelectedHorse,
     setShowDetailsModal,
 }: {
     userEmail: string;
     onClose: () => void;
     onSubmit: (data: any) => void;
+    setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
     setShowDetailsModal: React.Dispatch<React.SetStateAction<{ open: boolean; show: any; onSelect: () => void }>>;
 }) => {
     const [braiders, setBraiders] = useState<any[]>([]);
@@ -87,17 +89,14 @@ export const RequestWorkModal = ({
     const [selectedShow, setSelectedShow] = useState<any>(null);
     const [services, setServices] = useState<any[]>([]);
 
-    // Assignment State
     const [assignments, setAssignments] = useState<{ horseId: string; serviceIds: string[] }[]>([]);
     const [isAddingAssignment, setIsAddingAssignment] = useState(false);
 
-    // Horse Data
     const [horses, setHorses] = useState<any[]>([]);
     const [loadingHorses, setLoadingHorses] = useState(false);
     const [braidersLoading, setBraidersLoading] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
 
-    // Temp state for building an assignment
     const [tempHorse, setTempHorse] = useState<any | null>(null);
     const [tempServices, setTempServices] = useState<string[]>([]);
 
@@ -298,7 +297,6 @@ export const RequestWorkModal = ({
                                             const horse = getHorseDetails(assignment.horseId);
                                             return (
                                                 <div key={idx} className='bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative group overflow-hidden'>
-                                                    {/* Horse Header */}
                                                     <div className='flex items-center gap-3 mb-3'>
                                                         <div className='w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden relative shrink-0'>
                                                             {horse?.profileImage ? (
@@ -313,7 +311,6 @@ export const RequestWorkModal = ({
                                                         </div>
                                                     </div>
 
-                                                    {/* Services List */}
                                                     <div className='flex flex-wrap gap-2'>
                                                         {assignment.serviceIds.map((servId) => {
                                                             const serv = getServiceDetails(servId);
@@ -325,7 +322,6 @@ export const RequestWorkModal = ({
                                                         })}
                                                     </div>
 
-                                                    {/* Delete Action */}
                                                     <button
                                                         onClick={() => handleRemoveAssignment(idx)}
                                                         className='absolute cursor-pointer top-2 right-2 p-2 text-gray-300 hover:text-red-500 transition-colors'
@@ -357,17 +353,16 @@ export const RequestWorkModal = ({
                                     </button>
                                 </div>
 
-                                {/* Step 1: Select Horse */}
-                                <div className='flex flex-col gap-2'>
+                                <div className='flex flex-col'>
                                     <label className='text-sm font-bold text-gray-400 uppercase'>Which Horse?</label>
-                                    <div className='grid grid-cols-1 @min-[230px]/request:grid-cols-2 @min-[345px]/request:grid-cols-3 @min-[460px]/request:grid-cols-4 @min-[580px]/request:grid-cols-5 gap-3 max-h-[130px] overflow-y-auto overflow-x-hidden pb-1 px-2'>
+                                    <div className='grid pt-2 grid-cols-1 @min-[230px]/request:grid-cols-2 @min-[345px]/request:grid-cols-3 @min-[460px]/request:grid-cols-4 @min-[580px]/request:grid-cols-5 gap-3 max-h-[130px] overflow-y-auto overflow-x-hidden pb-1 px-2'>
                                         {horses.map((horse) => (
                                             <div
                                                 key={horse.id}
                                                 onClick={() => setTempHorse(horse)}
                                                 className={cn(
-                                                    'p-3 rounded-xl border flex flex-col shadow-sm items-center gap-2 cursor-pointer transition-all',
-                                                    tempHorse?.id === horse.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/30',
+                                                    'p-3 rounded-xl relative border flex flex-col shadow-sm items-center gap-2 cursor-pointer transition-all',
+                                                    tempHorse?.id === horse.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50',
                                                     assignments.some((assignment) => assignment.horseId === horse.id) ? 'opacity-50 pointer-events-none' : ''
                                                 )}
                                                 title={horse.barnName}
@@ -380,6 +375,15 @@ export const RequestWorkModal = ({
                                                     )}
                                                 </div>
                                                 <p className='font-bold text-sm text-center truncate w-full'>{horse.barnName}</p>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedHorse(horse);
+                                                    }}
+                                                    className='absolute cursor-pointer -top-2.5 -right-2.5 text-gray-300 hover:text-primary transition-colors bg-gray-100 border border-gray-100 rounded-full shadow-sm'
+                                                >
+                                                    <Info className='w-6.5 h-6.5' />
+                                                </button>
                                             </div>
                                         ))}
                                     </div>

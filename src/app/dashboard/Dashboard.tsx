@@ -48,6 +48,7 @@ const Dashboard = () => {
     return !loading && session && role.length > 0 ? (
         <GradientBackground
             gradient='from-primary-dark/50 via-primary/50 to-primary-light/50'
+            animated={false}
             className='flex flex-col items-center justify-center fixed inset-0 h-dvh overflow-hidden dashboard-sm:p-3 3xl:p-4'
         >
             {role === 'braider' ? (

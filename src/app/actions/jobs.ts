@@ -74,8 +74,13 @@ export async function getJobs(email: string, role: string) {
                 },
                 assignments: {
                     include: {
-                        horse: true,
+                        horse: {
+                            include: {
+                                client: true,
+                            },
+                        },
                         services: true,
+                        subcontractor: true,
                     },
                 },
                 notes: {
@@ -124,19 +129,6 @@ export async function updateJobStatus(
             );
         }
 
-        if (status === 'sub_requested' && data?.subcontractorId) {
-            await createNotification(data.subcontractorId, NotificationType.job_request, `${updatedJob.braider.name} delegated a job to you`, jobId, updatedJob.braiderId);
-        }
-
-        if (status === 'delegated' || status === 'sub_declined') {
-            await createNotification(
-                updatedJob.braiderId,
-                NotificationType.job_status_change,
-                `${updatedJob.subcontractor?.name} ${status === 'delegated' ? 'accepted' : 'declined'} the delegated job`,
-                jobId,
-                updatedJob.subcontractorId
-            );
-        }
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
@@ -326,5 +318,96 @@ export async function deleteJob(jobId: string) {
     } catch (error) {
         console.error('Delete job error:', error);
         return { error: 'Failed to delete job' };
+    }
+}
+
+export async function assignSubcontractorToAssignment(assignmentId: string, subcontractorId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const assignment = await prisma.jobAssignment.update({
+            where: { id: assignmentId },
+            data: { subcontractorId: subcontractorId || null },
+            include: { job: { include: { braider: true } } },
+        });
+
+        if (subcontractorId) {
+            await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
+        }
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Assign sub error:', error);
+        return { error: 'Failed to assign subcontractor' };
+    }
+}
+
+export async function cancelAssignment(assignmentId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId } });
+        if (!assignment) return { error: 'Assignment not found' };
+
+        // Toggle canceledAt
+        const canceledAt = assignment.canceledAt ? null : new Date();
+
+        await prisma.jobAssignment.update({
+            where: { id: assignmentId },
+            data: { canceledAt },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true, message: canceledAt ? 'Removed horse' : 'Restored horse' };
+    } catch (error) {
+        console.error('Cancel assignment error:', error);
+        return { error: 'Failed to update assignment' };
+    }
+}
+
+export async function cancelAssignmentService(assignmentId: string, serviceId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId } });
+        if (!assignment) return { error: 'Assignment not found' };
+
+        let canceledServiceIds = assignment.canceledServiceIds || [];
+        let message = '';
+
+        if (canceledServiceIds.includes(serviceId)) {
+            // Restore
+            canceledServiceIds = canceledServiceIds.filter((id) => id !== serviceId);
+            message = 'Service restored';
+        } else {
+            // Cancel
+            canceledServiceIds.push(serviceId);
+
+            // Also update completed to remove if canceling
+            let completedServiceIds = assignment.completedServiceIds;
+            if (completedServiceIds.includes(serviceId)) {
+                completedServiceIds = completedServiceIds.filter((id) => id !== serviceId);
+                await prisma.jobAssignment.update({
+                    where: { id: assignmentId },
+                    data: { completedServiceIds },
+                });
+            }
+            message = 'Service canceled';
+        }
+
+        await prisma.jobAssignment.update({
+            where: { id: assignmentId },
+            data: { canceledServiceIds },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true, message };
+    } catch (error) {
+        console.error('Cancel service error:', error);
+        return { error: 'Failed to update service' };
     }
 }

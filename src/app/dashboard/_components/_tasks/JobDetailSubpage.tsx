@@ -654,14 +654,15 @@ export const JobDetailSubpage = ({
                                                             onClick={() => handleCancelAssignment(assignment.id)}
                                                             className={cn(
                                                                 'p-1 transition-colors text-xs cursor-pointer font-bold uppercase',
-                                                                isAssignmentCanceled ? 'text-primary hover:text-primary-dark' : 'text-red-400 hover:text-red-600'
+                                                                isAssignmentCanceled ? 'text-primary hover:text-primary-dark' : 'text-red-400 hover:text-red-600',
+                                                                job.status === 'completed' ? 'pointer-events-none' : ''
                                                             )}
                                                         >
                                                             {isAssignmentCanceled ? 'Restore' : 'Cancel Horse'}
                                                         </button>
                                                     )}
                                                 {!isAssignmentCanceled && role === 'braider' && (
-                                                    <div className='hidden @min-[530px]/assignment-detail:block'>
+                                                    <div className={cn('hidden @min-[530px]/assignment-detail:block', job.status === 'completed' ? 'pointer-events-none' : '')}>
                                                         <SelectSubcontractorDropdown
                                                             value={assignment.subcontractor?.id || ''}
                                                             onChange={(val) => handleAssignSub(assignment.id, val)}
@@ -684,7 +685,7 @@ export const JobDetailSubpage = ({
                                         </div>
 
                                         {!isAssignmentCanceled && role === 'braider' && (
-                                            <div className='block @min-[530px]/assignment-detail:hidden w-full mb-2'>
+                                            <div className={cn('block @min-[530px]/assignment-detail:hidden w-full mb-2', job.status === 'completed' ? 'pointer-events-none' : '')}>
                                                 <SelectSubcontractorDropdown
                                                     value={assignment.subcontractor?.id || ''}
                                                     onChange={(val) => handleAssignSub(assignment.id, val)}
@@ -698,7 +699,7 @@ export const JobDetailSubpage = ({
                                             </div>
                                         )}
 
-                                        <div className='space-y-2 pl-1'>
+                                        <div className={cn('space-y-2 pl-1', job.status === 'completed' ? 'pointer-events-none' : '')}>
                                             {assignment.services.map((service, idx) => {
                                                 const isCompleted = assignment.completedServiceIds?.includes(service.id);
                                                 const canEdit =

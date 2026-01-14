@@ -187,7 +187,7 @@ const Invoices = ({
                         >
                             {loading ? (
                                 <span>
-                                    $<span className='text-5xl'>--.--</span>
+                                    $<span className='text-4xl'>--.--</span>
                                 </span>
                             ) : (
                                 new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)
@@ -202,7 +202,7 @@ const Invoices = ({
                         >
                             {loading ? (
                                 <span>
-                                    $<span className='text-5xl'>--.--</span>
+                                    $<span className='text-4xl'>--.--</span>
                                 </span>
                             ) : (
                                 new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)
@@ -551,8 +551,8 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
 
                                         <div className='text-center text-gray-400 text-xs max-w-xs'>
                                             <p>
-                                                Ask the barn to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like
-                                                to switch to {user.zelle === 'email' ? 'a phone number' : 'your email'},{' '}
+                                                Ask the barn to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like to
+                                                switch to {user.zelle === 'email' ? 'a phone number' : 'your email'},{' '}
                                                 <span
                                                     className='text-primary hover:text-primary-light underline cursor-pointer transition-all'
                                                     onClick={() => {

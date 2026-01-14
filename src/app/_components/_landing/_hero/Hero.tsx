@@ -31,7 +31,7 @@ const Hero = () => {
                     <div className='absolute inset-0 bg-linear-to-t from-black/20 to-transparent hero-md:hidden' />
                 </div>
 
-                <div className='relative z-10 w-full hero-md:col-span-7 hero-md:col-start-1 hero-md:row-start-1 order-2 hero-md:order-1 -mt-12 hero-md:mt-0 px-2 sm:px-4 hero-md:px-0'>
+                <div className='relative z-10 w-full hero-md:col-span-7 hero-md:col-start-1 hero-md:row-start-1 order-2 hero-md:order-1 -mt-12 hero-md:mt-0 px-0 lg:px-4 hero-md:px-0'>
                     <div className='bg-white/60 backdrop-blur-md rounded-[18px] text-center hero-md:text-left p-8 hero-lg:p-10 hero-max:p-12 shadow-[-5px_-5px_15px_2px_rgba(83,132,117,0.4),_5px_5px_15px_2px_rgba(0,0,0,0.1)]'>
                         <h1 className='font-lusitana text-primary leading-[1.1] text-[30px] min-[405px]:text-[32px] min-[420px]:text-[34px] min-[435px]:text-4xl hero-xs:text-[40px] hero-sm:text-[44px] hero-cm:text-5xl hero-md:text-[44px] hero-lg:text-5xl hero-xl:text-[54px] hero-max:text-6xl mb-2 hero-md:mb-4 hero-max:mb-6'>
                             No more <br className='hidden min-[390px]:block hero-xs:hidden hero-md:block' /> tangled schedules.

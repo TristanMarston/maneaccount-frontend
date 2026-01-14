@@ -349,12 +349,12 @@ const Team = ({
                                     <Trash2 className='w-5 h-5' />
                                     Remove
                                 </button>
-                                {role === 'braider' && (
+                                {/* {role === 'braider' && (
                                     <button className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[260px]/team-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[260px]/team-card:py-2 transition-colors'>
                                         <Scissors className='w-5 h-5' />
                                         Assign Work
                                     </button>
-                                )}
+                                )} */}
                             </div>
                         ))}
                     </div>

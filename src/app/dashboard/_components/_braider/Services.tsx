@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { motion, AnimatePresence, Variants } from 'motion/react';
 import { Plus, Trash2, Clock, DollarSign, Tag, X, PlusCircle, ChevronDown, Check, Pencil } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { addService, deleteService, editService, getServices } from '@/app/actions/services';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import { failToast, successToast } from '@/app/context';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import { createPortal } from 'react-dom';
 
 const braidOptions = ['Basic Braids', 'Show Braids', 'Jumper Braids', 'Western Braids', 'Dressage Braids', 'Additional Services', 'Hunter Braids', 'Other'];
 
@@ -43,7 +45,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
     useEffect(() => {
         const loadServices = async () => {
             const data = await getServices(userEmail);
-            
+
             setServices(data);
             setLoading(false);
         };
@@ -374,16 +376,7 @@ const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: st
     const [isOpen, setIsOpen] = useState(false);
     const [isCustom, setIsCustom] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    useOnClickOutside(containerRef, [], () => setIsOpen(false));
 
     const handleSelect = (option: string) => {
         if (option.toLowerCase() === 'other') {
@@ -421,7 +414,7 @@ const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: st
     }
 
     return (
-        <div className='relative z-100' ref={containerRef}>
+        <div className='relative' ref={containerRef}>
             <button
                 type='button'
                 onClick={() => setIsOpen(!isOpen)}
@@ -433,31 +426,115 @@ const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: st
                 <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        className='absolute top-[calc(100%+4px)] left-0 right-0 bg-white rounded-xl border border-gray-100 shadow-xl z-50 overflow-hidden'
+            <DropdownPortal
+                isOpen={isOpen}
+                onClose={() => setIsOpen(false)}
+                triggerRef={containerRef}
+                className='absolute top-[calc(100%+4px)] w-fit left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg overflow-y-auto max-h-[160px] hide-scrollbar'
+            >
+                {braidOptions.map((cat) => (
+                    <button
+                        key={cat}
+                        type='button'
+                        onClick={() => handleSelect(cat)}
+                        className='w-full capitalize cursor-pointer text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-3 justify-between transition-colors'
                     >
-                        {braidOptions.map((cat) => (
-                            <button
-                                key={cat}
-                                type='button'
-                                onClick={() => handleSelect(cat)}
-                                className='w-full capitalize text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors'
-                            >
-                                {cat}
-                                {value === cat && <Check size={14} className='text-primary' />}
-                            </button>
-                        ))}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        {cat}
+                        {value === cat && <Check size={14} className='text-primary' />}
+                    </button>
+                ))}
+            </DropdownPortal>
         </div>
     );
+};
+
+const DropdownPortal = ({
+    isOpen,
+    onClose,
+    children,
+    triggerRef,
+    className,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    children: React.ReactNode;
+    triggerRef: React.RefObject<any>;
+    className?: string;
+}) => {
+    const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    useLayoutEffect(() => {
+        if (isOpen && triggerRef.current) {
+            const updatePosition = () => {
+                if (triggerRef.current) {
+                    const rect = triggerRef.current.getBoundingClientRect();
+                    setCoords({
+                        top: rect.bottom + 8,
+                        left: rect.left,
+                        width: rect.width,
+                    });
+                }
+            };
+            updatePosition();
+            window.addEventListener('resize', updatePosition);
+            window.addEventListener('scroll', updatePosition, true);
+            return () => {
+                window.removeEventListener('resize', updatePosition);
+                window.removeEventListener('scroll', updatePosition, true);
+            };
+        }
+    }, [isOpen, triggerRef]);
+
+    return createPortal(
+        <AnimatePresence>
+            {isOpen && coords && (
+                <>
+                    <div
+                        className='fixed inset-0 z-[100]'
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                        }}
+                    />
+                    <motion.div
+                        initial='closed'
+                        variants={wrapperVariants}
+                        animate='open'
+                        exit='closed'
+                        className={cn('fixed z-[101]', className)}
+                        style={{
+                            top: coords.top,
+                            left: coords.left,
+                            width: className?.includes('w-') ? undefined : coords.width,
+                        }}
+                    >
+                        {children}
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>,
+        document.body
+    );
+};
+
+const wrapperVariants: Variants = {
+    open: {
+        opacity: 1,
+        y: 0,
+        transition: {
+            type: 'spring',
+            stiffness: 300,
+            damping: 24,
+            duration: 0.15,
+        },
+    },
+    closed: {
+        opacity: 0,
+        y: 20,
+        transition: {
+            duration: 0.15,
+        },
+    },
 };
 
 export default Services;

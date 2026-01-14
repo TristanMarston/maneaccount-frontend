@@ -491,7 +491,14 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                                 />
                             )}
                             {view === 'list' && (
-                                <ListView shows={shows} onEdit={handleEdit} onDelete={(id, name) => setIsDeleting({ open: true, id, name })} onShowClick={handleShowClick} role={role} />
+                                <ListView
+                                    shows={shows}
+                                    onEdit={handleEdit}
+                                    onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
+                                    onShowClick={handleShowClick}
+                                    role={role}
+                                    userEmail={userEmail}
+                                />
                             )}
                         </>
                     )}
@@ -1082,12 +1089,14 @@ const ListView = ({
     onDelete,
     onShowClick,
     role,
+    userEmail,
 }: {
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
     onShowClick: (show: Show) => void;
     role: string;
+    userEmail: string;
 }) => {
     const allOccurrences = shows.flatMap((show) => {
         const start = new Date(show.startDate);

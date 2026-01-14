@@ -476,6 +476,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                                     onEdit={handleEdit}
                                     onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
                                     onShowClick={handleShowClick}
+                                    userEmail={userEmail}
                                     role={role}
                                 />
                             )}
@@ -789,6 +790,7 @@ const MonthView = ({
     onEdit,
     onDelete,
     onShowClick,
+    userEmail,
     role,
 }: {
     currentDate: Date;
@@ -796,6 +798,7 @@ const MonthView = ({
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
     onShowClick: (show: Show) => void;
+    userEmail: string;
     role: string;
 }) => {
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -905,7 +908,7 @@ const MonthView = ({
                                                             show.jobData.status === 'sub_declined')
                                                         ? 'opacity-50'
                                                         : '',
-                                                    show.jobData && show.jobData.status === 'sub_requested' && role === 'subcontractor' && show.jobData.subcontractorId
+                                                    show.jobData && role === 'subcontractor' && show.jobData.subcontractors.some((s: any) => s.email === userEmail)
                                                         ? 'bg-background hover:bg-blue-50 opacity-80'
                                                         : ''
                                                 )}
@@ -1168,7 +1171,7 @@ const ListView = ({
                                                         occ.jobData.status === 'sub_declined')
                                                     ? 'opacity-50'
                                                     : '',
-                                                occ.jobData && occ.jobData.status === 'sub_requested' && role === 'subcontractor' && occ.jobData.subcontractorId ? 'opacity-70' : ''
+                                                occ.jobData && role === 'subcontractor' && occ.jobData.subcontractors.some((s: any) => s.email === userEmail) ? 'opacity-70' : ''
                                             )}
                                         >
                                             <div className='flex-1 min-w-0'>
@@ -1182,20 +1185,12 @@ const ListView = ({
                                                         >
                                                             {occ.name}
                                                         </h3>
-                                                        {occ.jobData && occ.jobData.status === 'sub_requested' && role === 'subcontractor' && occ.jobData.subcontractorId ? (
+                                                        {occ.type === 'job' && (
                                                             <span>
                                                                 <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
-                                                                    REQUESTED
+                                                                    JOB
                                                                 </div>
                                                             </span>
-                                                        ) : (
-                                                            occ.type === 'job' && (
-                                                                <span>
-                                                                    <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
-                                                                        JOB
-                                                                    </div>
-                                                                </span>
-                                                            )
                                                         )}
                                                         {occ.inviteStatus === 'pending' && (
                                                             <span>

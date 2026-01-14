@@ -40,19 +40,20 @@ export async function getDashboardData(role: string) {
         let jobsWhereClause: any = {};
         if (role === 'barn') jobsWhereClause = { barnId: user.id };
         else if (role === 'braider') jobsWhereClause = { braiderId: user.id };
-        else if (role === 'subcontractor') jobsWhereClause = { subcontractorId: user.id };
+        else if (role === 'subcontractor') jobsWhereClause = { subcontractors: { some: { id: user.id } } };
 
         const jobsData = await prisma.job.findMany({
             where: jobsWhereClause,
             include: {
                 barn: true,
                 braider: true,
-                subcontractor: true,
+                subcontractors: true,
                 show: true,
                 assignments: {
                     include: {
                         horse: true,
                         services: true,
+                        subcontractor: true,
                     },
                 },
                 notes: {

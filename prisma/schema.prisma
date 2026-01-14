@@ -131,11 +131,11 @@ model User {
   accounts        Account[]
   sessions        Session[]
   
-  barnJobs          Job[] @relation("BarnJobs")
-  braiderJobs       Job[] @relation("BraiderJobs")
-  subcontractorJobs Job[] @relation("SubcontractorJobs")
-  subcontractorAssignments JobAssignment[] @relation("SubcontractorAssignments")
-  notes             Note[]
+  barnJobs                    Job[] @relation("BarnJobs")
+  braiderJobs                 Job[] @relation("BraiderJobs")
+  subcontractorJobs           Job[] @relation("SubcontractorJobs")
+  subcontractorAssignments    JobAssignment[] @relation("SubcontractorAssignments")
+  notes                       Note[]
   
   sentShowInvites      ShowInvite[] @relation("ShowInviter")
   receivedShowInvites  ShowInvite[] @relation("ShowInvitee")
@@ -149,7 +149,7 @@ model Notification {
   userId    String
   type      NotificationType
   senderId  String?
-  targetId  String?          // ID of the related Job, Show, Connection, etc.
+  targetId  String?          // related job, show, etc.
   message   String
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
@@ -215,8 +215,6 @@ model ShowInvite {
   @@unique([showId, inviteeId])
 }
 
-
-
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -229,7 +227,6 @@ model Job {
   id              String    @id @default(cuid())
   barnId          String
   braiderId       String
-  subcontractorId String?
   showId          String
   
   status          JobStatus @default(pending)
@@ -244,7 +241,7 @@ model Job {
   
   barn            User      @relation("BarnJobs", fields: [barnId], references: [id], onDelete: Cascade)
   braider         User      @relation("BraiderJobs", fields: [braiderId], references: [id], onDelete: Cascade)
-  subcontractor   User?     @relation("SubcontractorJobs", fields: [subcontractorId], references: [id])
+  subcontractors  User[]    @relation("SubcontractorJobs")
   show            Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
   
   createdAt       DateTime  @default(now())

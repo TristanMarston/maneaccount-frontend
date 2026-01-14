@@ -73,26 +73,30 @@ export const JobDetailReadOnly = ({
                     </div>
                 )}
 
-                {job.subcontractor && role !== 'subcontractor' ? (
-                    <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
-                        <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
-                            {job.subcontractor.image ? (
-                                <Image src={job.subcontractor.image} alt='Sub' fill className='object-cover' />
-                            ) : (
-                                <User className='w-full h-full p-2 text-blue-300' />
-                            )}
-                        </div>
-                        <div className='min-w-0'>
-                            <p className='text-xs text-blue-500 uppercase font-bold'>Assigned To</p>
-                            <p className='font-bold text-blue-900 truncate'>{job.subcontractor.name}</p>
-                        </div>
+                {job.subcontractors.length > 0 && role !== 'subcontractor' ? (
+                    <div className='flex flex-col gap-2'>
+                        {job.subcontractors.map((sub, idx) => (
+                            <div key={idx} className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
+                                <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
+                                    {sub.image ? <Image src={sub.image} alt='Sub' fill className='object-cover' /> : <User className='w-full h-full p-2 text-blue-300' />}
+                                </div>
+                                <div className='min-w-0'>
+                                    <p className='text-xs text-blue-500 uppercase font-bold'>Assigned To</p>
+                                    <p className='font-bold text-blue-900 truncate'>{sub.name}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
-                    job.subcontractor &&
+                    job.subcontractors.length > 0 &&
                     role === 'subcontractor' && (
                         <div className='flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 shadow-sm rounded-[14px]'>
                             <div className='relative min-w-10 h-10 rounded-full overflow-hidden bg-blue-100'>
-                                {job.braider.image ? <Image src={job.braider.image} alt='Sub' fill className='object-cover' /> : <User className='w-full h-full p-2 text-blue-300' />}
+                                {job.braider.image ? (
+                                    <Image src={job.braider.image} alt='Braider' fill className='object-cover' />
+                                ) : (
+                                    <User className='w-full h-full p-2 text-blue-300' />
+                                )}
                             </div>
                             <div className='min-w-0'>
                                 <p className='text-xs text-blue-500 uppercase font-bold'>Assigned By</p>

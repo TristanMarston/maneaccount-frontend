@@ -58,7 +58,7 @@ export async function getJobs(email: string, role: string) {
         let whereClause: any = {};
         if (role === 'barn') whereClause = { barnId: user.id };
         else if (role === 'braider') whereClause = { braiderId: user.id };
-        else if (role === 'subcontractor') whereClause = { subcontractorId: user.id };
+        else if (role === 'subcontractor') whereClause = { subcontractors: { some: { id: user.id } } };
         else return [];
 
         const jobs = await prisma.job.findMany({
@@ -66,7 +66,7 @@ export async function getJobs(email: string, role: string) {
             include: {
                 barn: true,
                 braider: true,
-                subcontractor: true,
+                subcontractors: true,
                 show: {
                     include: {
                         invites: true,
@@ -102,7 +102,7 @@ export async function updateJobStatus(
     status: JobStatus,
     data?: {
         scheduledDate?: Date;
-        subcontractorId?: string;
+        subcontractorIds?: string[];
     }
 ) {
     const session = await auth();
@@ -111,12 +111,16 @@ export async function updateJobStatus(
     try {
         const updateData: any = { status };
         if (data?.scheduledDate) updateData.scheduledDate = data.scheduledDate;
-        if (data?.subcontractorId) updateData.subcontractorId = data.subcontractorId;
+        if (data?.subcontractorIds) {
+            updateData.subcontractors = {
+                set: data.subcontractorIds.map((id) => ({ id })),
+            };
+        }
 
         const updatedJob = await prisma.job.update({
             where: { id: jobId },
             data: updateData,
-            include: { braider: true, subcontractor: true, barn: true },
+            include: { braider: true, subcontractors: true, barn: true },
         });
 
         if (status === 'accepted' || status === 'denied') {
@@ -183,11 +187,11 @@ export async function addNote(jobId: string, content: string) {
                 authorId: user.id,
                 content,
             },
-            include: { job: { include: { braider: true, barn: true, subcontractor: true } } },
+            include: { job: { include: { braider: true, barn: true, subcontractors: true } } },
         });
 
         const job = await prisma.job.findUnique({ where: { id: jobId }, include: { show: true } });
-        const participants = [note.job.braiderId, note.job.barnId, note.job.subcontractorId].filter((id) => id && id !== user.id);
+        const participants = [note.job.braiderId, note.job.barnId, ...note.job.subcontractors.map((s) => s.id)].filter((id) => id && id !== user.id);
         for (const participantId of participants) {
             await createNotification(participantId!, NotificationType.new_message, `New message from ${user.name} ${job ? `on ${job.show.name} job` : ''}`, jobId, user.id);
         }
@@ -207,13 +211,13 @@ export async function markJobCompleted(jobId: string) {
         const job = await prisma.job.update({
             where: { id: jobId },
             data: { status: 'completed' },
-            include: { braider: true, subcontractor: true },
+            include: { braider: true, subcontractors: true },
         });
 
         await createNotification(
             job.barnId,
             NotificationType.job_completed,
-            `Job completed by ${job.subcontractor?.name || job.braider.name}. Please pay the invoice.`,
+            `Job completed by ${job.subcontractors.length > 0 ? job.subcontractors.map((s) => s.name).join(', ') : job.braider.name}. Please pay the invoice.`,
             jobId,
             job.braiderId
         );
@@ -326,14 +330,29 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
+        let previousSubcontractorId = '';
+        if (subcontractorId.length === 0) {
+            const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId } });
+            previousSubcontractorId = assignment?.subcontractorId || '';
+        }
+
         const assignment = await prisma.jobAssignment.update({
             where: { id: assignmentId },
-            data: { subcontractorId: subcontractorId || null },
-            include: { job: { include: { braider: true } } },
+            data: { subcontractorId: subcontractorId.length > 0 ? subcontractorId : null },
+            include: { job: { include: { braider: true, subcontractors: true } } },
         });
 
-        if (subcontractorId) {
+        if (subcontractorId.length > 0) {
+            await prisma.job.update({
+                where: { id: assignment.jobId },
+                data: { subcontractors: { connect: { id: subcontractorId } } },
+            });
             await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
+        } else if (previousSubcontractorId) {
+            await prisma.job.update({
+                where: { id: assignment.jobId },
+                data: { subcontractors: { deleteMany: { id: { in: [previousSubcontractorId] } } } },
+            });
         }
 
         revalidatePath('/dashboard');
@@ -349,19 +368,20 @@ export async function cancelAssignment(assignmentId: string) {
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId } });
+        const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId }, include: { services: true } });
         if (!assignment) return { error: 'Assignment not found' };
 
-        // Toggle canceledAt
-        const canceledAt = assignment.canceledAt ? null : new Date();
+        const data: any = {};
+        if (assignment.canceledServiceIds.length === assignment.services.length) data.canceledServiceIds = [];
+        data.canceledAt = assignment.canceledAt || (data.canceledServicesIds && data.canceledServiceIds.length === 0) ? null : new Date();
 
         await prisma.jobAssignment.update({
             where: { id: assignmentId },
-            data: { canceledAt },
+            data,
         });
 
         revalidatePath('/dashboard');
-        return { success: true, message: canceledAt ? 'Removed horse' : 'Restored horse' };
+        return { success: true, message: data.canceledAt ? 'Removed horse from job' : 'Restored horse to job' };
     } catch (error) {
         console.error('Cancel assignment error:', error);
         return { error: 'Failed to update assignment' };

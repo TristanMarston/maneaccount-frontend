@@ -58,7 +58,7 @@ export type Job = {
     braider: { name: string; image?: string; email: string };
     barn: { name: string; image?: string; email: string };
     paidAt?: Date;
-    subcontractor?: { name: string; image?: string; email: string };
+    subcontractors: { name: string; image?: string; email: string; id: string }[];
     show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date; invites: any[] };
     assignments: {
         id: string;
@@ -102,12 +102,23 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
     const [cancelJobModal, setCancelJobModal] = useState(false);
     const [showCanceledEvents, setShowCanceledEvents] = useState(false);
     const [showCompletedEvents, setShowCompletedEvents] = useState(false);
-    const [checkMarkedCompleted, setCheckMarkedCompleted] = useState({ open: false, id: '' });
+    const [checkMarkedCompleted, setCheckMarkedCompleted] = useState({ open: false, id: '', earnings: 0, horses: 0, services: 0 });
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
+    const [exactTime, setExactTime] = useState(new Date());
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!checkMarkedCompleted.open) return;
+            setExactTime(new Date());
+        }, 60000);
+
+        return () => {
+            clearInterval(interval);
+        };
+    }, [checkMarkedCompleted]);
 
     const loadJobs = useCallback(async () => {
         const data = await getJobs(userEmail, role);
-        console.log(data);
 
         setJobs(data as any);
         setLoading(false);
@@ -174,6 +185,11 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
             const updatedJob = (updated as any).find((j: Job) => j.id === notesJob.id);
             if (updatedJob) setNotesJob(updatedJob);
         }
+
+        if (selectedJob) {
+            const updatedJob = (updated as any).find((j: Job) => j.id === selectedJob.id);
+            if (updatedJob) setSelectedJob(updatedJob);
+        }
     };
 
     const handleMarkJobCompleted = async (jobID: string) => {
@@ -190,7 +206,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
 
     return (
         <>
-            <div className='w-full'>
+            <div className='w-full font-figtree'>
                 <AnimatePresence mode='wait'>
                     {!selectedJob ? (
                         <motion.div
@@ -278,6 +294,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                 key={job.id}
                                                 job={job}
                                                 role={role}
+                                                userEmail={userEmail}
                                                 setSelectedJob={setSelectedJob}
                                                 setNotesJob={setNotesJob}
                                                 refresh={refreshJobs}
@@ -329,6 +346,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                                     key={job.id}
                                                                     job={job}
                                                                     role={role}
+                                                                    userEmail={userEmail}
                                                                     completed={true}
                                                                     setSelectedJob={setSelectedJob}
                                                                     setNotesJob={setNotesJob}
@@ -382,6 +400,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                                     key={job.id}
                                                                     job={job}
                                                                     canceled={true}
+                                                                    userEmail={userEmail}
                                                                     role={role}
                                                                     setSelectedJob={setSelectedJob}
                                                                     setNotesJob={setNotesJob}
@@ -479,25 +498,42 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                 closeOnOutsideClick={false}
                 className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative @container/check-completed'
             >
-                {checkMarkedCompleted.id.length > 0 && (
+                {checkMarkedCompleted.id.length > 0 && role === 'braider' && (
                     <div>
                         <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
                             Have you completed this service?
                         </h1>
-                        <p className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
-                            {role === 'braider' && (
-                                <span>
-                                    This action will mark this request as completed. An invoice will be sent to the barn, and they will pay for the service. Payments occur outside of
-                                    the ManeAccount platform, but it is advised to track them in the <span className='font-bold'>Invoices</span> panel.
-                                </span>
-                            )}
-                            {role === 'subcontractor' && (
-                                <span>
-                                    This action will mark this request as completed. An invoice will be sent to the barn, and they will pay the braider for the service. Payments occur
-                                    outside of the platform, so you must connect with the braider outside of the ManeAccount platform to receive your share of the earnings.
-                                </span>
-                            )}
-                        </p>
+                        <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
+                            <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
+                            <p className='mt-2'>
+                                Payments occur outside of the ManeAccount platform, but we offer the ability to track them in the <span className='font-bold'>Invoices</span> panel.
+                                Please ensure that all reported services were actually completed.
+                            </p>
+                        </div>
+                        <div className='flex flex-col gap-2 mt-4'>
+                            <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
+                            <div className='p-4 w-full flex-wrap font-figtree flex items-center gap-3 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
+                                <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
+                                    {new Intl.NumberFormat('en-US', {
+                                        style: 'currency',
+                                        currency: 'USD',
+                                    }).format(checkMarkedCompleted.earnings)}
+                                </div>
+                                <div className='font-figtree font-normal text-sm'>
+                                    <div className='flex items-center gap-2 font-semibold text-[15px]'>
+                                        <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
+                                        {format(exactTime, 'Pp')}
+                                    </div>
+                                    <span>
+                                        {checkMarkedCompleted.horses} Horse{checkMarkedCompleted.horses === 1 ? '' : 's'}
+                                    </span>{' '}
+                                    •{' '}
+                                    <span>
+                                        {checkMarkedCompleted.services} Service{checkMarkedCompleted.services === 1 ? '' : 's'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                         <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
                             <button
                                 onClick={() => setCheckMarkedCompleted((prev) => ({ ...prev, open: false }))}
@@ -509,7 +545,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                 onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id)}
                                 className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                             >
-                                Mark as Completed
+                                Send Invoice
                             </button>
                         </div>
                     </div>
@@ -526,6 +562,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
 const JobCard = ({
     job,
     role,
+    userEmail,
     setSelectedJob,
     setNotesJob,
     canceled = false,
@@ -536,19 +573,26 @@ const JobCard = ({
 }: {
     job: Job;
     role: string;
+    userEmail: string;
     setSelectedJob: (j: Job) => void;
     setNotesJob: (j: Job) => void;
     canceled?: boolean;
     completed?: boolean;
     refresh: () => void;
-    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string }>>;
+    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
 }) => {
     const completedNotPaid = job.status === 'completed' && !job.paidAt;
 
     const handleMarkCompleted = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setCheckMarkedCompleted({ open: true, id: job.id });
+        setCheckMarkedCompleted({
+            open: true,
+            id: job.id,
+            earnings: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0),
+            horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
+            services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0),
+        });
     };
 
     return (
@@ -585,27 +629,47 @@ const JobCard = ({
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>
 
                     {job.scheduledDate && (
-                        <div className='flex gap-2 items-center'>
-                            <div className='flex items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
+                        <div className='flex items-center gap-1 flex-wrap'>
+                            <div className='flex mr-1 items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
                                 <span className='flex items-center gap-1'>
                                     <Calendar className='w-4 h-4' />
                                     {format(new Date(job.scheduledDate), 'MMM d, yyyy')}
                                 </span>
                             </div>
-                            <div className='flex items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
+                            <div
+                                className={cn(
+                                    'flex items-center gap-x-2 gap-y-0.5 text-sm font-medium flex-wrap',
+                                    job.assignments
+                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                        .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
+                                        job.assignments
+                                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)
+                                        ? 'text-primary-light'
+                                        : 'text-gray-500'
+                                )}
+                            >
                                 <span className='flex items-center gap-1'>
                                     <CircleCheck className='w-4 h-4' />
-                                    {`${job.assignments.reduce((acc, a) => acc + a.completedServiceIds.length, 0)}/${job.assignments.reduce((acc, a) => acc + a.services.length, 0)} Completed`}
+                                    {`${job.assignments
+                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                        .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0)}/${job.assignments
+                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                        .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)} Completed`}
                                 </span>
                             </div>
                         </div>
                     )}
-                    {job.subcontractor && role !== 'subcontractor' && (
-                        <span className='flex items-center w-fit gap-1 mt-[3px] text-blue-600 bg-blue-50 px-2 py-[3px] rounded-full text-xs font-bold'>
-                            <User size={12} />
-                            {job.subcontractor.name}
-                        </span>
-                    )}
+                    {/* {job.subcontractors.length > 0 && role !== 'subcontractor' && (
+                        <div className='flex flex-wrap gap-1 mt-[3px]'>
+                            {job.subcontractors.map((sub, idx) => (
+                                <span key={idx} className='flex items-center w-fit gap-1 text-blue-600 bg-blue-50 px-2 py-[3px] rounded-full text-xs font-bold'>
+                                    <User size={12} />
+                                    {sub.name}
+                                </span>
+                            ))}
+                        </div>
+                    )} */}
                 </div>
             </div>
 
@@ -618,11 +682,16 @@ const JobCard = ({
                 <div className='flex items-center gap-2'>
                     {(role === 'braider' || role === 'subcontractor') &&
                         job.status === 'accepted' &&
-                        !(job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.completedServiceIds.includes(s.id)).length, 0) > 0) && (
+                        job.assignments
+                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                            .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
+                            job.assignments
+                                .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0) && (
                             <button
                                 onClick={handleMarkCompleted}
                                 className='p-2 rounded-full cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
-                                title='Mark as Completed'
+                                title='Send Invoice'
                             >
                                 <CheckCircle2 size={28} />
                             </button>
@@ -643,13 +712,25 @@ const JobCard = ({
                 </div>
                 <div className='flex flex-col items-center gap-0.5'>
                     <span className='text-2xl font-bold font-lusitana text-primary'>
-                        ${job.assignments.reduce((acc, assignment) => acc + assignment.services.reduce((sum, s) => sum + s.priceUSD, 0), 0)}
+                        $
+                        {job.assignments
+                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
                     </span>
                     <span className='text-xs text-gray-400 font-figtree whitespace-nowrap'>
-                        {job.assignments.reduce((acc, a) => acc + a.services.length, 0)} Service{job.assignments.reduce((acc, a) => acc + a.services.length, 0) !== 1 ? 's' : ''}
+                        {job.assignments
+                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)}{' '}
+                        Service
+                        {job.assignments
+                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0) !== 1
+                            ? 's'
+                            : ''}
                     </span>
                     <span className='text-xs text-gray-400 font-figtree whitespace-nowrap'>
-                        {job.assignments.length} Horse{job.assignments.length !== 1 ? 's' : ''}
+                        {job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} Horse
+                        {job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length !== 1 ? 's' : ''}
                     </span>
                 </div>
             </div>
@@ -712,7 +793,13 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                             className={cn(
                                 'flex flex-col',
                                 note.author.name ===
-                                    (role === 'barn' ? job.barn.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
+                                    (role === 'barn'
+                                        ? job.barn.name
+                                        : role === 'subcontractor'
+                                          ? job.subcontractors.some((s) => s.name === note.author.name)
+                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name
+                                              : job.braider.name
+                                          : job.braider.name)
                                     ? 'self-end items-end'
                                     : 'self-start items-start'
                             )}
@@ -721,7 +808,13 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                 className={cn(
                                     'p-3 rounded-2xl text-sm font-figtree shadow-sm',
                                     note.author.name ===
-                                        (role === 'barn' ? job.barn.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
+                                        (role === 'barn'
+                                            ? job.barn.name
+                                            : role === 'subcontractor'
+                                              ? job.subcontractors.some((s) => s.name === note.author.name)
+                                                  ? job.subcontractors.find((s) => s.name === note.author.name)?.name
+                                                  : job.braider.name
+                                              : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
                                         : 'bg-white text-gray-800 rounded-tl-sm'
                                 )}

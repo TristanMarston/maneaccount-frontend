@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, X, User, Info, CheckSquare, CheckCircle2, Calendar, CalendarCheck, ChevronLeft, Check, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { MapPin, X, User, Info, CheckSquare, CheckCircle2, Calendar, CalendarCheck, ChevronLeft, Check, ChevronDown, CircleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay } from 'date-fns';
@@ -22,14 +22,10 @@ import { getIDByEmail } from '@/app/actions/join';
 import { addShowToCalendar } from '@/app/actions/calendar';
 import { successToast, failToast } from '@/app/context';
 import Modal from '../../Modal';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, Variants } from 'motion/react';
 import DatePicker from '../DatePicker';
-
-// Reusing helper components from Calendar or creating new ones if not exported.
-// Since SelectSubcontractorDropdown and JobNotesModal were inside Tasks.tsx, I should copy them here or export them.
-// I'll copy them here to avoid circular dips or huge refactors.
-
-// --- Helper Components ---
+import useScreenWidth from '@/hooks/useScreenWidth';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
 const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string; onClose: () => void; refresh: () => void }) => {
     const [note, setNote] = useState('');
@@ -72,7 +68,13 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                             className={cn(
                                 'flex flex-col',
                                 note.author.name ===
-                                    (role === 'barn' ? job.barn.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
+                                    (role === 'barn'
+                                        ? job.barn.name
+                                        : role === 'subcontractor'
+                                          ? job.subcontractors.some((s) => s.name === note.author.name)
+                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name
+                                              : job.braider.name
+                                          : job.braider.name)
                                     ? 'self-end items-end'
                                     : 'self-start items-start'
                             )}
@@ -81,7 +83,13 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                 className={cn(
                                     'p-3 rounded-2xl text-sm font-figtree shadow-sm',
                                     note.author.name ===
-                                        (role === 'barn' ? job.barn.name : role === 'subcontractor' ? (job.subcontractor ? job.subcontractor.name : job.braider.name) : job.braider.name)
+                                        (role === 'barn'
+                                            ? job.barn.name
+                                            : role === 'subcontractor'
+                                              ? job.subcontractors.some((s) => s.name === note.author.name)
+                                                  ? job.subcontractors.find((s) => s.name === note.author.name)?.name
+                                                  : job.braider.name
+                                              : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
                                         : 'bg-white text-gray-800 rounded-tl-sm'
                                 )}
@@ -118,42 +126,24 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
     );
 };
 
-const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string; onChange: (val: string) => void; team: any[] }) => {
+const SelectSubcontractorDropdown = ({
+    value,
+    onChange,
+    team,
+    disabled,
+    completed,
+}: {
+    value: string;
+    onChange: (val: string) => void;
+    team: any[];
+    disabled: boolean;
+    completed: boolean;
+}) => {
     const [isOpen, setIsOpen] = useState(false);
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const portalRef = useRef<HTMLDivElement>(null);
-    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+    const buttonRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(buttonRef, [], () => setIsOpen(false));
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleClick = (e: MouseEvent) => {
-            const target = e.target as Node;
-            if (buttonRef.current?.contains(target)) return;
-            if (portalRef.current?.contains(target)) return;
-            setIsOpen(false);
-        };
-        window.addEventListener('mousedown', handleClick);
-        return () => window.removeEventListener('mousedown', handleClick);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAnchorRect(null);
-            return;
-        }
-        const updateRect = () => {
-            const rect = buttonRef.current?.getBoundingClientRect() ?? null;
-            if (rect) rect.width = rect.width; // Maintain width
-            setAnchorRect(rect);
-        };
-        updateRect();
-        window.addEventListener('resize', updateRect);
-        window.addEventListener('scroll', updateRect, true);
-        return () => {
-            window.removeEventListener('resize', updateRect);
-            window.removeEventListener('scroll', updateRect, true);
-        };
-    }, [isOpen]);
+    const [disabledTooltip, setDisabledToolTip] = useState(false);
 
     const handleSelect = (id: string) => {
         onChange(id);
@@ -162,36 +152,41 @@ const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string;
 
     const selectedMember = team.find((t) => t.id === value);
 
-    const wrapperVariants = {
+    const wrapperVariants: Variants = {
         open: {
             opacity: 1,
             y: 0,
-            scale: 1,
             transition: {
-                when: 'beforeChildren',
-                staggerChildren: 0.1,
+                type: 'spring',
+                stiffness: 300,
+                damping: 24,
+                duration: 0.15,
             },
         },
         closed: {
             opacity: 0,
-            y: -15,
-            scale: 0.95,
+            y: 10,
             transition: {
-                when: 'afterChildren',
-                staggerChildren: 0.1,
+                duration: 0.15,
             },
         },
     };
 
     return (
-        <div className='relative w-full'>
+        <div className='relative w-full' ref={buttonRef}>
             <button
-                ref={buttonRef}
                 type='button'
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between gap-1 outline-none shadow-sm border px-3 py-2 rounded-xl transition-all ${
-                    isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300'
-                } bg-white`}
+                onClick={() => {
+                    if (disabled || completed) return;
+                    setIsOpen((prev) => !prev);
+                }}
+                onMouseEnter={() => setDisabledToolTip(true)}
+                onMouseLeave={() => setDisabledToolTip(false)}
+                className={cn(
+                    'w-full @min-[530px]/assignment-detail:w-fit flex items-center justify-between gap-3 outline-none shadow-sm border cursor-pointer px-3 py-2 rounded-xl transition-all bg-white',
+                    isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300',
+                    disabled || completed ? 'opacity-50 cursor-not-allowed hover:border-gray-200' : ''
+                )}
             >
                 <div className='flex items-center gap-2 text-sm min-w-0'>
                     <div className='w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
@@ -206,30 +201,36 @@ const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string;
                 <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isOpen && anchorRect && (
-                // @ts-ignore
-                <AnimatePresence>
-                    {/* @ts-ignore */}
+            <AnimatePresence>
+                {disabled && disabledTooltip && (
                     <motion.div
-                        ref={portalRef}
-                        initial={wrapperVariants.closed}
+                        initial='closed'
+                        key='tooltip'
+                        variants={wrapperVariants}
+                        animate={disabledTooltip ? 'open' : 'closed'}
+                        onMouseEnter={() => setDisabledToolTip(false)}
+                        exit='closed'
+                        transition={{ duration: 0.15 }}
+                        className='max-h-56 absolute text-gray-500 flex items-center gap-2 text-nowrap text-sm px-3 py-1.5 bottom-[calc(100%+6px)] max-w-[300px] right-0 w-fit overflow-y-auto bg-gray-50 rounded-xl border border-gray-100 shadow-xl'
+                    >
+                        <CircleAlert className='w-5 h-5' />
+                        Accept the job first!
+                    </motion.div>
+                )}
+                {!disabled && isOpen && (
+                    <motion.div
+                        initial='closed'
+                        key='dropdown'
                         variants={wrapperVariants}
                         animate={isOpen ? 'open' : 'closed'}
                         exit='closed'
                         transition={{ duration: 0.15 }}
-                        style={{
-                            position: 'fixed',
-                            top: anchorRect.bottom + 4,
-                            left: anchorRect.left,
-                            width: anchorRect.width,
-                            zIndex: 9999,
-                        }}
-                        className='max-h-56 overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl'
+                        className='max-h-56 z-60 absolute overflow-x-hidden top-[calc(100%+6px)] w-full @min-[530px]/assignment-detail:w-fit @min-[530px]/assignment-detail:max-w-[300px] left-0 right-auto @min-[530px]/assignment-detail:right-0 @min-[530px]/assignment-detail:left-auto overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl'
                     >
                         <button
                             type='button'
                             onClick={() => handleSelect('')}
-                            className='w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors font-medium font-figtree'
+                            className='w-full cursor-pointer text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex gap-3 items-center justify-between transition-colors font-medium font-figtree'
                         >
                             <div className='flex items-center gap-2'>
                                 <div className='w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center'>
@@ -244,32 +245,27 @@ const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string;
                                 key={member.id}
                                 type='button'
                                 onClick={() => handleSelect(member.id)}
-                                className='w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors font-medium font-figtree'
+                                className='w-full cursor-pointer text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex gap-3 items-center justify-between transition-colors font-medium font-figtree'
                             >
-                                <div className='flex items-center gap-2'>
-                                    <div className='w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
+                                <div className='flex items-center gap-2 min-w-0'>
+                                    <div className='min-w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
                                         {member.image ? (
                                             <Image src={member.image} alt='Sub' width={20} height={20} className='w-full h-full object-cover' />
                                         ) : (
                                             <div className='w-full h-full flex items-center justify-center text-[8px] font-bold text-gray-500'>{member.name[0]}</div>
                                         )}
                                     </div>
-                                    <span>{member.name}</span>
+                                    <span className='text-nowrap truncate'>{member.name}</span>
                                 </div>
                                 {value === member.id && <Check size={14} className='text-primary' />}
                             </button>
                         ))}
                     </motion.div>
-                </AnimatePresence>
-                // Reomved Portal here as it was causing issues. Just rendered in place or fixed.
-                // Actually, let's use fixed positioning with portal if needed, but for simplicity here standard absolute might be safer if parent not overflow hidden.
-                // The original code used createPortal. I'll stick to rendering it but maybe without portal if it works, or use portal if I can import it.
-                // import { createPortal } from 'react-dom';
-            )}
+                )}
+            </AnimatePresence>
         </div>
     );
 };
-import { createPortal } from 'react-dom';
 
 export const JobDetailSubpage = ({
     job: initialJob,
@@ -289,7 +285,7 @@ export const JobDetailSubpage = ({
     refresh: () => void;
     handleCancelJobModal: () => void;
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
-    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string }>>;
+    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
     canMarkCompleted?: boolean;
 }) => {
     const [job, setJob] = useState<Job>(initialJob);
@@ -298,6 +294,57 @@ export const JobDetailSubpage = ({
     const [selectedSub, setSelectedSub] = useState('');
     const [userId, setUserId] = useState('');
     const [notesModalOpen, setNotesModalOpen] = useState(false);
+    const [acceptJobHeight, setAcceptJobHeight] = useState(0);
+    const [messagesPrescrolled, setMessagesPrescrolled] = useState(false);
+    const acceptJobRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerWidth, setContainerWidth] = useState(0);
+
+    useEffect(() => {
+        const getContainerWidth = () => {
+            if (containerRef && containerRef.current) {
+                setContainerWidth(containerRef.current.offsetWidth);
+            }
+        };
+
+        getContainerWidth();
+        window.addEventListener('resize', getContainerWidth);
+
+        return () => window.removeEventListener('resize', getContainerWidth);
+    }, [containerRef]);
+
+    useEffect(() => {
+        const scrollToBottom = () => {
+            if (!messagesPrescrolled && messagesRef.current) {
+                setMessagesPrescrolled(true);
+                messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight });
+            }
+        };
+
+        window.addEventListener('scroll', scrollToBottom, true);
+
+        return () => window.removeEventListener('scroll', scrollToBottom, true);
+    }, [job.notes, messagesRef, messagesPrescrolled]);
+
+    useLayoutEffect(() => {
+        const resizeWindow = () => {
+            if (containerWidth <= 575) return;
+
+            if (acceptJobRef && acceptJobRef.current && acceptJobHeight !== acceptJobRef.current.offsetHeight) {
+                setAcceptJobHeight(acceptJobRef.current.offsetHeight);
+            }
+        };
+
+        resizeWindow();
+        window.addEventListener('scroll', resizeWindow, true);
+        window.addEventListener('resize', resizeWindow);
+
+        return () => {
+            window.removeEventListener('scroll', resizeWindow, true);
+            window.removeEventListener('resize', resizeWindow);
+        };
+    }, [initialJob, role, containerWidth]);
 
     useEffect(() => {
         setJob(initialJob);
@@ -321,10 +368,11 @@ export const JobDetailSubpage = ({
         if (role === 'braider') getTeam();
         else getUserId();
     }, [role, userEmail]);
+
     const handleAction = async (status: 'accepted' | 'denied', subId?: string) => {
         const res = await updateJobStatus(job.id, status as any, {
             scheduledDate: date || undefined,
-            subcontractorId: subId || selectedSub || undefined,
+            subcontractorIds: subId ? [subId] : selectedSub ? [selectedSub] : undefined,
         });
 
         if (res.success) {
@@ -349,7 +397,7 @@ export const JobDetailSubpage = ({
     const handleCancelAssignment = async (assignmentId: string) => {
         const res = await cancelAssignment(assignmentId);
         if (res.success) {
-            successToast('Removed horse from job');
+            successToast(res.message);
             refresh();
         } else {
             failToast('Failed to remove horse');
@@ -359,7 +407,6 @@ export const JobDetailSubpage = ({
     const handleCancelService = async (assignmentId: string, serviceId: string) => {
         const res = await cancelAssignmentService(assignmentId, serviceId);
         if (res.success) {
-            successToast('Service canceled');
             refresh();
         } else {
             failToast('Failed to cancel service');
@@ -416,20 +463,20 @@ export const JobDetailSubpage = ({
         }
     };
 
-    const handleAddToCalendar = async () => {
-        const res = await addShowToCalendar(job.show.id);
+    // const handleAddToCalendar = async () => {
+    //     const res = await addShowToCalendar(job.show.id);
 
-        if (res.success) {
-            successToast(`Event added to calendar!`);
-            refresh();
-        } else {
-            failToast('Failed to add to calendar');
-        }
-    };
+    //     if (res.success) {
+    //         successToast(`Event added to calendar!`);
+    //         refresh();
+    //     } else {
+    //         failToast('Failed to add to calendar');
+    //     }
+    // };
 
     return (
-        <div className='pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 w-full h-full'>
-            <div className='w-full'>
+        <div className='font-figtree pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 w-full h-full @container/job-subpage'>
+            <div ref={containerRef} className='w-full'>
                 <div className='flex flex-col gap-4 @min-[400px]/tasks:gap-0 @min-[400px]/tasks:flex-row @min-[400px]/tasks:justify-between @min-[400px]/tasks:items-start'>
                     <div>
                         <button
@@ -471,7 +518,7 @@ export const JobDetailSubpage = ({
                     </div>
                     <span
                         className={cn(
-                            'text-xs absolute -top-3 right-2 font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
+                            'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
                             statusColors[job.paidAt ? 'paid' : job.status]
                         )}
                     >
@@ -509,35 +556,75 @@ export const JobDetailSubpage = ({
                     </div>
                 )}
 
+                {role !== 'subcontractor' && job.subcontractors.length > 0 && (
+                    <div className='flex flex-col gap-5 pt-1.5'>
+                        {job.subcontractors.map((sub, idx) => {
+                            const horses = job.assignments.filter((a) => a.subcontractor?.id === sub.id);
+                            const completedHorses = horses.filter(
+                                (h) => [...new Set(h.completedServiceIds)].length + [...new Set(h.canceledServiceIds)].length === [...new Set(h.services)].length
+                            );
+                            const finishedAllServices = completedHorses.length === horses.length;
+
+                            return (
+                                <div
+                                    key={idx}
+                                    className={cn(
+                                        'flex items-center gap-3 p-4 border shadow-sm rounded-[14px] relative',
+                                        finishedAllServices ? 'bg-blue-50/50 border-blue-100' : 'bg-amber-50/50 border-amber-100'
+                                    )}
+                                >
+                                    <div className={cn('relative min-w-10 h-10 rounded-full overflow-hidden', finishedAllServices ? 'bg-blue-100' : 'bg-amber-100')}>
+                                        {sub.image ? (
+                                            <Image src={sub.image} alt='Sub' fill className='object-cover' />
+                                        ) : (
+                                            <User className={cn('w-full h-full p-2', finishedAllServices ? 'text-blue-300' : 'text-amber-400')} />
+                                        )}
+                                    </div>
+                                    <div className='min-w-0'>
+                                        <p className={cn('text-xs uppercase font-bold', finishedAllServices ? 'text-blue-500' : 'text-amber-500')}>Assigned To</p>
+                                        <p className={cn('font-bold text-blue-900 truncate', finishedAllServices ? 'text-blue-900' : 'text-amber-900')}>{sub.name}</p>
+                                    </div>
+                                    <span
+                                        className={cn(
+                                            'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
+                                            finishedAllServices ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'
+                                        )}
+                                    >
+                                        {completedHorses.length}/{horses.length} Completed
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 <div>
                     <h3 className='text-sm font-bold text-gray-500 uppercase mb-3'>Assignments • {format(new Date(job.createdAt), 'P')}</h3>
                     <div className='space-y-4'>
-                        {/* Only show assignments relevant to the user */}
                         {job.assignments
                             .filter((a) => role !== 'subcontractor' || a.subcontractor?.id === userId)
                             .sort((a, b) => a.horse.barnName.localeCompare(b.horse.barnName.toUpperCase()))
                             .map((assignment, i) => {
-                                const activeServices = assignment.services.filter((s) => !assignment.canceledServiceIds?.includes(s.id));
-                                const isAssignmentCanceled = !!assignment.canceledAt;
+                                const activeServices = assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id));
+                                const isAssignmentCanceled = !!assignment.canceledAt || activeServices.length === 0;
 
                                 return (
                                     <div
                                         key={i}
                                         className={cn(
-                                            'bg-white rounded-2xl border border-gray-200 p-4 shadow-sm transition-all',
+                                            'bg-white rounded-2xl border border-gray-200 p-4 shadow-sm transition-all @container/assignment-detail',
                                             isAssignmentCanceled ? 'opacity-60 bg-gray-50' : '',
                                             !isAssignmentCanceled &&
-                                                activeServices.length ===
-                                                    [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds?.includes(id)))].length
+                                                activeServices.length === [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length
                                                 ? 'bg-primary-extra-light border-primary/20'
                                                 : ''
                                         )}
                                     >
                                         <div className='flex justify-between items-start mb-3'>
-                                            <div onClick={() => setSelectedHorse(assignment.horse)} className='flex items-center gap-3 cursor-pointer group flex-1'>
+                                            <div onClick={() => setSelectedHorse(assignment.horse)} className='flex items-center min-w-0 gap-3 cursor-pointer group flex-1'>
                                                 <div className='min-w-10 min-h-10 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
                                                     {assignment.horse.profileImage ? (
-                                                        <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover grayscale' />
+                                                        <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover' />
                                                     ) : (
                                                         <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-xs font-figtree'>
                                                             {assignment.horse.barnName[0]}
@@ -557,16 +644,35 @@ export const JobDetailSubpage = ({
                                                 </div>
                                             </div>
                                             <div className='flex items-center gap-2'>
-                                                {(role === 'braider' || role === 'subcontractor') && (
-                                                    <button
-                                                        onClick={() => handleCancelAssignment(assignment.id)}
-                                                        className={cn(
-                                                            'p-1 transition-colors text-xs font-bold uppercase',
-                                                            isAssignmentCanceled ? 'text-primary hover:text-primary-dark' : 'text-red-400 hover:text-red-600'
-                                                        )}
-                                                    >
-                                                        {isAssignmentCanceled ? 'Restore' : 'Cancel Horse'}
-                                                    </button>
+                                                {(role === 'braider' || role === 'subcontractor') &&
+                                                    job.status !== 'pending' &&
+                                                    !job.paidAt &&
+                                                    (activeServices.length === 0 ||
+                                                        activeServices.length !==
+                                                            [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length) && (
+                                                        <button
+                                                            onClick={() => handleCancelAssignment(assignment.id)}
+                                                            className={cn(
+                                                                'p-1 transition-colors text-xs cursor-pointer font-bold uppercase',
+                                                                isAssignmentCanceled ? 'text-primary hover:text-primary-dark' : 'text-red-400 hover:text-red-600'
+                                                            )}
+                                                        >
+                                                            {isAssignmentCanceled ? 'Restore' : 'Cancel Horse'}
+                                                        </button>
+                                                    )}
+                                                {!isAssignmentCanceled && role === 'braider' && (
+                                                    <div className='hidden @min-[530px]/assignment-detail:block'>
+                                                        <SelectSubcontractorDropdown
+                                                            value={assignment.subcontractor?.id || ''}
+                                                            onChange={(val) => handleAssignSub(assignment.id, val)}
+                                                            team={team}
+                                                            disabled={job.status !== 'accepted'}
+                                                            completed={
+                                                                [...new Set(assignment.services)].length ===
+                                                                [...new Set(assignment.completedServiceIds)].length + [...new Set(assignment.canceledServiceIds)].length
+                                                            }
+                                                        />
+                                                    </div>
                                                 )}
                                                 <div
                                                     onClick={() => setSelectedHorse(assignment.horse)}
@@ -578,47 +684,49 @@ export const JobDetailSubpage = ({
                                         </div>
 
                                         {!isAssignmentCanceled && role === 'braider' && (
-                                            <div className='mb-3'>
+                                            <div className='block @min-[530px]/assignment-detail:hidden w-full mb-2'>
                                                 <SelectSubcontractorDropdown
                                                     value={assignment.subcontractor?.id || ''}
                                                     onChange={(val) => handleAssignSub(assignment.id, val)}
                                                     team={team}
+                                                    disabled={job.status !== 'accepted'}
+                                                    completed={
+                                                        [...new Set(assignment.services)].length ===
+                                                        [...new Set(assignment.completedServiceIds)].length + [...new Set(assignment.canceledServiceIds)].length
+                                                    }
                                                 />
                                             </div>
                                         )}
 
                                         <div className='space-y-2 pl-1'>
-                                            {activeServices.map((service, idx) => {
+                                            {assignment.services.map((service, idx) => {
                                                 const isCompleted = assignment.completedServiceIds?.includes(service.id);
-                                                // Braiders can always edit if not canceled/completed job. Subs can edit if assigned.
-                                                // The prompt said "subcontractor has to complete all...". Now per horse.
-                                                // "Assign any or none...".
-                                                // If assigned, they can toggle.
                                                 const canEdit =
                                                     (role === 'braider' || (role === 'subcontractor' && assignment.subcontractor?.id === userId)) &&
                                                     job.status !== 'completed' &&
-                                                    job.status !== 'canceled';
+                                                    job.status !== 'canceled' &&
+                                                    !assignment.canceledAt;
 
                                                 return (
                                                     <div
                                                         key={idx}
                                                         className={cn(
                                                             'flex justify-between items-center text-sm min-w-0 py-1 group/service',
-                                                            assignment.canceledServiceIds?.includes(service.id) ? 'opacity-50' : ''
+                                                            assignment.canceledServiceIds.includes(service.id) ? 'opacity-50' : ''
                                                         )}
                                                     >
                                                         <div className='flex items-center gap-3 min-w-0 flex-1'>
                                                             {job.scheduledDate &&
-                                                                !assignment.canceledServiceIds?.includes(service.id) &&
                                                                 (role !== 'barn' ? (
                                                                     <button
                                                                         type='button'
-                                                                        disabled={!canEdit}
+                                                                        disabled={!canEdit || assignment.canceledServiceIds.includes(service.id)}
                                                                         onClick={(e) => canEdit && handleToggleService(e, assignment.id, service.id)}
                                                                         className={cn(
                                                                             'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed',
                                                                             canEdit ? 'cursor-pointer hover:border-primary' : 'opacity-50',
-                                                                            isCompleted ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300'
+                                                                            isCompleted ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300',
+                                                                            assignment.canceledServiceIds.includes(service.id) && 'opacity-50 cursor-not-allowed hover:border-gray-300'
                                                                         )}
                                                                     >
                                                                         {isCompleted && <CheckSquare size={14} strokeWidth={3} />}
@@ -630,37 +738,40 @@ export const JobDetailSubpage = ({
                                                                 className={cn(
                                                                     'text-gray-700 font-medium truncate',
                                                                     isCompleted && 'text-gray-400 line-through',
-                                                                    assignment.canceledServiceIds?.includes(service.id) && 'text-gray-400 line-through decoration-red-300',
-                                                                    !assignment.canceledServiceIds?.includes(service.id) &&
+                                                                    assignment.canceledServiceIds.includes(service.id) && 'text-gray-400 line-through decoration-red-300',
+                                                                    !assignment.canceledServiceIds.includes(service.id) &&
                                                                         activeServices.length > 0 &&
                                                                         activeServices.every((s) => assignment.completedServiceIds.includes(s.id))
                                                                         ? 'text-primary-light/80'
                                                                         : ''
                                                                 )}
                                                             >
-                                                                {service.name} {assignment.canceledServiceIds?.includes(service.id) ? '(Canceled)' : ''}
+                                                                {service.name} {assignment.canceledServiceIds.includes(service.id) ? '(Canceled)' : ''}
                                                             </span>
                                                         </div>
                                                         <div className='flex items-center gap-3'>
+                                                            {(role === 'braider' || (role === 'subcontractor' && assignment.subcontractor?.id === userId)) &&
+                                                                job.status !== 'pending' &&
+                                                                !assignment.completedServiceIds.includes(service.id) &&
+                                                                !assignment.canceledAt &&
+                                                                !job.paidAt && (
+                                                                    <button
+                                                                        onClick={() => handleCancelService(assignment.id, service.id)}
+                                                                        className={cn(
+                                                                            'transition-all p-1 cursor-pointer',
+                                                                            assignment.canceledServiceIds.includes(service.id)
+                                                                                ? 'text-primary hover:text-primary-dark font-bold text-[10px] uppercase'
+                                                                                : 'text-gray-300 hover:text-red-500'
+                                                                        )}
+                                                                    >
+                                                                        {assignment.canceledServiceIds.includes(service.id) ? 'Restore' : <X size={14} />}
+                                                                    </button>
+                                                                )}
                                                             <span className='font-bold font-lusitana text-primary'>${service.priceUSD}</span>
-                                                            {(role === 'braider' || (role === 'subcontractor' && assignment.subcontractor?.id === userId)) && (
-                                                                <button
-                                                                    onClick={() => handleCancelService(assignment.id, service.id)}
-                                                                    className={cn(
-                                                                        'transition-all p-1',
-                                                                        assignment.canceledServiceIds?.includes(service.id)
-                                                                            ? 'text-primary hover:text-primary-dark font-bold text-[10px] uppercase'
-                                                                            : 'opacity-0 group-hover/service:opacity-100 text-gray-300 hover:text-red-500'
-                                                                    )}
-                                                                >
-                                                                    {assignment.canceledServiceIds?.includes(service.id) ? 'Restore' : <X size={14} />}
-                                                                </button>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 );
                                             })}
-                                            {activeServices.length === 0 && <p className='text-xs text-center text-gray-400 italic py-2'>All services canceled</p>}
                                             <div className='border-t border-dashed border-gray-200 my-2' />
                                             <div className='flex justify-between items-center'>
                                                 <span
@@ -686,66 +797,107 @@ export const JobDetailSubpage = ({
                                 $
                                 {job.assignments
                                     .filter((a) => role !== 'subcontractor' || a.subcontractor?.id === userId)
-                                    .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds?.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
+                                    .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <div
-                    onClick={() => setNotesModalOpen(true)}
-                    className='p-4 rounded-[14px] bg-white border border-[#dae3de] shadow-sm cursor-pointer hover:border-primary-light transition-all group'
-                >
-                    <div className='flex justify-between items-center mb-2'>
-                        <h3 className='font-bold text-gray-900 flex items-center gap-2'>
-                            <Info size={16} className='text-gray-400' />
-                            Notes & Messages
-                        </h3>
-                        {job.notes.length > 0 && <span className='text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-full'>{job.notes.length}</span>}
-                    </div>
-                    {job.notes.length > 0 ? (
-                        <div className='text-sm text-gray-500 line-clamp-2'>
-                            <span className='font-bold text-gray-700'>{job.notes[0].author.name}: </span>
-                            {job.notes[0].content}
+                <div className={cn(role === 'braider' && job.status === 'pending' ? 'grid grid-cols-1 @min-[575px]/job-subpage:grid-cols-2 gap-4' : 'grid w-full')}>
+                    <div
+                        onClick={() => setNotesModalOpen(true)}
+                        style={acceptJobHeight !== 0 ? { maxHeight: acceptJobHeight } : { maxHeight: 395 }}
+                        className='p-4 w-full pb-12 overflow-y-hidden rounded-[14px] bg-white border border-[#dae3de] shadow-sm cursor-pointer hover:border-primary-light transition-all group'
+                    >
+                        <div className='flex justify-between items-center mb-2'>
+                            <h3 className='font-bold text-gray-900 flex items-center gap-2'>
+                                <Info size={16} className='text-gray-400' />
+                                Notes & Messages
+                            </h3>
+                            {job.notes.length > 0 && <span className='text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-full'>{job.notes.length}</span>}
                         </div>
-                    ) : (
-                        <p className='text-sm text-gray-400 italic'>No notes yet. Click to add one.</p>
+                        {job.notes.length > 0 ? (
+                            <div className='flex-1 overflow-y-auto h-full p-6 pb-0 space-y-4' ref={messagesRef}>
+                                {job.notes.length === 0 && <p className='text-center text-gray-400 text-sm mt-10'>No notes yet.</p>}
+                                {job.notes
+                                    .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                    .map((note) => (
+                                        <div
+                                            key={note.id}
+                                            className={cn(
+                                                'flex flex-col',
+                                                note.author.name ===
+                                                    (role === 'barn'
+                                                        ? job.barn.name
+                                                        : role === 'subcontractor'
+                                                          ? job.subcontractors.some((s) => s.name === note.author.name)
+                                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name
+                                                              : job.braider.name
+                                                          : job.braider.name)
+                                                    ? 'self-end items-end'
+                                                    : 'self-start items-start'
+                                            )}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    'p-3 rounded-2xl text-sm font-figtree shadow-sm',
+                                                    note.author.name ===
+                                                        (role === 'barn'
+                                                            ? job.barn.name
+                                                            : role === 'subcontractor'
+                                                              ? job.subcontractors.some((s) => s.name === note.author.name)
+                                                                  ? job.subcontractors.find((s) => s.name === note.author.name)?.name
+                                                                  : job.braider.name
+                                                              : job.braider.name)
+                                                        ? 'bg-primary text-white rounded-tr-sm'
+                                                        : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+                                                )}
+                                            >
+                                                {note.content}
+                                            </div>
+                                            <span className='text-[10px] text-gray-400 mt-1 px-1'>
+                                                {new Date(note.createdAt).toLocaleString()} • {note.author.name}
+                                            </span>
+                                        </div>
+                                    ))}
+                            </div>
+                        ) : (
+                            <p className='text-sm text-gray-400 italic'>No notes yet. Click to add one.</p>
+                        )}
+                    </div>
+
+                    {role === 'braider' && job.status === 'pending' && (
+                        <div className='p-4 w-full h-fit rounded-xl bg-primary/5 border border-primary/10 shadow-sm font-figtree' ref={acceptJobRef}>
+                            <h3 className='text-sm font-bold text-primary mb-3 uppercase'>Schedule & Accept</h3>
+
+                            <div className='mb-4 flex flex-col gap-1.5 w-full'>
+                                <label className='text-xs font-bold text-gray-500 uppercase'>When will you be finished?</label>
+                                <DatePicker
+                                    onDateSelect={(d) => setDate(d)}
+                                    noDateBefore={new Date()}
+                                    selectedDate={date}
+                                    showStartDate={new Date(job.show.startDate)}
+                                    showEndDate={new Date(job.show.endDate)}
+                                    size='big'
+                                    constantRows
+                                />
+                            </div>
+
+                            <div className='flex flex-col @min-[320px]/job-detail:flex-row gap-2'>
+                                <button onClick={() => handleAction('denied')} className='flex-1 py-2 cursor-pointer rounded-[10px] font-bold text-red-500 red-border-hover'>
+                                    Decline Request
+                                </button>
+                                <button
+                                    onClick={() => handleAction('accepted')}
+                                    disabled={!date}
+                                    className='flex-1 py-2 cursor-pointer rounded-[10px] font-bold disabled:opacity-50 disabled:pointer-events-none text-background bg-primary-light primary-border-hover'
+                                >
+                                    Accept Request
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
-
-                {role === 'braider' && job.status === 'pending' && (
-                    <div className='p-4 rounded-xl bg-primary/5 border border-primary/10 shadow-sm font-figtree mb-4'>
-                        <h3 className='text-sm font-bold text-primary mb-3 uppercase'>Schedule & Accept</h3>
-
-                        <div className='mb-4 flex flex-col gap-1.5 w-full'>
-                            <label className='text-xs font-bold text-gray-500 uppercase'>When will you be finished?</label>
-                            <DatePicker
-                                onDateSelect={(d) => setDate(d)}
-                                noDateBefore={new Date()}
-                                selectedDate={date}
-                                showStartDate={new Date(job.show.startDate)}
-                                showEndDate={new Date(job.show.endDate)}
-                                size='big'
-                            />
-                        </div>
-
-                        <div className='flex flex-col @min-[320px]/job-detail:flex-row gap-2'>
-                            <button
-                                onClick={() => handleAction('denied')}
-                                className='flex-1 py-2 cursor-pointer rounded-[10px] bg-white border border-red-200 text-red-600 font-bold hover:bg-red-50 transition-colors'
-                            >
-                                Decline Request
-                            </button>
-                            <button
-                                onClick={() => handleAction('accepted')}
-                                disabled={!date}
-                                className='flex-1 py-2 cursor-pointer rounded-[10px] bg-primary-light text-background font-bold disabled:opacity-50 disabled:pointer-events-none hover:bg-primary transition-colors'
-                            >
-                                Accept Request
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 <div className='flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row'>
                     {role !== 'subcontractor' &&
@@ -762,13 +914,25 @@ export const JobDetailSubpage = ({
                         )}
                     {role === 'braider' && job.status === 'accepted' && (
                         <button
-                            disabled={job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.completedServiceIds.includes(s.id)).length, 0) > 0}
+                            disabled={
+                                job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) !==
+                                job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)
+                            }
                             onClick={() => {
-                                setCheckMarkedCompleted({ open: true, id: job.id });
+                                setCheckMarkedCompleted({
+                                    open: true,
+                                    id: job.id,
+                                    earnings: job.assignments.reduce(
+                                        (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
+                                        0
+                                    ),
+                                    horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
+                                    services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0),
+                                });
                             }}
                             className='w-full grid place-items-center font-figtree font-bold text-background bg-primary-light rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'
                         >
-                            Mark Complete
+                            Send Invoice
                         </button>
                     )}
                 </div>

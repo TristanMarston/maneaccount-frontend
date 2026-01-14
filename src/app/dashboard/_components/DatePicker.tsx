@@ -3,7 +3,23 @@
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { addDays, addMonths, endOfMonth, getDate, getDay, getMonth, getYear, isBefore, isEqual, startOfMonth, subDays, subMonths } from 'date-fns';
+import {
+    addDays,
+    addMonths,
+    eachDayOfInterval,
+    endOfMonth,
+    endOfWeek,
+    getDate,
+    getDay,
+    getMonth,
+    getYear,
+    isBefore,
+    isEqual,
+    startOfMonth,
+    startOfWeek,
+    subDays,
+    subMonths,
+} from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
@@ -16,6 +32,7 @@ const DatePicker = ({
     showStartDate,
     showEndDate,
     size = 'small',
+    constantRows = false,
 }: {
     onDateSelect: (selectedDate: Date) => void;
     noDateBefore: Date | null;
@@ -25,6 +42,7 @@ const DatePicker = ({
     showStartDate?: Date;
     showEndDate?: Date;
     size?: 'small' | 'big';
+    constantRows?: boolean;
 }) => {
     const [monthSelectorOpen, setMonthSelectorOpen] = useState(false);
     const [yearSelectorOpen, setYearSelectorOpen] = useState(false);
@@ -182,6 +200,7 @@ const DatePicker = ({
                     startDateEffect={startDateEffect}
                     showStartDate={showStartDate}
                     showEndDate={showEndDate}
+                    constantRows={constantRows}
                 />
             </div>
         </div>
@@ -195,6 +214,7 @@ const CalendarElement = ({
     startDateEffect,
     showStartDate,
     showEndDate,
+    constantRows,
 }: {
     currentDate: Date;
     handleDateSelect: (date: Date) => void;
@@ -203,36 +223,71 @@ const CalendarElement = ({
     startDateEffect: boolean;
     showStartDate?: Date;
     showEndDate?: Date;
+    constantRows: boolean;
 }) => {
     const [monthLayout, setMonthLayout] = useState<Date[][]>([]);
+
     const getLayout = (date: Date): Date[][] => {
-        const firstOfMonth = startOfMonth(date);
-        const lastOfMonth = endOfMonth(date);
-        const layout: Date[][] = [];
-        let iteratedDate = firstOfMonth;
+        if (constantRows) {
+            const monthStart = startOfMonth(currentDate);
+            const monthEnd = endOfMonth(monthStart);
+            const startDate = startOfWeek(monthStart);
 
-        if (getDay(firstOfMonth) !== 0) {
+            let days = eachDayOfInterval({ start: startDate, end: endOfWeek(monthEnd) });
+            let endDate = null;
+
+            if (days.length / 7 < 6) {
+                let tempDay = endOfWeek(addDays(monthEnd, 7));
+
+                while (true) {
+                    const tempDays = eachDayOfInterval({ start: startDate, end: tempDay });
+                    if (tempDays.length / 7 === 6) {
+                        endDate = tempDay;
+                        break;
+                    }
+                    tempDay = endOfWeek(addDays(tempDay, 7));
+                }
+            }
+
+            days = eachDayOfInterval({ start: startDate, end: endDate || endOfWeek(monthEnd) });
+
+            const returnValue: Date[][] = [[], [], [], [], [], []];
+            for (let i = 0; i < 6; i++) {
+                for (let j = 0; j < 7; j++) {
+                    returnValue[i].push(days[i * 7 + j]);
+                }
+            }
+
+            return returnValue;
+        } else {
+            const firstOfMonth = startOfMonth(date);
+            const lastOfMonth = endOfMonth(date);
+            const layout: Date[][] = [];
+            let iteratedDate = firstOfMonth;
+
+            if (getDay(firstOfMonth) !== 0) {
+                while (true) {
+                    iteratedDate = subDays(iteratedDate, 1);
+                    if (getDay(iteratedDate) === 0) break;
+                }
+            }
+
+            let passedLastOfMonth = false;
+
             while (true) {
-                iteratedDate = subDays(iteratedDate, 1);
-                if (getDay(iteratedDate) === 0) break;
+                if (layout.length === 0) layout.push([iteratedDate]);
+                else if (layout[layout.length - 1].length !== 7) layout[layout.length - 1].push(iteratedDate);
+                else layout.push([iteratedDate]);
+                if (getDate(iteratedDate) === getDate(lastOfMonth) && getMonth(iteratedDate) === getMonth(lastOfMonth)) {
+                    if (getDay(lastOfMonth) === 6) break;
+                    else passedLastOfMonth = true;
+                }
+                if (passedLastOfMonth && getDay(iteratedDate) === 6) break;
+                iteratedDate = addDays(iteratedDate, 1);
             }
+
+            return layout;
         }
-
-        let passedLastOfMonth = false;
-
-        while (true) {
-            if (layout.length === 0) layout.push([iteratedDate]);
-            else if (layout[layout.length - 1].length !== 7) layout[layout.length - 1].push(iteratedDate);
-            else layout.push([iteratedDate]);
-            if (getDate(iteratedDate) === getDate(lastOfMonth) && getMonth(iteratedDate) === getMonth(lastOfMonth)) {
-                if (getDay(lastOfMonth) === 6) break;
-                else passedLastOfMonth = true;
-            }
-            if (passedLastOfMonth && getDay(iteratedDate) === 6) break;
-            iteratedDate = addDays(iteratedDate, 1);
-        }
-
-        return layout;
     };
 
     useEffect(() => {

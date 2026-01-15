@@ -25,6 +25,8 @@ import {
     Trash2,
     Warehouse,
     Settings,
+    X,
+    Check,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
@@ -36,6 +38,10 @@ import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import Image from 'next/image';
 import { failToast, successToast } from '@/app/context';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { respondToShowInvite } from '@/app/actions/calendar';
+import { acceptRelationRequest, removeRelation } from '@/app/actions/barn-relations';
+import Modal from '../Modal';
+import { acceptRequest, removeMember } from '@/app/actions/team';
 
 const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: string; name: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const hours = new Date().getHours();
@@ -44,6 +50,12 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     const [shows, setShows] = useState<Show[]>([]);
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const [checkAcceptModal, setCheckAcceptModal] = useState<{ open: boolean; name: string; callback: () => void }>({
+        open: false,
+        name: '',
+        callback: () => {},
+    });
 
     const fetchData = async () => {
         if (!userEmail) return;
@@ -98,33 +110,75 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
         .slice(0, 3);
 
     return (
-        <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 h-full @container/home'>
-            <header className='flex flex-row justify-between gap-x-4 flex-wrap'>
-                <div>
-                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>
-                        {greeting}, {name.split(' ')[0]}.
-                    </h1>
-                    <p className='text-gray-500 font-figtree mt-1 ml-1'>Here&apos;s what&apos;s happening in your stable today.</p>
-                </div>
-                <Notifications setSelectedPage={setSelectedPage} role={role} />
-            </header>
+        <>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 h-full @container/home'>
+                <header className='flex flex-row justify-between gap-x-4 flex-wrap'>
+                    <div>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>
+                            {greeting}, {name.split(' ')[0]}.
+                        </h1>
+                        <p className='text-gray-500 font-figtree mt-1 ml-1'>Here&apos;s what&apos;s happening in your stable today.</p>
+                    </div>
+                    <Notifications setSelectedPage={setSelectedPage} role={role} setCheckAcceptModal={setCheckAcceptModal} />
+                </header>
 
-            {loading ? (
-                <div className='w-full h-60 flex items-center justify-center'>
-                    <span className='loader-primary'></span>
-                </div>
-            ) : (
-                <div className='space-y-8 animate-in fade-in duration-500 font-figtree overflow-y-auto pb-28 dashboard-sm:pb-8 pr-1'>
-                    {role === 'braider' && <BraiderView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
-                    {role === 'subcontractor' && <SubcontractorView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
-                    {role === 'barn' && <BarnView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
-                </div>
-            )}
-        </div>
+                {loading ? (
+                    <div className='w-full h-60 flex items-center justify-center'>
+                        <span className='loader-primary'></span>
+                    </div>
+                ) : (
+                    <div className='space-y-8 animate-in fade-in duration-500 font-figtree overflow-y-auto pb-28 dashboard-sm:pb-8 pr-1'>
+                        {role === 'braider' && <BraiderView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
+                        {role === 'subcontractor' && <SubcontractorView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
+                        {role === 'barn' && <BarnView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
+                    </div>
+                )}
+            </div>
+            <Modal
+                isOpen={checkAcceptModal.open}
+                setIsOpen={(open: boolean) => setCheckAcceptModal({ name: '', callback: () => {}, open })}
+                className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative @container/check-accept'
+            >
+                {role === 'braider' && (
+                    <div>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
+                        <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                            This action will accept the connection request from <span className='font-bold'>{checkAcceptModal.name}</span>. Upon acceptance they will be able to view{' '}
+                            <span className='font-bold'>all of your upcoming and ongoing calendar events.</span>
+                        </p>
+                        <div className='grid @min-[410px]/check-accept:grid-cols-2 gap-3 @min-[410px]/check-accept:gap-4 mt-4'>
+                            <button
+                                onClick={() => setCheckAcceptModal({ open: false, name: '', callback: () => {} })}
+                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCheckAcceptModal({ open: false, name: '', callback: () => {} });
+                                    checkAcceptModal.callback();
+                                }}
+                                className='font-figtree cursor-pointer capitalize font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                            >
+                                Accept Invite
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+        </>
     );
 };
 
-const Notifications = ({ setSelectedPage, role }: { setSelectedPage: React.Dispatch<React.SetStateAction<string>>; role: string }) => {
+const Notifications = ({
+    setSelectedPage,
+    role,
+    setCheckAcceptModal,
+}: {
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    role: string;
+    setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void }>>;
+}) => {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [isWrapped, setIsWrapped] = useState(false);
@@ -253,6 +307,7 @@ const Notifications = ({ setSelectedPage, role }: { setSelectedPage: React.Dispa
                                                         handleDeleteNotification={handleDeleteNotification}
                                                         handleMarkAsRead={handleMarkAsRead}
                                                         setNotificationsOpen={setNotificationsOpen}
+                                                        setCheckAcceptModal={setCheckAcceptModal}
                                                     />
                                                 ))}
                                             {notifications.filter((notif) => notif.isRead).length > 0 && (
@@ -271,6 +326,7 @@ const Notifications = ({ setSelectedPage, role }: { setSelectedPage: React.Dispa
                                                         handleDeleteNotification={handleDeleteNotification}
                                                         handleMarkAsRead={handleMarkAsRead}
                                                         setNotificationsOpen={setNotificationsOpen}
+                                                        setCheckAcceptModal={setCheckAcceptModal}
                                                     />
                                                 ))}
                                         </>
@@ -293,6 +349,7 @@ const Notification = ({
     handleDeleteNotification,
     handleMarkAsRead,
     setNotificationsOpen,
+    setCheckAcceptModal,
 }: {
     notification: any;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
@@ -301,7 +358,115 @@ const Notification = ({
     handleDeleteNotification: (notificationId: string) => void;
     handleMarkAsRead: (notificationId: string) => void;
     setNotificationsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void }>>;
 }) => {
+    const [responseFunctions, setResponseFunctions] = useState<{ accept: () => Promise<void> | (() => void); reject: () => Promise<void> | (() => void) } | null>(null);
+
+    useEffect(() => {
+        const calendarFunctions = async () => {
+            setResponseFunctions(() => ({
+                accept: async () => {
+                    const res = await respondToShowInvite(notification.targetId, 'accepted');
+                    if (res.success) {
+                        successToast('Show invite accepted');
+                        handleMarkAsRead(notification.id);
+                        setNotificationsOpen(false);
+                    } else {
+                        failToast('Failed to accept show invite');
+                    }
+                },
+                reject: async () => {
+                    const res = await respondToShowInvite(notification.targetId, 'declined');
+                    if (res.success) {
+                        successToast('Show invite declined');
+                        handleMarkAsRead(notification.id);
+                        setNotificationsOpen(false);
+                    } else {
+                        failToast('Failed to reject show invite');
+                    }
+                },
+            }));
+        };
+
+        const teamFunctions = () => {
+            setResponseFunctions(() => ({
+                accept: async () => {
+                    const accept = async () => {
+                        const res = await acceptRequest(notification.targetId);
+
+                        if (res.success) {
+                            successToast('Invitation accepted');
+                            handleMarkAsRead(notification.id);
+                            setNotificationsOpen(false);
+                        } else {
+                            failToast('Failed to accept invitation');
+                        }
+                    };
+
+                    if (role === 'braider') {
+                        setCheckAcceptModal({
+                            open: true,
+                            name: notification.sender?.name || '',
+                            callback: accept,
+                        });
+                    } else accept();
+                },
+                reject: async () => {
+                    const res = await removeMember(notification.targetId, true);
+
+                    if (res.success) {
+                        successToast('Invitation declined');
+                        handleMarkAsRead(notification.id);
+                        setNotificationsOpen(false);
+                    } else {
+                        failToast('Failed to reject invitation');
+                    }
+                },
+            }));
+        };
+
+        const relationsFunctions = () => {
+            setResponseFunctions(() => ({
+                accept: async () => {
+                    const accept = async () => {
+                        const res = await acceptRelationRequest(notification.targetId);
+
+                        if (res.success) {
+                            successToast('Invitation accepted');
+                            handleMarkAsRead(notification.id);
+                            setNotificationsOpen(false);
+                        } else {
+                            failToast('Failed to accept invitation');
+                        }
+                    };
+
+                    if (role === 'braider') {
+                        setCheckAcceptModal({
+                            open: true,
+                            name: notification.sender?.name || '',
+                            callback: accept,
+                        });
+                    } else accept();
+                },
+                reject: async () => {
+                    const res = await removeRelation(notification.targetId, true);
+
+                    if (res.success) {
+                        successToast('Invitation declined');
+                        handleMarkAsRead(notification.id);
+                        setNotificationsOpen(false);
+                    } else {
+                        failToast('Failed to reject invitation');
+                    }
+                },
+            }));
+        };
+
+        if (notification.type === 'calendar_invite') calendarFunctions();
+        if (notification.type === 'team_invite') teamFunctions();
+        if (notification.type === 'barn_invite') relationsFunctions();
+    }, [notification]);
+
     return (
         <div
             key={notification.id}
@@ -389,6 +554,31 @@ const Notification = ({
                     {format(notification.createdAt, 'Pp')}
                 </div>
             )}
+            {responseFunctions && !isRead && (
+                <>
+                    <div className='w-full bg-gray-100 h-px rounded-full my-2' />
+                    <div className={cn('flex items-center gap-2 w-full', isRead ? 'opacity-50' : '')}>
+                        <button
+                            onClick={() => {
+                                responseFunctions.reject();
+                            }}
+                            className='flex w-full cursor-pointer gap-1 items-center justify-center py-1 px-3 rounded-[10px] bg-red-50 text-red-500 hover:bg-red-100 transition-colors'
+                        >
+                            <X className='min-w-5 h-5' strokeWidth={3} />
+                            <span>Decline</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                responseFunctions.accept();
+                            }}
+                            className='flex w-full cursor-pointer gap-1 items-center justify-center py-1 px-3 rounded-[10px] bg-primary-light text-white hover:bg-primary transition-colors shadow-sm'
+                        >
+                            <Check className='min-w-5 h-5' strokeWidth={3} />
+                            <span>Accept</span>
+                        </button>
+                    </div>
+                </>
+            )}
         </div>
     );
 };
@@ -448,7 +638,7 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
 
                 <SectionContainer title='Incoming Invoices' onViewAll={() => setSelectedPage('Invoices')}>
                     {unpaidJobs.length > 0 ? (
-                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='braider' />)
+                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='braider' color='purple' />)
                     ) : (
                         <EmptyState message='No incoming invoices.' icon={CheckCircle2} />
                     )}
@@ -563,7 +753,7 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
 
                 <SectionContainer title='Invoices to Pay' onViewAll={() => setSelectedPage('Invoices')}>
                     {unpaidJobs.length > 0 ? (
-                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='barn' />)
+                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='barn' color='amber' />)
                     ) : (
                         <EmptyState message='All caught up on invoices!' icon={CheckCircle2} />
                     )}
@@ -684,13 +874,15 @@ const ShowCard = ({ show }: { show: Show }) => {
     );
 };
 
-const InvoicePreviewCard = ({ job, role }: { job: any; role: string }) => {
+const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; color: 'amber' | 'purple' }) => {
     const total = job.assignments.reduce((acc: any, s: any) => acc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0);
 
     return (
         <div className='flex items-center justify-between p-4 rounded-[18px] bg-white border border-gray-100 shadow-sm relative'>
             <div className='flex items-center gap-4 min-w-0'>
-                <div className='w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0'>
+                <div
+                    className={cn('w-12 h-12 rounded-full flex items-center justify-center shrink-0', color === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-purple-50 text-purple-600')}
+                >
                     <DollarSign size={20} strokeWidth={2.5} />
                 </div>
                 <div className='min-w-0'>
@@ -698,10 +890,15 @@ const InvoicePreviewCard = ({ job, role }: { job: any; role: string }) => {
                     <p className='text-xs text-gray-500 font-medium'>{format(new Date(job.scheduledDate), 'MMM d, yyyy')}</p>
                 </div>
             </div>
-            <span className='font-lusitana font-bold text-lg text-amber-700 hidden @min-[360px]/home:block'>
+            <span className={cn('font-lusitana font-bold text-lg hidden @min-[360px]/home:block', color === 'amber' ? 'text-amber-700' : 'text-purple-700')}>
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
             </span>
-            <span className='font-lusitana font-bold absolute -top-3 right-2 text-base px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 block @min-[360px]/home:hidden'>
+            <span
+                className={cn(
+                    'font-lusitana font-bold absolute -top-3 right-2 text-base px-3 py-0.5 rounded-full shadow-sm text-amber-700 block @min-[360px]/home:hidden',
+                    color === 'amber' ? 'bg-amber-100 border border-amber-200 text-amber-700' : 'bg-purple-100 border border-purple-200 text-purple-700'
+                )}
+            >
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
             </span>
         </div>

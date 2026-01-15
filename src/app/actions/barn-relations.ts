@@ -121,7 +121,7 @@ export async function inviteRelation(publicID: string) {
             return { error: existing.status === 'pending' ? 'Invitation already pending' : 'User already connected' };
         }
 
-        await prisma.connection.create({
+        const connection = await prisma.connection.create({
             data: {
                 senderId: sender.id,
                 receiverId: receiver.id,
@@ -129,7 +129,7 @@ export async function inviteRelation(publicID: string) {
             },
         });
 
-        await createNotification(receiver.id, NotificationType.barn_invite, `${sender.name} sent you a connection request`, null, sender.id);
+        await createNotification(receiver.id, NotificationType.barn_invite, `${sender.name} sent you a connection request`, connection.id, sender.id);
 
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
@@ -157,6 +157,8 @@ export async function removeRelation(connectionId: string, rejected: boolean) {
             }
         }
 
+        if (!rejected) await desyncCalendar(connectionId);
+
         await prisma.connection.delete({
             where: { id: connectionId },
         });
@@ -164,7 +166,33 @@ export async function removeRelation(connectionId: string, rejected: boolean) {
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
+        console.error('Failed to remove relation:', error);
         return { error: 'Failed to remove connection' };
+    }
+}
+
+export async function desyncCalendar(connectionId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const connection = await prisma.connection.findUnique({ where: { id: connectionId }, include: { sender: true, receiver: true } });
+        if (!connection) return { error: 'Connection not found' };
+
+        await prisma.showInvite.deleteMany({
+            where: {
+                OR: [
+                    { inviterId: connection.senderId, inviteeId: connection.receiverId },
+                    { inviterId: connection.receiverId, inviteeId: connection.senderId },
+                ],
+            },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to desync calendar:', error);
+        return { error: 'Failed to desync calendar' };
     }
 }
 

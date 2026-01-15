@@ -361,7 +361,7 @@ const Relations = ({
 
                                 {isBarn && (
                                     <button
-                                        onClick={() => setSelectedPage('Tasks')}
+                                        onClick={() => setSelectedPage('Services')}
                                         className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[290px]/relation-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[290px]/relation-card:py-2 transition-colors'
                                     >
                                         <Briefcase className='w-5 h-5' />

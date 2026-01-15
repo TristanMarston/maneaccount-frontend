@@ -6,7 +6,7 @@ import { sendNotificationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
-import { syncCalendar } from './barn-relations';
+import { syncCalendar, desyncCalendar } from './barn-relations';
 
 export async function getUserByPublicID(publicID: string) {
     if (!publicID) return;
@@ -159,7 +159,7 @@ export async function inviteUser(publicID: string) {
         }
 
         // send an email here
-        await prisma.connection.create({
+        const connection = await prisma.connection.create({
             data: {
                 senderId: sender.id,
                 receiverId: receiver.id,
@@ -171,7 +171,7 @@ export async function inviteUser(publicID: string) {
             receiver.id,
             NotificationType.team_invite,
             `${sender.name} ${sender.role === 'braider' ? 'invited you to their team' : 'wants to join your team'}`,
-            null,
+            connection.id,
             sender.id
         );
 
@@ -220,7 +220,7 @@ export async function acceptRequest(connectionID: string) {
             updatedConnection.senderId,
             NotificationType.team_status_change,
             `${updatedConnection.receiver.name} accepted your team invitation`,
-            null,
+            connectionID,
             updatedConnection.receiverId
         );
 
@@ -239,9 +239,11 @@ export async function removeMember(connectionID: string, rejected: boolean) {
         if (rejected) {
             const connection = await prisma.connection.findUnique({ where: { id: connectionID }, include: { sender: true, receiver: true } });
             if (connection) {
-                createNotification(connection.sender.id, NotificationType.team_status_change, `${connection.receiver.name} rejected your team invitation`, null, connection.receiver.id);
+                createNotification(connection.sender.id, NotificationType.team_status_change, `${connection.receiver.name} rejected your team invitation`, connectionID, connection.receiver.id);
             }
         }
+
+        if (!rejected) await desyncCalendar(connectionID);
 
         await prisma.connection.delete({
             where: { id: connectionID },
@@ -249,6 +251,7 @@ export async function removeMember(connectionID: string, rejected: boolean) {
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
+        console.error('Failed to remove team member:', error);
         return { error: 'Failed to remove member' };
     }
 }

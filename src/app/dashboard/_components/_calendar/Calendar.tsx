@@ -311,7 +311,7 @@ const DayDetailsModal = ({
 import { getDashboardData } from '@/app/actions/dashboard';
 
 const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
-    const [view, setView] = useState<CalendarViewType>('month');
+    const [view, setView] = useState<CalendarViewType>('list');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [shows, setShows] = useState<Show[]>([]);
     const [loading, setLoading] = useState(true);
@@ -685,7 +685,7 @@ const Notifications = ({
                                                         <p className='text-gray-900 truncate font-lusitana font-bold text-[19px] group-hover:text-primary transition-all leading-[1.15]'>
                                                             {invite.show.name}
                                                         </p>
-                                                        <p className='text-gray-500 min-w-0 truncate text-sm flex items-center gap-1 mt-0.5'>
+                                                        <p className='text-gray-500 min-w-0 truncate text-sm flex items-center gap-0.5 mt-0.5'>
                                                             <MapPin className='min-w-3.5 h-3.5' />{' '}
                                                             <span className='truncate'>
                                                                 {invite.show.city}, {invite.show.state}
@@ -1138,8 +1138,6 @@ const ListView = ({
 
     const sortedDates = Object.keys(groupedByDate).sort();
 
-    if (sortedDates.length === 0) return <div className='flex items-center justify-center h-full text-gray-400 font-figtree'>No upcoming events.</div>;
-
     useLayoutEffect(() => {
         const todayDate = new Date().setHours(0, 0, 0, 0);
         const todayKey = format(todayDate, 'yyyy-MM-dd');
@@ -1153,107 +1151,123 @@ const ListView = ({
     return (
         <div className='h-full overflow-y-auto custom-scrollbar bg-white @min-[700px]/calendar:grid grid-cols-[2fr_1fr] @container/list-calendar'>
             <div className='h-full p-5 @min-[350px]/list-calendar:p-6 @min-[550px]/list-calendar:p-8 space-y-4 w-full @min-[700px]/list-calendar:min-w-[520px] max-w-4xl font-figtree'>
-                {sortedDates.map((dateKey, index) => {
-                    const dayOccurrences = [...groupedByDate[dateKey]];
-                    const [year, month, day] = dateKey.split('-').map(Number);
-                    const date = new Date(year, month - 1, day);
-
-                    return (
-                        <div className='space-y-4' id={dateKey} key={dateKey}>
-                            <div className={cn('flex items-center gap-4 sticky top-0 bg-white z-10 pb-2', index === 0 ? 'pt-0' : 'pt-6')}>
-                                <div
-                                    className={cn(
-                                        'flex flex-col items-center justify-center rounded-xl p-2 min-w-16 h-16 transition-all',
-                                        isToday(date) ? 'bg-primary text-white shadow-lg scale-105' : 'bg-gray-50 text-gray-900 border border-gray-100'
-                                    )}
-                                >
-                                    <span className={cn('text-[10px] font-bold uppercase tracking-wider', isToday(date) ? 'text-primary-extra-light' : 'text-gray-400')}>
-                                        {format(date, 'MMM')}
-                                    </span>
-                                    <span className='text-2xl font-bold leading-none'>{format(date, 'd')}</span>
-                                    <span className={cn('text-[9px] font-medium uppercase mt-0.5', isToday(date) ? 'text-primary-extra-light' : 'text-gray-400')}>
-                                        {format(date, 'EEE')}
-                                    </span>
-                                </div>
-                                <div className='h-px flex-1 bg-linear-to-r from-gray-100 to-white'></div>
+                {sortedDates.length === 0 ? (
+                    <div className='space-y-4'>
+                        <div className='flex items-center gap-4 sticky top-0 bg-white z-10 pb-2 pt-0'>
+                            <div className='flex flex-col items-center justify-center rounded-xl p-2 min-w-16 h-16 transition-all bg-primary text-white shadow-lg scale-105'>
+                                <span className='text-[10px] font-bold uppercase tracking-wider text-primary-extra-light'>
+                                    {format(new Date(new Date().setHours(0, 0, 0, 0)), 'MMM')}
+                                </span>
+                                <span className='text-2xl font-bold leading-none'>{format(new Date(new Date().setHours(0, 0, 0, 0)), 'd')}</span>
+                                <span className='text-[9px] font-medium uppercase mt-0.5 text-primary-extra-light'>{format(new Date(new Date().setHours(0, 0, 0, 0)), 'EEE')}</span>
                             </div>
+                            <div className='h-px flex-1 bg-linear-to-r from-gray-100 to-white'></div>
+                        </div>
+                        <div className='flex items-center justify-center h-full text-gray-400 font-figtree'>No upcoming events.</div>
+                    </div>
+                ) : (
+                    sortedDates.map((dateKey, index) => {
+                        const dayOccurrences = [...groupedByDate[dateKey]];
+                        const [year, month, day] = dateKey.split('-').map(Number);
+                        const date = new Date(year, month - 1, day);
 
-                            <div className='grid gap-4 pl-2 @min-[550px]/list-calendar:pl-4 max-w-full'>
-                                {dayOccurrences.length > 0 ? (
-                                    dayOccurrences.map((occ, idx) => (
-                                        <button
-                                            key={`${occ.id}-${idx}`}
-                                            onClick={() => onShowClick(occ)}
-                                            className={cn(
-                                                'w-full cursor-pointer overflow-hidden text-left flex flex-col @min-[600px]/list-calendar:flex-row @min-[600px]/list-calendar:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-primary/30 hover:shadow-md transition-all group',
-                                                index === sortedDates.length - 1 && idx === dayOccurrences.length - 1 ? 'mb-7 @min-[350px]/list-calendar:mb-8' : '',
-                                                occ.type === 'job' ? 'border-blue-200 bg-blue-50 hover:border-blue-200' : '',
-                                                occ.inviteStatus === 'pending' ? 'opacity-70' : '',
-                                                occ.jobData &&
-                                                    (occ.jobData.status === 'completed' ||
-                                                        occ.jobData.status === 'denied' ||
-                                                        occ.jobData.status === 'canceled' ||
-                                                        occ.jobData.status === 'sub_declined')
-                                                    ? 'opacity-50'
-                                                    : '',
-                                                occ.jobData && role === 'subcontractor' && occ.jobData.subcontractors.some((s: any) => s.email === userEmail) ? 'opacity-70' : ''
-                                            )}
-                                        >
-                                            <div className='flex-1 min-w-0'>
-                                                <div className='flex justify-between items-start gap-3 min-w-0'>
-                                                    <div className='flex items-center gap-2'>
-                                                        <h3
-                                                            className={cn(
-                                                                'text-xl min-w-0 font-bold text-gray-900 font-lusitana group-hover:text-primary transition-colors truncate',
-                                                                occ.type === 'job' ? 'group-hover:text-blue-500' : ''
+                        return (
+                            <div className='space-y-4' id={dateKey} key={dateKey}>
+                                <div className={cn('flex items-center gap-4 sticky top-0 bg-white z-10 pb-2', index === 0 ? 'pt-0' : 'pt-6')}>
+                                    <div
+                                        className={cn(
+                                            'flex flex-col items-center justify-center rounded-xl p-2 min-w-16 h-16 transition-all',
+                                            isToday(date) ? 'bg-primary text-white shadow-lg scale-105' : 'bg-gray-50 text-gray-900 border border-gray-100'
+                                        )}
+                                    >
+                                        <span className={cn('text-[10px] font-bold uppercase tracking-wider', isToday(date) ? 'text-primary-extra-light' : 'text-gray-400')}>
+                                            {format(date, 'MMM')}
+                                        </span>
+                                        <span className='text-2xl font-bold leading-none'>{format(date, 'd')}</span>
+                                        <span className={cn('text-[9px] font-medium uppercase mt-0.5', isToday(date) ? 'text-primary-extra-light' : 'text-gray-400')}>
+                                            {format(date, 'EEE')}
+                                        </span>
+                                    </div>
+                                    <div className='h-px flex-1 bg-linear-to-r from-gray-100 to-white'></div>
+                                </div>
+
+                                <div className='grid gap-4 pl-2 @min-[550px]/list-calendar:pl-4 max-w-full'>
+                                    {dayOccurrences.length > 0 ? (
+                                        dayOccurrences.map((occ, idx) => (
+                                            <button
+                                                key={`${occ.id}-${idx}`}
+                                                onClick={() => onShowClick(occ)}
+                                                className={cn(
+                                                    'w-full cursor-pointer overflow-hidden text-left flex flex-col @min-[600px]/list-calendar:flex-row @min-[600px]/list-calendar:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-primary/30 hover:shadow-md transition-all group',
+                                                    index === sortedDates.length - 1 && idx === dayOccurrences.length - 1 ? 'mb-7 @min-[350px]/list-calendar:mb-8' : '',
+                                                    occ.type === 'job' ? 'border-blue-200 bg-blue-50 hover:border-blue-200' : '',
+                                                    occ.inviteStatus === 'pending' ? 'opacity-70' : '',
+                                                    occ.jobData &&
+                                                        (occ.jobData.status === 'completed' ||
+                                                            occ.jobData.status === 'denied' ||
+                                                            occ.jobData.status === 'canceled' ||
+                                                            occ.jobData.status === 'sub_declined')
+                                                        ? 'opacity-50'
+                                                        : '',
+                                                    occ.jobData && role === 'subcontractor' && occ.jobData.subcontractors.some((s: any) => s.email === userEmail) ? 'opacity-70' : ''
+                                                )}
+                                            >
+                                                <div className='flex-1 min-w-0'>
+                                                    <div className='flex justify-between items-start gap-3 min-w-0'>
+                                                        <div className='flex items-center gap-2'>
+                                                            <h3
+                                                                className={cn(
+                                                                    'text-xl min-w-0 font-bold text-gray-900 font-lusitana group-hover:text-primary transition-colors truncate',
+                                                                    occ.type === 'job' ? 'group-hover:text-blue-500' : ''
+                                                                )}
+                                                            >
+                                                                {occ.name}
+                                                            </h3>
+                                                            {occ.type === 'job' && (
+                                                                <span>
+                                                                    <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
+                                                                        JOB
+                                                                    </div>
+                                                                </span>
                                                             )}
-                                                        >
-                                                            {occ.name}
-                                                        </h3>
-                                                        {occ.type === 'job' && (
-                                                            <span>
-                                                                <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-blue-500 bg-blue-100 shadow-sm uppercase border-blue-200 rounded-lg'>
-                                                                    JOB
-                                                                </div>
+                                                            {occ.inviteStatus === 'pending' && (
+                                                                <span>
+                                                                    <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-primary bg-primary-extra-light shadow-sm uppercase border-primary/10 rounded-lg'>
+                                                                        INVITED
+                                                                    </div>
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className='flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500 font-figtree'>
+                                                        <span className='flex items-center gap-2 font-medium'>
+                                                            <MapPin size={16} className='text-primary/50' />
+                                                            <span className='truncate'>
+                                                                {occ.city}, {occ.state || occ.country}
                                                             </span>
-                                                        )}
-                                                        {occ.inviteStatus === 'pending' && (
-                                                            <span>
-                                                                <div className='font-figtree font-bold text-xs px-2 py-0.5 border text-primary bg-primary-extra-light shadow-sm uppercase border-primary/10 rounded-lg'>
-                                                                    INVITED
-                                                                </div>
-                                                            </span>
-                                                        )}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div className='flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-gray-500 font-figtree'>
-                                                    <span className='flex items-center gap-2 font-medium'>
-                                                        <MapPin size={16} className='text-primary/50' />
-                                                        <span className='truncate'>
-                                                            {occ.city}, {occ.state || occ.country}
-                                                        </span>
-                                                    </span>
+                                                <div className='flex-none opacity-0 group-hover:opacity-100 transition-opacity hidden @min-[600px]/calendar:block'>
+                                                    <div
+                                                        className={cn(
+                                                            'w-10 h-10 rounded-full bg-primary-extra-light flex items-center justify-center text-primary',
+                                                            occ.type === 'job' ? 'bg-blue-100 text-blue-400' : ''
+                                                        )}
+                                                    >
+                                                        <ChevronRight size={20} />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className='flex-none opacity-0 group-hover:opacity-100 transition-opacity hidden @min-[600px]/calendar:block'>
-                                                <div
-                                                    className={cn(
-                                                        'w-10 h-10 rounded-full bg-primary-extra-light flex items-center justify-center text-primary',
-                                                        occ.type === 'job' ? 'bg-blue-100 text-blue-400' : ''
-                                                    )}
-                                                >
-                                                    <ChevronRight size={20} />
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div className='flex items-center justify-center h-full text-gray-400 font-figtree'>No events for today.</div>
-                                )}
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className='flex items-center justify-center h-full text-gray-400 font-figtree'>No events for today.</div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
             </div>
             <div className="w-full h-full hidden @min-[700px]/list-calendar:block bg-primary-light border-b border-gray-100 relative overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/hexellence.png')]">
                 <div className='absolute hidden @min-[700px]/list-calendar:block inset-0 top-0 left-0 h-full w-12 sudden-gradient'></div>

@@ -330,11 +330,13 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        let previousSubcontractorId = '';
-        if (subcontractorId.length === 0) {
-            const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId } });
-            previousSubcontractorId = assignment?.subcontractorId || '';
-        }
+        // Find current assignment to get the current subcontractor
+        const currentAssignment = await prisma.jobAssignment.findUnique({
+            where: { id: assignmentId },
+            select: { subcontractorId: true, jobId: true },
+        });
+
+        const previousSubcontractorId = currentAssignment?.subcontractorId || '';
 
         const assignment = await prisma.jobAssignment.update({
             where: { id: assignmentId },
@@ -348,11 +350,22 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
                 data: { subcontractors: { connect: { id: subcontractorId } } },
             });
             await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
-        } else if (previousSubcontractorId) {
-            await prisma.job.update({
-                where: { id: assignment.jobId },
-                data: { subcontractors: { deleteMany: { id: { in: [previousSubcontractorId] } } } },
+        }
+
+        if (previousSubcontractorId && previousSubcontractorId !== subcontractorId) {
+            const remainingCount = await prisma.jobAssignment.count({
+                where: {
+                    jobId: assignment.jobId,
+                    subcontractorId: previousSubcontractorId,
+                },
             });
+
+            if (remainingCount === 0) {
+                await prisma.job.update({
+                    where: { id: assignment.jobId },
+                    data: { subcontractors: { disconnect: { id: previousSubcontractorId } } },
+                });
+            }
         }
 
         revalidatePath('/dashboard');

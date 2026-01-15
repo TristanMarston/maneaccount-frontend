@@ -51,12 +51,18 @@ const Team = ({
     const [inviteInput, setInviteInput] = useState('');
     const [inviteLoading, setInviteLoading] = useState(false);
     const [checkModal, setCheckModal] = useState<{ name: string; connectionID: string; open: boolean }>({ name: '', connectionID: '', open: false });
+    const [checkAcceptModal, setCheckAcceptModal] = useState<{ open: boolean; name: string; callback: () => void; type: 'accept' | 'send' | null }>({
+        open: false,
+        name: '',
+        callback: () => {},
+        type: null,
+    });
 
     const refreshDataFn = useCallback(async () => {
         setLoading(true);
         const [memberData, pendingData] = await Promise.all([getTeamMembers(userEmail), getTeamRequests(userEmail)]);
 
-        // @ts-ignore - Prisma Date objects
+        // @ts-ignore
         setMembers(memberData);
         // @ts-ignore
         setPending(pendingData);
@@ -85,7 +91,7 @@ const Team = ({
             successToast(result.message);
             setIsInviting(false);
             setInviteInput('');
-            refreshDataFn(); // Refresh pending list
+            refreshDataFn();
         } else {
             failToast(result.error || 'Failed to invite');
         }
@@ -95,7 +101,7 @@ const Team = ({
     const handleAccept = async (connectionID: string) => {
         const result = await acceptRequest(connectionID);
         if (result.success) {
-            successToast('Welcome to the team!');
+            successToast('Request accepted!');
             refreshDataFn();
         } else {
             failToast('Failed to accept');
@@ -203,7 +209,11 @@ const Team = ({
                                                     <span className='block @min-[330px]/team:hidden'>Deny</span>
                                                 </button>
                                                 <button
-                                                    onClick={() => handleAccept(req.connectionID)}
+                                                    onClick={() => {
+                                                        if (role === 'braider')
+                                                            setCheckAcceptModal({ open: true, name: req.name || '', callback: () => handleAccept(req.connectionID), type: 'accept' });
+                                                        else handleAccept(req.connectionID);
+                                                    }}
                                                     className='flex gap-2 items-center justify-center p-1.5 @min-[330px]/team:p-2.5 rounded-xl bg-primary-light text-white hover:bg-primary transition-colors shadow-sm cursor-pointer'
                                                 >
                                                     <Check className='w-5 h-5' strokeWidth={3} />
@@ -371,7 +381,41 @@ const Team = ({
                     loading={inviteLoading}
                     setOpen={setIsInviting}
                     role={role}
+                    setCheckAcceptModal={setCheckAcceptModal}
                 />
+            </Modal>
+            <Modal
+                isOpen={checkAcceptModal.open}
+                setIsOpen={(open: boolean) => setCheckAcceptModal({ name: '', callback: () => {}, open, type: null })}
+                className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative @container/check-accept'
+            >
+                {checkAcceptModal.type && role === 'braider' && (
+                    <div>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
+                        <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                            This action will {checkAcceptModal.type} a connection request {checkAcceptModal.type === 'send' ? 'to' : 'from'}{' '}
+                            <span className='font-bold'>{checkAcceptModal.name}</span>. Upon acceptance they will be able to view{' '}
+                            <span className='font-bold'>all of your upcoming and ongoing calendar events.</span>
+                        </p>
+                        <div className='grid @min-[410px]/check-accept:grid-cols-2 gap-3 @min-[410px]/check-accept:gap-4 mt-4'>
+                            <button
+                                onClick={() => setCheckAcceptModal({ open: false, name: '', callback: () => {}, type: null })}
+                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCheckAcceptModal({ open: false, name: '', callback: () => {}, type: null });
+                                    checkAcceptModal.callback();
+                                }}
+                                className='font-figtree cursor-pointer capitalize font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                            >
+                                {checkAcceptModal.type} Invite
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Modal>
             <Modal
                 isOpen={checkModal.open}
@@ -423,6 +467,7 @@ const InviteModal = ({
     loading,
     setOpen,
     role,
+    setCheckAcceptModal,
 }: {
     inviteMode: 'id' | 'qr';
     setInviteMode: React.Dispatch<React.SetStateAction<'id' | 'qr'>>;
@@ -433,6 +478,7 @@ const InviteModal = ({
     loading: boolean;
     setOpen: React.Dispatch<React.SetStateAction<boolean>>;
     role: string;
+    setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void; type: 'accept' | 'send' | null }>>;
 }) => {
     const idRef = useRef<HTMLFormElement>(null);
     const qrRef = useRef<HTMLDivElement>(null);
@@ -557,7 +603,14 @@ const InviteModal = ({
                 <AnimatePresence>
                     {inviteMode === 'id' ? (
                         <motion.div key='id' initial='closed' animate={inviteMode === 'id' ? 'open' : 'closed'} exit='closed' variants={idVariants}>
-                            <form onSubmit={handleInvite} ref={idRef}>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (role === 'braider') setCheckAcceptModal({ open: true, name: invitedUser?.name || '', callback: () => handleInvite(e), type: 'send' });
+                                    else handleInvite(e);
+                                }}
+                                ref={idRef}
+                            >
                                 <p className='text-base text-gray-500 font-figtree'>
                                     Enter the unique <strong>Public ID</strong> of the person you want to add.
                                 </p>
@@ -565,7 +618,7 @@ const InviteModal = ({
                                     <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4', inviteInput.length > 0 ? 'text-black' : 'text-gray-400')} />
                                     <input
                                         className={cn(
-                                            'w-full outline-none shadow-sm border border-gray-200 pl-8 pr-4 pt-[7px] pb-[9px] rounded-xl focus:border-primary transition-colors',
+                                            'w-full outline-none font-figtree shadow-sm border border-gray-200 pl-8 pr-4 pt-[7px] pb-[9px] rounded-xl focus:border-primary transition-colors',
                                             loadingUser === 'fail'
                                                 ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
                                                 : loadingUser === 'success'
@@ -636,7 +689,9 @@ const InviteModal = ({
                                 </div>
                                 <div className='text-center space-y-1'>
                                     <p className='font-bold text-gray-900 text-xl'>Scan to Connect</p>
-                                    <p className='text-sm text-gray-500 max-w-[200px] mx-auto'>Have them scan this code to instantly add you to their network.</p>
+                                    <p className='text-sm text-gray-500 max-w-[200px] mx-auto'>
+                                        Have them scan this code to instantly add {role === 'braider' ? 'them to your network' : 'you to their network'}.
+                                    </p>
                                 </div>
                                 <button
                                     type='button'

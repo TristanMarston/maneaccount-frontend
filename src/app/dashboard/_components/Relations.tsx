@@ -52,6 +52,12 @@ const Relations = ({
     const [inviteInput, setInviteInput] = useState('');
     const [inviteLoading, setInviteLoading] = useState(false);
     const [checkModal, setCheckModal] = useState<{ name: string; connectionID: string; open: boolean }>({ name: '', connectionID: '', open: false });
+    const [checkAcceptModal, setCheckAcceptModal] = useState<{ open: boolean; name: string; callback: () => void; type: 'accept' | 'send' | null }>({
+        open: false,
+        name: '',
+        callback: () => {},
+        type: null,
+    });
 
     const isBarn = role.toLowerCase() === 'barn';
     const targetLabel = isBarn ? 'Braider' : 'Barn';
@@ -202,7 +208,11 @@ const Relations = ({
                                                     <span className='block @min-[330px]/relations:hidden'>Deny</span>
                                                 </button>
                                                 <button
-                                                    onClick={() => handleAccept(req.connectionID)}
+                                                    onClick={() => {
+                                                        if (role === 'braider') {
+                                                            setCheckAcceptModal({ open: true, name: req.name || '', callback: () => handleAccept(req.connectionID), type: 'accept' });
+                                                        } else handleAccept(req.connectionID);
+                                                    }}
                                                     className='flex cursor-pointer gap-2 items-center justify-center p-1.5 @min-[330px]/relations:p-2.5 rounded-xl bg-primary-light text-white hover:bg-primary transition-colors shadow-sm'
                                                 >
                                                     <Check className='w-5 h-5' strokeWidth={3} />
@@ -375,7 +385,40 @@ const Relations = ({
                     role={role}
                     targetLabel={targetLabel}
                     setOpen={setIsInviting}
+                    setCheckAcceptModal={setCheckAcceptModal}
                 />
+            </Modal>
+            <Modal
+                isOpen={checkAcceptModal.open}
+                setIsOpen={(open: boolean) => setCheckAcceptModal({ name: '', callback: () => {}, open, type: null })}
+                className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative @container/check-accept'
+            >
+                {checkAcceptModal.type && role === 'braider' && (
+                    <div>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
+                        <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                            This action will {checkAcceptModal.type} a connection request to <span className='font-bold'>{checkAcceptModal.name}</span>. Upon acceptance they will be
+                            able to view <span className='font-bold'>all of your upcoming and ongoing calendar events.</span>
+                        </p>
+                        <div className='grid @min-[410px]/check-accept:grid-cols-2 gap-3 @min-[410px]/check-accept:gap-4 mt-4'>
+                            <button
+                                onClick={() => setCheckAcceptModal({ open: false, name: '', callback: () => {}, type: null })}
+                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCheckAcceptModal({ open: false, name: '', callback: () => {}, type: null });
+                                    checkAcceptModal.callback();
+                                }}
+                                className='font-figtree cursor-pointer capitalize font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                            >
+                                {checkAcceptModal.type} Invite
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Modal>
             <Modal
                 isOpen={checkModal.open}
@@ -424,6 +467,7 @@ const InviteModal = ({
     setOpen,
     role,
     targetLabel,
+    setCheckAcceptModal,
 }: {
     inviteMode: 'id' | 'qr';
     setInviteMode: React.Dispatch<React.SetStateAction<'id' | 'qr'>>;
@@ -435,6 +479,7 @@ const InviteModal = ({
     setOpen: React.Dispatch<React.SetStateAction<boolean>>;
     role: string;
     targetLabel: string;
+    setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void; type: 'accept' | 'send' | null }>>;
 }) => {
     const idRef = useRef<HTMLFormElement>(null);
     const qrRef = useRef<HTMLDivElement>(null);
@@ -564,7 +609,14 @@ const InviteModal = ({
                 <AnimatePresence>
                     {inviteMode === 'id' ? (
                         <motion.div key='id' initial='closed' animate={inviteMode === 'id' ? 'open' : 'closed'} exit='closed' variants={idVariants}>
-                            <form ref={idRef} onSubmit={handleInvite}>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (role === 'braider') setCheckAcceptModal({ open: true, name: invitedUser?.name || '', callback: () => handleInvite(e), type: 'send' });
+                                    else handleInvite(e);
+                                }}
+                                ref={idRef}
+                            >
                                 <p className='text-base text-gray-500 font-figtree'>
                                     Enter the unique <strong>Public ID</strong> of the {role === 'braider' ? 'subcontractor or barn' : 'braider'} you want to add.
                                 </p>
@@ -572,7 +624,7 @@ const InviteModal = ({
                                     <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4', inviteInput.length > 0 ? 'text-black' : 'text-gray-400')} />
                                     <input
                                         className={cn(
-                                            'w-full outline-none shadow-sm border border-gray-200 pl-8 pr-4 pt-[7px] pb-[9px] rounded-xl focus:border-primary transition-colors',
+                                            'w-full outline-none font-figtree shadow-sm border border-gray-200 pl-8 pr-4 pt-[7px] pb-[9px] rounded-xl focus:border-primary transition-colors',
                                             loadingUser === 'fail'
                                                 ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
                                                 : loadingUser === 'success'

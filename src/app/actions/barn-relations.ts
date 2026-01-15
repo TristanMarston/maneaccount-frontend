@@ -168,6 +168,51 @@ export async function removeRelation(connectionId: string, rejected: boolean) {
     }
 }
 
+export async function syncCalendar(connectionId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const connection = await prisma.connection.findUnique({
+            where: { id: connectionId },
+            include: { receiver: true, sender: true },
+        });
+
+        if (!connection) return { error: 'Connection not found' };
+        if (connection.status !== 'accepted') return { error: 'Connection not accepted' };
+
+        const braiderId = connection.sender.role === 'braider' ? connection.senderId : connection.receiverId;
+        const receiverId = connection.sender.role === 'barn' || connection.sender.role === 'subcontractor' ? connection.senderId : connection.receiverId;
+
+        const shows = await prisma.show.findMany({
+            where: {
+                userId: braiderId,
+                startDate: {
+                    gte: new Date(new Date().setHours(0, 0, 0, 0)),
+                },
+            },
+            select: { id: true },
+        });
+
+        if (shows.length > 0) {
+            await prisma.showInvite.createMany({
+                data: shows.map((show) => ({
+                    showId: show.id,
+                    inviterId: braiderId,
+                    inviteeId: receiverId,
+                    status: 'accepted',
+                })),
+                skipDuplicates: true,
+            });
+        }
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        return { error: 'Failed to sync calendar' };
+    }
+}
+
 export async function acceptRelationRequest(connectionId: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
@@ -179,13 +224,9 @@ export async function acceptRelationRequest(connectionId: string) {
             include: { receiver: true, sender: true },
         });
 
-        await createNotification(
-            connection.senderId,
-            NotificationType.barn_status_change,
-            `${connection.receiver.name} accepted your connection request`,
-            null,
-            connection.receiverId
-        );
+        await syncCalendar(connectionId);
+
+        await createNotification(connection.senderId, NotificationType.barn_status_change, `${connection.receiver.name} accepted your connection request`, null, connection.receiverId);
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {

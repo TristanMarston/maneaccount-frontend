@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { MapPin, X, User, Info, CheckSquare, CheckCircle2, Calendar, CalendarCheck, ChevronLeft, Check, ChevronDown, CircleAlert } from 'lucide-react';
+import { MapPin, X, User, Info, CheckSquare, CheckCircle2, Calendar, CalendarCheck, ChevronLeft, Check, ChevronDown, CircleAlert, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay } from 'date-fns';
@@ -71,9 +71,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                     (role === 'barn'
                                         ? job.barn.name
                                         : role === 'subcontractor'
-                                          ? job.subcontractors.some((s) => s.name === note.author.name)
-                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name
-                                              : job.braider.name
+                                          ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                           : job.braider.name)
                                     ? 'self-end items-end'
                                     : 'self-start items-start'
@@ -86,9 +84,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                         (role === 'barn'
                                             ? job.barn.name
                                             : role === 'subcontractor'
-                                              ? job.subcontractors.some((s) => s.name === note.author.name)
-                                                  ? job.subcontractors.find((s) => s.name === note.author.name)?.name
-                                                  : job.braider.name
+                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                               : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
                                         : 'bg-white text-gray-800 rounded-tl-sm'
@@ -128,13 +124,17 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
 
 const SelectSubcontractorDropdown = ({
     value,
+    subImage,
     onChange,
+    loading,
     team,
     disabled,
     completed,
 }: {
     value: string;
+    subImage: string;
     onChange: (val: string) => void;
+    loading: boolean;
     team: any[];
     disabled: boolean;
     completed: boolean;
@@ -189,14 +189,24 @@ const SelectSubcontractorDropdown = ({
                 )}
             >
                 <div className='flex items-center gap-2 text-sm min-w-0'>
-                    <div className='w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
-                        {value && selectedMember?.image ? (
-                            <Image src={selectedMember.image} alt='Sub' width={20} height={20} className='w-full h-full object-cover' />
+                    <div className='min-w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
+                        {loading ? (
+                            <Loader size={12} className='text-gray-400 animate-spin' />
+                        ) : value && subImage.length > 0 ? (
+                            <Image src={subImage} alt='Sub' width={20} height={20} className='w-full h-full object-cover' />
                         ) : (
                             <User size={12} className='text-gray-400' />
                         )}
                     </div>
-                    <span className={cn('truncate min-w-0', value ? 'text-gray-900' : 'text-gray-500 font-medium')}>{value ? selectedMember?.name || 'Unknown' : 'Myself'}</span>
+                    <span
+                        className={cn(
+                            'truncate min-w-0',
+                            value ? 'text-gray-900' : 'text-gray-500 font-medium',
+                            loading ? 'text-transparent bg-gray-100 rounded-full animate-pulse' : ''
+                        )}
+                    >
+                        {value ? selectedMember?.name || 'Unknown' : 'Myself'}
+                    </span>
                 </div>
                 <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -294,6 +304,7 @@ export const JobDetailSubpage = ({
     const [selectedSub, setSelectedSub] = useState('');
     const [userId, setUserId] = useState('');
     const [notesModalOpen, setNotesModalOpen] = useState(false);
+    const [subcontractorLoading, setSubcontractorLoading] = useState(false);
     const [acceptJobHeight, setAcceptJobHeight] = useState(0);
     const [messagesPrescrolled, setMessagesPrescrolled] = useState(false);
     const acceptJobRef = useRef<HTMLDivElement>(null);
@@ -385,12 +396,14 @@ export const JobDetailSubpage = ({
     };
 
     const handleAssignSub = async (assignmentId: string, subId: string) => {
+        setSubcontractorLoading(true);
         const res = await assignSubcontractorToAssignment(assignmentId, subId);
         if (res.success) {
-            successToast('Assigned subcontractor');
             refresh();
+            setSubcontractorLoading(false);
         } else {
             failToast('Failed to assign');
+            setSubcontractorLoading(false);
         }
     };
 
@@ -556,7 +569,7 @@ export const JobDetailSubpage = ({
                     </div>
                 )}
 
-                {role !== 'subcontractor' && job.subcontractors.length > 0 && (
+                {role === 'braider' && job.subcontractors.length > 0 && (
                     <div className='flex flex-col gap-5 pt-1.5'>
                         {job.subcontractors.map((sub, idx) => {
                             const horses = job.assignments.filter((a) => a.subcontractor?.id === sub.id);
@@ -665,7 +678,9 @@ export const JobDetailSubpage = ({
                                                     <div className={cn('hidden @min-[530px]/assignment-detail:block', job.status === 'completed' ? 'pointer-events-none' : '')}>
                                                         <SelectSubcontractorDropdown
                                                             value={assignment.subcontractor?.id || ''}
+                                                            subImage={assignment.subcontractor?.image || ''}
                                                             onChange={(val) => handleAssignSub(assignment.id, val)}
+                                                            loading={subcontractorLoading}
                                                             team={team}
                                                             disabled={job.status !== 'accepted'}
                                                             completed={
@@ -688,7 +703,9 @@ export const JobDetailSubpage = ({
                                             <div className={cn('block @min-[530px]/assignment-detail:hidden w-full mb-2', job.status === 'completed' ? 'pointer-events-none' : '')}>
                                                 <SelectSubcontractorDropdown
                                                     value={assignment.subcontractor?.id || ''}
+                                                    subImage={assignment.subcontractor?.image || ''}
                                                     onChange={(val) => handleAssignSub(assignment.id, val)}
+                                                    loading={subcontractorLoading}
                                                     team={team}
                                                     disabled={job.status !== 'accepted'}
                                                     completed={
@@ -798,7 +815,10 @@ export const JobDetailSubpage = ({
                                 $
                                 {job.assignments
                                     .filter((a) => role !== 'subcontractor' || a.subcontractor?.id === userId)
-                                    .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
+                                    .reduce(
+                                        (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
+                                        0
+                                    )}
                             </span>
                         </div>
                     </div>
@@ -831,9 +851,7 @@ export const JobDetailSubpage = ({
                                                     (role === 'barn'
                                                         ? job.barn.name
                                                         : role === 'subcontractor'
-                                                          ? job.subcontractors.some((s) => s.name === note.author.name)
-                                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name
-                                                              : job.braider.name
+                                                          ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                                           : job.braider.name)
                                                     ? 'self-end items-end'
                                                     : 'self-start items-start'
@@ -846,9 +864,7 @@ export const JobDetailSubpage = ({
                                                         (role === 'barn'
                                                             ? job.barn.name
                                                             : role === 'subcontractor'
-                                                              ? job.subcontractors.some((s) => s.name === note.author.name)
-                                                                  ? job.subcontractors.find((s) => s.name === note.author.name)?.name
-                                                                  : job.braider.name
+                                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                                               : job.braider.name)
                                                         ? 'bg-primary text-white rounded-tr-sm'
                                                         : 'bg-gray-100 text-gray-800 rounded-tl-sm'
@@ -917,18 +933,18 @@ export const JobDetailSubpage = ({
                         <button
                             disabled={
                                 job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) !==
-                                job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)
+                                job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
                             }
                             onClick={() => {
                                 setCheckMarkedCompleted({
                                     open: true,
                                     id: job.id,
                                     earnings: job.assignments.reduce(
-                                        (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
+                                        (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
                                         0
                                     ),
                                     horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
-                                    services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0),
+                                    services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
                                 });
                             }}
                             className='w-full grid place-items-center font-figtree font-bold text-background bg-primary-light rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'

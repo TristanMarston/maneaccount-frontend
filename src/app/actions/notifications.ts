@@ -69,6 +69,27 @@ export async function markAsRead(notificationId: string) {
     }
 }
 
+export async function markAllAsRead() {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        await prisma.notification.updateMany({
+            where: {
+                user: { email: session.user.email },
+                isRead: false,
+            },
+            data: { isRead: true },
+        });
+        
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Mark all as read error:', error);
+        return { error: 'Failed to mark all as read' };
+    }
+}
+
 export async function markAllTypeAsRead(type: NotificationType, targetId?: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };

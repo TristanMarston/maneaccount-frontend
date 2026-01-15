@@ -24,13 +24,14 @@ import {
     SquareArrowOutUpRight,
     Trash2,
     Warehouse,
+    Settings,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
 import { Show } from './_calendar/Calendar';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
-import { deleteNotification, getNotifications, markAsRead } from '@/app/actions/notifications';
+import { deleteNotification, getNotifications, markAllAsRead, markAsRead } from '@/app/actions/notifications';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import Image from 'next/image';
 import { failToast, successToast } from '@/app/context';
@@ -88,7 +89,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     useEffect(() => {
         fetchData();
     }, [role, userEmail]);
-    
+
     useAutoRefresh(fetchData);
 
     const upcomingShows = shows
@@ -180,6 +181,17 @@ const Notifications = ({ setSelectedPage, role }: { setSelectedPage: React.Dispa
         }
     };
 
+    const handleMarkAllAsRead = async () => {
+        const result = await markAllAsRead();
+
+        if (result.success) {
+            setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
+            // successToast('Marked all as read');
+        } else {
+            failToast('Failed to mark all as read');
+        }
+    };
+
     return (
         <div ref={notificationsRef} className='h-full'>
             <div ref={bellRef} className='h-full my-auto flex items-center justify-center relative'>
@@ -215,7 +227,11 @@ const Notifications = ({ setSelectedPage, role }: { setSelectedPage: React.Dispa
                             )}
                         >
                             <div className='p-5 @container/notification-window'>
-                                <h1 className='font-lusitana font-bold text-gray-900 text-3xl'>Notifications</h1>
+                                <div className='flex items-center gap-3'>
+                                    <h1 className='font-lusitana font-bold text-gray-900 text-3xl'>Notifications</h1>
+                                    <MailCheck onClick={() => handleMarkAllAsRead()} className='w-5.5 h-5.5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors' />
+                                    <Settings onClick={() => {}} className='w-5.5 h-5.5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors' />
+                                </div>
                                 <div className='flex flex-col gap-4 overflow-y-auto max-h-[340px] pt-[11px] pr-1 pb-1'>
                                     {notifications.length === 0 ? (
                                         <div className='bg-gray-50/50 rounded-2xl p-4 border border-dashed border-gray-200 grid place-items-center'>
@@ -396,14 +412,13 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
 
     return (
         <div className='space-y-8'>
-            {/* Quick Stats Grid */}
             <div className='grid grid-cols-1 @min-[600px]/home:grid-cols-2 gap-4'>
                 <StatCard
-                    title='Unpaid Invoices'
+                    title='Incoming Invoices'
                     value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
                     icon={DollarSign}
-                    color='amber'
-                    subtext={`${unpaidJobs.length} pending jobs`}
+                    color='purple'
+                    subtext={`${unpaidJobs.length} job${unpaidJobs.length === 1 ? '' : 's'} to be paid for`}
                     onClick={() => setSelectedPage('Invoices')}
                 />
                 <StatCard
@@ -416,29 +431,26 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
                 />
             </div>
 
-            {/* Quick Actions */}
             <div>
                 <h3 className='text-lg font-bold font-figtree text-gray-900 mb-4'>Quick Actions</h3>
                 <div className='grid grid-cols-2 @min-[500px]/home:grid-cols-4 gap-4'>
                     <ActionCard icon={Calendar} label='Calendar' onClick={() => setSelectedPage('Calendar')} />
-                    <ActionCard icon={Warehouse} label='Barns' onClick={() => setSelectedPage('Barns')} />
+                    <ActionCard icon={ClipboardCheck} label='Tasks' onClick={() => setSelectedPage('Tasks')} />
                     <ActionCard icon={Banknote} label='Invoices' onClick={() => setSelectedPage('Invoices')} />
-                    <ActionCard icon={UserPlus} label='Team' onClick={() => setSelectedPage('Team')} />
+                    <ActionCard icon={Warehouse} label='Barns' onClick={() => setSelectedPage('Barns')} />
                 </div>
             </div>
 
             <div className='grid grid-cols-1 @min-[850px]/home:grid-cols-2 gap-8'>
-                {/* Upcoming Schedule */}
                 <SectionContainer title='Upcoming Schedule' onViewAll={() => setSelectedPage('Calendar')}>
                     {upcomingShows.length > 0 ? upcomingShows.map((show) => <ShowCard key={show.id} show={show} />) : <EmptyState message='No upcoming shows or jobs.' />}
                 </SectionContainer>
 
-                {/* Pending Invoices Preview */}
-                <SectionContainer title='Pending Invoices' onViewAll={() => setSelectedPage('Invoices')}>
+                <SectionContainer title='Incoming Invoices' onViewAll={() => setSelectedPage('Invoices')}>
                     {unpaidJobs.length > 0 ? (
                         unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='braider' />)
                     ) : (
-                        <EmptyState message='No pending invoices.' icon={CheckCircle2} />
+                        <EmptyState message='No incoming invoices.' icon={CheckCircle2} />
                     )}
                 </SectionContainer>
             </div>
@@ -572,13 +584,14 @@ const StatCard = ({
     title: string;
     value: string;
     icon: React.ElementType;
-    color: 'primary' | 'amber' | 'blue';
+    color: 'primary' | 'amber' | 'purple' | 'blue';
     subtext: string;
     onClick?: () => void;
 }) => {
     const colorStyles = {
         primary: { bg: 'bg-primary-extra-light', text: 'text-primary', border: 'primary-border-hover' },
         amber: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'amber-border-hover' },
+        purple: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'zelle-border-hover' },
         blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'venmo-border-hover' },
     };
 

@@ -156,7 +156,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
         setCancelJobModal(true);
     };
 
-    const { refreshCounts } = useNotifications();
+    const { refreshCounts, unreadCounts } = useNotifications();
 
     useEffect(() => {
         const markRead = async () => {
@@ -166,6 +166,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
             await markAllTypeAsRead(NotificationType.job_paid);
             refreshCounts();
         };
+
         markRead();
     }, [refreshCounts]);
 
@@ -176,6 +177,14 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
             });
         }
     }, [notesJob, refreshCounts]);
+
+    useEffect(() => {
+        if (selectedJob) {
+            markAllTypeAsRead(NotificationType.new_message, selectedJob.id).then(() => {
+                refreshCounts();
+            });
+        }
+    }, [selectedJob, refreshCounts]);
 
     const refreshJobs = async () => {
         const updated = await getJobs(userEmail, role);
@@ -253,7 +262,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                         </div>
                                     ) : (
                                         <div
-                                            onClick={() => setSelectedPage('Barns')}
+                                            onClick={() => setSelectedPage(role === 'braider' ? 'Barns' : 'Team')}
                                             className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                                         >
                                             <CircleArrowRight className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
@@ -300,6 +309,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                 refresh={refreshJobs}
                                                 setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                 setSelectedPage={setSelectedPage}
+                                                unreadCount={unreadCounts.byType.new_message}
                                             />
                                         ))}
                                     {jobs.filter((j) => (j.status === 'completed' && j.paidAt) || j.status === 'canceled' || j.status === 'denied').length > 0 &&
@@ -353,6 +363,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                                     refresh={refreshJobs}
                                                                     setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     setSelectedPage={setSelectedPage}
+                                                                    unreadCount={unreadCounts.byType.new_message}
                                                                 />
                                                             ))}
                                                     </motion.div>
@@ -407,6 +418,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                                                     refresh={refreshJobs}
                                                                     setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     setSelectedPage={setSelectedPage}
+                                                                    unreadCount={unreadCounts.byType.new_message}
                                                                 />
                                                             ))}
                                                     </motion.div>
@@ -570,6 +582,7 @@ const JobCard = ({
     refresh,
     setCheckMarkedCompleted,
     setSelectedPage,
+    unreadCount,
 }: {
     job: Job;
     role: string;
@@ -581,6 +594,7 @@ const JobCard = ({
     refresh: () => void;
     setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    unreadCount: number;
 }) => {
     const completedNotPaid = job.status === 'completed' && !job.paidAt;
 
@@ -589,9 +603,12 @@ const JobCard = ({
         setCheckMarkedCompleted({
             open: true,
             id: job.id,
-            earnings: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0),
+            earnings: job.assignments.reduce(
+                (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
+                0
+            ),
             horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
-            services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0),
+            services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
         });
     };
 
@@ -644,7 +661,7 @@ const JobCard = ({
                                         .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
                                         job.assignments
                                             .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)
+                                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
                                         ? 'text-primary-light'
                                         : 'text-gray-500'
                                 )}
@@ -655,21 +672,11 @@ const JobCard = ({
                                         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
                                         .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0)}/${job.assignments
                                         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                        .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)} Completed`}
+                                        .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)} Completed`}
                                 </span>
                             </div>
                         </div>
                     )}
-                    {/* {job.subcontractors.length > 0 && role !== 'subcontractor' && (
-                        <div className='flex flex-wrap gap-1 mt-[3px]'>
-                            {job.subcontractors.map((sub, idx) => (
-                                <span key={idx} className='flex items-center w-fit gap-1 text-blue-600 bg-blue-50 px-2 py-[3px] rounded-full text-xs font-bold'>
-                                    <User size={12} />
-                                    {sub.name}
-                                </span>
-                            ))}
-                        </div>
-                    )} */}
                 </div>
             </div>
 
@@ -680,14 +687,10 @@ const JobCard = ({
                 )}
             >
                 <div className='flex items-center gap-2'>
-                    {(role === 'braider' || role === 'subcontractor') &&
+                    {role === 'braider' &&
                         job.status === 'accepted' &&
-                        job.assignments
-                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                            .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
-                            job.assignments
-                                .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0) && (
+                        job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
+                            job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) && (
                             <button
                                 onClick={handleMarkCompleted}
                                 className='p-2 rounded-full cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
@@ -706,7 +709,7 @@ const JobCard = ({
                             className='p-2 rounded-full cursor-pointer hover:bg-primary-extra-light text-gray-400 hover:text-primary border border-transparent hover:border-[#dae3de] transition-all relative'
                         >
                             <MessageCircle size={28} />
-                            {/* {job.notes.length > 0 && <span className='absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white' />} */}
+                            {unreadCount > 0 && <span className='absolute top-1.5 right-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white' />}
                         </button>
                     )}
                 </div>
@@ -715,22 +718,31 @@ const JobCard = ({
                         $
                         {job.assignments
                             .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
+                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
                     </span>
                     <span className='text-xs text-gray-400 font-figtree whitespace-nowrap'>
                         {job.assignments
                             .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0)}{' '}
+                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)}{' '}
                         Service
                         {job.assignments
                             .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id)).length, 0) !== 1
+                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) !== 1
                             ? 's'
                             : ''}
                     </span>
                     <span className='text-xs text-gray-400 font-figtree whitespace-nowrap'>
-                        {job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} Horse
-                        {job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length !== 1 ? 's' : ''}
+                        {
+                            job.assignments
+                                .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length
+                        }{' '}
+                        Horse
+                        {job.assignments
+                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                            .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length !== 1
+                            ? 's'
+                            : ''}
                     </span>
                 </div>
             </div>
@@ -796,9 +808,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                     (role === 'barn'
                                         ? job.barn.name
                                         : role === 'subcontractor'
-                                          ? job.subcontractors.some((s) => s.name === note.author.name)
-                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name
-                                              : job.braider.name
+                                          ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                           : job.braider.name)
                                     ? 'self-end items-end'
                                     : 'self-start items-start'
@@ -811,9 +821,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                         (role === 'barn'
                                             ? job.barn.name
                                             : role === 'subcontractor'
-                                              ? job.subcontractors.some((s) => s.name === note.author.name)
-                                                  ? job.subcontractors.find((s) => s.name === note.author.name)?.name
-                                                  : job.braider.name
+                                              ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                               : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
                                         : 'bg-white text-gray-800 rounded-tl-sm'
@@ -847,235 +855,6 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                     </button>
                 </div>
             </div>
-        </div>
-    );
-};
-
-const SelectDateDropdown = ({ value, onChange, showStart, showEnd }: { value: Date | null; onChange: (d: Date) => void; showStart: Date; showEnd: Date }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const portalRef = useRef<HTMLDivElement>(null);
-    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-
-    // Generate dates
-    const days = eachDayOfInterval({ start: showStart, end: showEnd });
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleClick = (e: MouseEvent) => {
-            const target = e.target as Node;
-            if (buttonRef.current?.contains(target)) return;
-            if (portalRef.current?.contains(target)) return;
-            setIsOpen(false);
-        };
-        window.addEventListener('mousedown', handleClick);
-        return () => window.removeEventListener('mousedown', handleClick);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAnchorRect(null);
-            return;
-        }
-        const updateRect = () => {
-            const rect = buttonRef.current?.getBoundingClientRect() ?? null;
-            if (rect) rect.width = rect.width; // Maintain width
-            setAnchorRect(rect);
-        };
-        updateRect();
-        window.addEventListener('resize', updateRect);
-        window.addEventListener('scroll', updateRect, true);
-        return () => {
-            window.removeEventListener('resize', updateRect);
-            window.removeEventListener('scroll', updateRect, true);
-        };
-    }, [isOpen]);
-
-    const handleSelect = (day: Date) => {
-        onChange(day);
-        setIsOpen(false);
-    };
-
-    return (
-        <div className='relative w-full'>
-            <button
-                ref={buttonRef}
-                type='button'
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between outline-none shadow-sm border px-3 cursor-pointer rounded-xl transition-all ${
-                    isOpen ? 'border-primary/50' : 'border-gray-200 hover:border-gray-300'
-                } bg-white`}
-            >
-                <div className='flex items-center gap-2 text-sm'>
-                    <Calendar className={cn('w-4 h-4', value ? 'text-black' : 'text-gray-400')} />
-                    <span className={cn('truncate min-w-0 pb-[7px] pt-[9px]', value ? 'text-gray-900' : 'text-gray-400')}>{value ? format(value, 'EEE, MMM d') : 'Select Date'}</span>
-                </div>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isOpen &&
-                anchorRect &&
-                createPortal(
-                    <AnimatePresence>
-                        <motion.div
-                            ref={portalRef}
-                            initial={wrapperVariants.closed}
-                            variants={wrapperVariants}
-                            animate={isOpen ? 'open' : 'closed'}
-                            exit='closed'
-                            transition={{ duration: 0.15 }}
-                            style={{
-                                position: 'fixed',
-                                top: anchorRect.bottom + 4,
-                                left: anchorRect.left,
-                                width: anchorRect.width,
-                                zIndex: 9999,
-                            }}
-                            className='max-h-56 overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl'
-                        >
-                            {days.map((day) => (
-                                <button
-                                    key={day.toISOString()}
-                                    type='button'
-                                    onClick={() => handleSelect(day)}
-                                    className='w-full text-left cursor-pointer px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors font-medium font-figtree'
-                                >
-                                    <span>{format(day, 'EEE, MMM d')}</span>
-                                    {value && isSameDay(value, day) && <Check size={14} className='text-primary' />}
-                                </button>
-                            ))}
-                        </motion.div>
-                    </AnimatePresence>,
-                    document.body
-                )}
-        </div>
-    );
-};
-
-const SelectSubcontractorDropdown = ({ value, onChange, team }: { value: string; onChange: (val: string) => void; team: any[] }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const portalRef = useRef<HTMLDivElement>(null);
-    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleClick = (e: MouseEvent) => {
-            const target = e.target as Node;
-            if (buttonRef.current?.contains(target)) return;
-            if (portalRef.current?.contains(target)) return;
-            setIsOpen(false);
-        };
-        window.addEventListener('mousedown', handleClick);
-        return () => window.removeEventListener('mousedown', handleClick);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAnchorRect(null);
-            return;
-        }
-        const updateRect = () => {
-            const rect = buttonRef.current?.getBoundingClientRect() ?? null;
-            if (rect) rect.width = rect.width; // Maintain width
-            setAnchorRect(rect);
-        };
-        updateRect();
-        window.addEventListener('resize', updateRect);
-        window.addEventListener('scroll', updateRect, true);
-        return () => {
-            window.removeEventListener('resize', updateRect);
-            window.removeEventListener('scroll', updateRect, true);
-        };
-    }, [isOpen]);
-
-    const handleSelect = (id: string) => {
-        onChange(id);
-        setIsOpen(false);
-    };
-
-    const selectedMember = team.find((t) => t.id === value);
-
-    return (
-        <div className='relative w-full'>
-            <button
-                ref={buttonRef}
-                type='button'
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between gap-1 outline-none shadow-sm border px-3 py-2 rounded-xl transition-all ${
-                    isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300'
-                } bg-white`}
-            >
-                <div className='flex items-center gap-2 text-sm min-w-0'>
-                    <div className='w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
-                        {value && selectedMember?.image ? (
-                            <Image src={selectedMember.image} alt='Sub' width={20} height={20} className='w-full h-full object-cover' />
-                        ) : (
-                            <User size={12} className='text-gray-400' />
-                        )}
-                    </div>
-                    <span className={cn('truncate min-w-0', value ? 'text-gray-900' : 'text-gray-500 font-medium')}>{value ? selectedMember?.name || 'Unknown' : 'Myself'}</span>
-                </div>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isOpen &&
-                anchorRect &&
-                createPortal(
-                    <AnimatePresence>
-                        <motion.div
-                            ref={portalRef}
-                            initial={wrapperVariants.closed}
-                            variants={wrapperVariants}
-                            animate={isOpen ? 'open' : 'closed'}
-                            exit='closed'
-                            transition={{ duration: 0.15 }}
-                            style={{
-                                position: 'fixed',
-                                top: anchorRect.bottom + 4,
-                                left: anchorRect.left,
-                                width: anchorRect.width,
-                                zIndex: 9999,
-                            }}
-                            className='max-h-56 overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl'
-                        >
-                            <button
-                                type='button'
-                                onClick={() => handleSelect('')}
-                                className='w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors font-medium font-figtree'
-                            >
-                                <div className='flex items-center gap-2'>
-                                    <div className='w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center'>
-                                        <User size={12} className='text-primary' />
-                                    </div>
-                                    <span>Myself</span>
-                                </div>
-                                {value === '' && <Check size={14} className='text-primary' />}
-                            </button>
-                            {team.map((member) => (
-                                <button
-                                    key={member.id}
-                                    type='button'
-                                    onClick={() => handleSelect(member.id)}
-                                    className='w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors font-medium font-figtree'
-                                >
-                                    <div className='flex items-center gap-2'>
-                                        <div className='w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-100'>
-                                            {member.image ? (
-                                                <Image src={member.image} alt='Sub' width={20} height={20} className='w-full h-full object-cover' />
-                                            ) : (
-                                                <div className='w-full h-full flex items-center justify-center text-[8px] font-bold text-gray-500'>{member.name[0]}</div>
-                                            )}
-                                        </div>
-                                        <span>{member.name}</span>
-                                    </div>
-                                    {value === member.id && <Check size={14} className='text-primary' />}
-                                </button>
-                            ))}
-                        </motion.div>
-                    </AnimatePresence>,
-                    document.body
-                )}
         </div>
     );
 };

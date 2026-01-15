@@ -6,6 +6,7 @@ import { sendNotificationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
+import { syncCalendar } from './barn-relations';
 
 export async function getUserByPublicID(publicID: string) {
     if (!publicID) return;
@@ -212,6 +213,8 @@ export async function acceptRequest(connectionID: string) {
             data: { status: 'accepted' },
             include: { sender: true, receiver: true },
         });
+
+        await syncCalendar(connectionID);
 
         await createNotification(
             updatedConnection.senderId,

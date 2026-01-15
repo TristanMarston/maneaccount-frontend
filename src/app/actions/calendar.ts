@@ -111,9 +111,21 @@ export async function createShow(data: CreateShowInput) {
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        // 1. Determine overall start/end dates from the days array
+        // 2. Fetch all connected users (barns and subcontractors)
+        const connections = await prisma.connection.findMany({
+            where: {
+                OR: [{ sender: { email: session.user.email } }, { receiver: { email: session.user.email } }],
+                status: 'accepted',
+            },
+            include: {
+                sender: true,
+                receiver: true,
+            },
+        });
 
-        // 2. Create Show in Database
+        const connectedUserIds = connections.map((c) => (c.sender.email === session.user.email ? c.receiverId : c.senderId));
+
+        // 3. Create Show in Database
         const newShow = await prisma.show.create({
             data: {
                 user: { connect: { email: session.user.email } },
@@ -124,9 +136,9 @@ export async function createShow(data: CreateShowInput) {
                 startDate: data.startDate,
                 endDate: data.endDate,
                 invites: {
-                    create: data.invites?.map((inviteeId) => ({
-                        inviter: { connect: { email: session.user.email! } },
-                        invitee: { connect: { id: inviteeId } },
+                    create: connectedUserIds.map((inviteeId) => ({
+                        inviterId: session.user.id!,
+                        inviteeId: inviteeId,
                         status: 'pending',
                     })),
                 },
@@ -135,8 +147,8 @@ export async function createShow(data: CreateShowInput) {
         });
 
         // Notify invitees
-        if (data.invites && data.invites.length > 0) {
-            for (const inviteeId of data.invites) {
+        if (connectedUserIds.length > 0) {
+            for (const inviteeId of connectedUserIds) {
                 await createNotification(inviteeId, NotificationType.calendar_invite, `${session.user.name} invited you to ${newShow.name}`, newShow.id, session.user.id);
             }
         }
@@ -276,25 +288,22 @@ export async function updateShow(id: string, data: CreateShowInput) {
         if (!existingShow || existingShow.user.email !== session.user.email) {
             return { error: 'Unauthorized or show not found' };
         }
-        
-        const currentInviteeIds = existingShow.invites.map((i) => i.inviteeId);
-        const newInviteeIds = data.invites || [];
 
-        const toAdd = newInviteeIds.filter((id) => !currentInviteeIds.includes(id));
-        const toRemove = currentInviteeIds.filter((id) => !newInviteeIds.includes(id));
+        // 2. Fetch all current connected users
+        const connections = await prisma.connection.findMany({
+            where: {
+                OR: [{ sender: { email: session.user.email } }, { receiver: { email: session.user.email } }],
+                status: 'accepted',
+            },
+        });
+
+        const connectedUserIds = connections.map((c) => (c.senderId === existingShow.userId ? c.receiverId : c.senderId));
+        const currentInviteeIds = existingShow.invites.map((i) => i.inviteeId);
+
+        const toAdd = connectedUserIds.filter((id) => !currentInviteeIds.includes(id));
 
         const updatedShow = await prisma.$transaction(async (tx) => {
-            // Remove missing invites
-            if (toRemove.length > 0) {
-                await tx.showInvite.deleteMany({
-                    where: {
-                        showId: id,
-                        inviteeId: { in: toRemove },
-                    },
-                });
-            }
-
-            // Create new invites
+            // Create new invites for missing connections
             for (const inviteeId of toAdd) {
                 await tx.showInvite.create({
                     data: {

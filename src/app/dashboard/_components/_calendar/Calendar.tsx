@@ -21,6 +21,7 @@ import {
     Pencil,
     Info,
     Check,
+    User,
 } from 'lucide-react';
 import {
     format,
@@ -81,6 +82,7 @@ const ShowDetailsModal = ({
     onDelete,
     handleInviteResponse,
     showDetailsRef,
+    role,
 }: {
     show: Show;
     onClose: () => void;
@@ -88,6 +90,7 @@ const ShowDetailsModal = ({
     onDelete: (show: Show) => void;
     handleInviteResponse: (showId: string, status: 'accepted' | 'declined') => void;
     showDetailsRef?: React.RefObject<HTMLDivElement | null>;
+    role: string;
 }) => {
     const modalRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(modalRef, [], () => onClose());
@@ -188,7 +191,7 @@ const ShowDetailsModal = ({
                             </div>
                             <X onClick={onClose} className='text-gray-500 min-w-6 cursor-pointer hover:scale-105 transition-all' />
                         </div>
-                        <div className='p-5 font-figtree space-y-4'>
+                        <div className='p-5 font-figtree space-y-2'>
                             <div className='flex items-center gap-3 p-3 bg-primary-extra-light/50 rounded-xl border border-primary/10'>
                                 <div className='p-2 bg-white rounded-lg shadow-sm text-primary'>
                                     <CalendarIcon size={18} />
@@ -200,6 +203,17 @@ const ShowDetailsModal = ({
                                     </p>
                                 </div>
                             </div>
+                            {show.inviteStatus === 'accepted' && role !== 'braider' && (
+                                <div className='flex items-center gap-3 p-3 bg-primary-extra-light/50 rounded-xl border border-primary/10'>
+                                    <div className='p-2 bg-white rounded-lg shadow-sm text-primary'>
+                                        <User size={18} />
+                                    </div>
+                                    <div>
+                                        <p className='text-xs font-bold text-primary uppercase tracking-wide'>Braider</p>
+                                        <p className='text-sm font-medium text-gray-900'>{show.inviterName || 'Unknown'}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 </motion.div>
@@ -568,6 +582,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                 }}
                 handleInviteResponse={handleInviteResponse}
                 showDetailsRef={showDetailsRef}
+                role={role}
             />
             <Modal isOpen={!!selectedJob} setIsOpen={() => setSelectedJob(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {selectedJob && (
@@ -579,6 +594,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                             setSelectedJob(null);
                             setSelectedPage(role === 'barn' ? 'Services' : 'Tasks');
                         }}
+                        userEmail={userEmail}
                     />
                 )}
             </Modal>

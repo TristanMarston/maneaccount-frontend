@@ -895,6 +895,7 @@ export const JobDetailSubpage = ({
                                     selectedDate={date}
                                     showStartDate={new Date(job.show.startDate)}
                                     showEndDate={new Date(job.show.endDate)}
+                                    today={new Date(job.show.startDate)}
                                     size='big'
                                     constantRows
                                 />
@@ -980,14 +981,14 @@ export const JobDetailSubpage = ({
                     <div className='flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row'>
                         <div
                             onClick={handleDeleteJob}
-                            className='w-full grid place-items-center font-figtree font-bold text-red-500 border border-transparent hover:border-red-200 hover:bg-red-50 rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer transition-colors'
+                            className='w-full grid place-items-center font-figtree font-bold text-red-500 rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer red-border-hover'
                         >
                             Delete Request
                         </div>
                         {role === 'barn' && (
                             <div
                                 onClick={handleReRequestJob}
-                                className='w-full grid place-items-center font-figtree font-bold text-primary border border-transparent hover:border-primary-light hover:bg-primary-extra-light rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer transition-colors'
+                                className='w-full grid place-items-center font-figtree font-bold text-white bg-background-light primary-border-hover rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer transition-colors'
                             >
                                 Re-Request Service{job.assignments.reduce((acc, a) => acc + a.services.length, 0) > 1 ? 's' : ''}
                             </div>

@@ -54,7 +54,7 @@ export const ManeAccountRequestResponseEmail = ({ message, connection, image, li
 
                     <Section style={content}>
                         <Heading style={h1}>{connection ? 'Invite Response' : 'Job Request Response'}</Heading>
-                        <Img style={profileImage} src={image || (accepted ? 'https://maneaccount.com/email-badge-check.png' : 'https://maneaccount.com/email-badge-user-x.png')}></Img>
+                        <Img style={{ ...profileImage, border: image && image.length > 0 ? 'none' : '2px solid #3f6559' }} src={image || (accepted ? 'https://maneaccount.com/email-badge-check.png' : 'https://maneaccount.com/email-badge-user-x.png')}></Img>
 
                         <Text style={textBlock}>
                             <Text style={bold}>{name}</Text>{' '}

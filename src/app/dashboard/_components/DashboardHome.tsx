@@ -586,7 +586,12 @@ const Notification = ({
 const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
     const pendingAmount = unpaidJobs.reduce(
-        (acc, j) => acc + j.assignments.reduce((sAcc: number, s: any) => sAcc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0),
+        (acc, j) =>
+            acc +
+            j.assignments.reduce(
+                (sAcc: number, s: any) => sAcc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+                0
+            ),
         0
     );
     const upcomingEvents = upcomingShows.filter(

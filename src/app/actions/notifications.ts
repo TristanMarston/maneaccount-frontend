@@ -338,20 +338,29 @@ export async function createNotification(userId: string, type: NotificationType,
                         include: {
                             show: true,
                             barn: true,
+                            assignments: {
+                                include: {
+                                    services: true,
+                                },
+                            },
                         },
                     });
 
                     if (job) {
                         const { sendJobPaidEmail } = await import('@/lib/email');
-                        // Placeholder amount or logic
-                        const amount = 'Paid in Full';
+                        const paymentMethod = job.paymentPlatform || 'Unknown';
+                        const amount = job.assignments.reduce(
+                            (acc, a) => acc + (a.canceledAt ? 0 : a.services.reduce((sAcc, s) => sAcc + (a.canceledServiceIds.includes(s.id) ? 0 : s.priceUSD), 0)),
+                            0,
+                        );
 
                         await sendJobPaidEmail({
                             to: user.email,
                             barnName: job.barn.name || 'Barn',
                             amount,
                             showName: job.show.name,
-                            date: new Date().toLocaleDateString(),
+                            paymentMethod,
+                            image: image || '',
                         });
                     }
                 }
@@ -365,16 +374,21 @@ export async function createNotification(userId: string, type: NotificationType,
                     senderImage = sender?.image;
                 }
 
+                let message = '';
+
+                const note = targetId ? await prisma.note.findUnique({ where: { id: targetId }, include: { job: { include: { show: true } } } }) : null;
+                if (note) message = note?.content || '';
+
                 await sendNewMessageEmail({
                     to: user.email,
                     senderName,
-                    messagePreview: message,
+                    message,
                     senderImage,
+                    showName: note?.job?.show.name || '',
                 });
             }
         }
 
-        revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
         console.error('Create notification error:', error);

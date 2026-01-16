@@ -2,11 +2,12 @@ import { Body, Container, Head, Heading, Html, Preview, Section, Text, Button, I
 
 interface ManeAccountEmailProps {
     senderName: string;
-    messagePreview: string;
+    message: string;
+    showName: string;
     senderImage?: string | null;
 }
 
-export const ManeAccountNewMessageEmail = ({ senderName, messagePreview, senderImage }: ManeAccountEmailProps) => {
+export const ManeAccountNewMessageEmail = ({ senderName, message, showName, senderImage }: ManeAccountEmailProps) => {
     return (
         <Html>
             <Head />
@@ -24,15 +25,16 @@ export const ManeAccountNewMessageEmail = ({ senderName, messagePreview, senderI
 
                         <Text style={textBlock}>
                             <Text style={bold}>{senderName}</Text>
-                            <Text style={normal}> sent you a message:</Text>
+                            <Text style={normal}>&nbsp;sent you a message about&nbsp;</Text>
+                            <Text style={bold}>{showName}:</Text>
                         </Text>
 
                         <Section style={messageContainer}>
-                            <Text style={messageText}>"{messagePreview}"</Text>
+                            <Text style={messageText}>"{message !== '' ? message : 'No message found.'}"</Text>
                         </Section>
 
-                        <Button style={button} href='https://maneaccount.com/dashboard/messages'>
-                            Reply
+                        <Button style={button} href='https://maneaccount.com/dashboard'>
+                            Go to Dashboard
                         </Button>
 
                         <Hr style={hr} />
@@ -103,7 +105,7 @@ const bold = {
     fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     display: 'inline-block',
     fontWeight: 'bold',
-    margin: '4px 0',
+    margin: '0',
 };
 
 const normal = {
@@ -113,7 +115,7 @@ const normal = {
     fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     display: 'inline-block',
     fontWeight: 'normal',
-    margin: '4px 0',
+    margin: '0',
 };
 
 const messageContainer = {

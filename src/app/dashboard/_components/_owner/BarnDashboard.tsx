@@ -10,57 +10,50 @@ import Horses from './Horses';
 import Relations from '../Relations';
 import { getPublicID } from '@/app/actions/getPublicID';
 import Calendar from '../_calendar/Calendar';
-import Tasks from '../_tasks/Tasks';
+import Services from '../_braider/Services';
 import Invoices from '../_invoices/Invoices';
+import Settings from '../Settings';
+
+type Tab = 'profile' | 'account' | 'payments' | 'notifications';
 
 const BarnDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
     const [name, setName] = useState('');
-    const [role, setRole] = useState<UserRole>('barn');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
-    const [publicID, setPublicID] = useState('');
-    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+    const [unsavedChanges, setUnsavedChanges] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>('profile');
+
+    useEffect(() => {
+        setUnsavedChanges(false);
+    }, [selectedPage]);
 
     useEffect(() => {
         if (session?.user) {
             setName(session.user.name || 'User');
             setEmail(session.user.email || '');
             setImage(session.user.image || '');
-
-            if (session.user.role) {
-                setRole(session.user.role as UserRole);
-            }
         }
     }, [session]);
-
-    useEffect(() => {
-        const fetchPublicID = async () => {
-            if (email.length > 0) {
-                const publicID = await getPublicID(email);
-                if (typeof publicID === 'string' && publicID.length > 0) setPublicID(publicID);
-            }
-        };
-
-        fetchPublicID();
-    }, [email]);
 
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
-                return <DashboardHome role={role} name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <DashboardHome role='barn' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Horses':
                 return <Horses userEmail={email} />;
             case 'Braiders':
-                return <Relations userEmail={email} role='barn' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
+                return <Relations userEmail={email} role='barn' userPublicID='' setSelectedPage={setSelectedPage} />;
             case 'Calendar':
-                return <Calendar role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Calendar role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Services':
-                return <Tasks role={role} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Services userEmail={email} />;
             case 'Invoices':
-                return <Invoices role={role} userEmail={email} setView={setSelectedPage} setSettingsModalOpen={setSettingsModalOpen} />;
+                return <Invoices role='barn' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={(open) => setSelectedPage('Settings')} />;
+            case 'Settings':
+                return <Settings update={update} role='barn' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} />;
             default:
-                return <DashboardHome role={role} name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <DashboardHome role='barn' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
         }
     };
 
@@ -82,8 +75,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
                 loading={loading}
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
-                settingsModalOpen={settingsModalOpen}
-                setSettingsModalOpen={setSettingsModalOpen}
+                unsavedChanges={unsavedChanges}
             />
 
             <main className='flex-1 h-full overflow-y-auto hide-scrollbar bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>

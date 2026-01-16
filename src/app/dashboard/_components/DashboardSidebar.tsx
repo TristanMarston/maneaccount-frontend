@@ -33,7 +33,6 @@ import { signOut } from 'next-auth/react';
 import { Session } from 'next-auth';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import Modal from '../Modal';
-import SettingsModal from '../SettingsModal';
 import { useNotifications } from '@/app/NotificationContext';
 import { NotificationType } from '@prisma/client';
 
@@ -43,6 +42,8 @@ type Page = {
     path: string;
     accountTypes: string[];
 };
+
+type Tab = 'profile' | 'account' | 'payments' | 'notifications';
 
 const HorseIcon = () => <Icon className='w-full h-full max-h-5 max-w-5 dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
 
@@ -59,7 +60,6 @@ const pages: Page[] = [
     { title: 'Pricing', path: '/dashboard/pricing', icon: BadgeDollarSign, accountTypes: ['braider'] },
 ];
 
-type Tab = 'profile' | 'account' | 'payments';
 
 const DashboardSidebar = ({
     dashboard,
@@ -70,8 +70,7 @@ const DashboardSidebar = ({
     image,
     selectedPage,
     setSelectedPage,
-    settingsModalOpen,
-    setSettingsModalOpen,
+    unsavedChanges,
 }: {
     dashboard: string;
     session: Session | null;
@@ -81,18 +80,43 @@ const DashboardSidebar = ({
     image: string;
     selectedPage: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
-    settingsModalOpen: boolean;
-    setSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    unsavedChanges?: boolean;
 }) => {
     const { unreadCounts, refreshCounts } = useNotifications();
     const [open, setOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<Tab>('profile');
+    const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
+    const [pendingPage, setPendingPage] = useState<string | null>(null);
+
 
     useEffect(() => {
         refreshCounts();
     }, [selectedPage, refreshCounts]);
+
+    const handlePageChange = (title: string) => {
+        if (selectedPage === title) {
+            setMobileMenuOpen(false);
+            return;
+        }
+
+        if (unsavedChanges) {
+            setPendingPage(title);
+            setUnsavedModalOpen(true);
+        } else {
+            setSelectedPage(title);
+            setMobileMenuOpen(false);
+        }
+    };
+
+    const confirmNavigation = () => {
+        if (pendingPage) {
+            setSelectedPage(pendingPage);
+            setPendingPage(null);
+        }
+        setUnsavedModalOpen(false);
+        setMobileMenuOpen(false);
+    };
 
     const getPageNotifs = (page: Page) => {
         if (page.title === 'Calendar') return unreadCounts.byType[NotificationType.calendar_invite] || 0;
@@ -216,10 +240,7 @@ const DashboardSidebar = ({
                                                     icon={page.icon}
                                                     title={page.title}
                                                     notifs={getPageNotifs(page)}
-                                                    onClick={() => {
-                                                        setSelectedPage(page.title);
-                                                        setMobileMenuOpen(false);
-                                                    }}
+                                                    onClick={() => handlePageChange(page.title)}
                                                     selected={selectedPage === page.title}
                                                 />
                                             ))}
@@ -228,34 +249,9 @@ const DashboardSidebar = ({
 
                                     <div className='space-y-1'>
                                         <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2'>Account</p>
-                                        <MobileDrawerItem
-                                            icon={Settings}
-                                            title='Settings'
-                                            onClick={() => {
-                                                setMobileMenuOpen(false);
-                                                setSettingsModalOpen(true);
-                                            }}
-                                        />
-                                        <MobileDrawerItem
-                                            icon={User}
-                                            title='Account'
-                                            onClick={() => {
-                                                setMobileMenuOpen(false);
-                                                setSettingsModalOpen(true);
-                                                setActiveTab('account');
-                                            }}
-                                        />
-                                        {dashboard === 'braider' && (
-                                            <MobileDrawerItem
-                                                icon={CreditCard}
-                                                title='Payments'
-                                                onClick={() => {
-                                                    setMobileMenuOpen(false);
-                                                    setSettingsModalOpen(true);
-                                                    setActiveTab('payments');
-                                                }}
-                                            />
-                                        )}
+                                        <MobileDrawerItem icon={Settings} title='Settings' onClick={() => handlePageChange('Settings')} selected={selectedPage === 'Settings'} />
+                                        <MobileDrawerItem icon={User} title='Account' onClick={() => handlePageChange('Settings')} />
+                                        {dashboard === 'braider' && <MobileDrawerItem icon={CreditCard} title='Payments' onClick={() => handlePageChange('Settings')} />}
                                     </div>
 
                                     <button
@@ -281,10 +277,7 @@ const DashboardSidebar = ({
                                 index={index}
                                 selected={selectedPage === page.title}
                                 notifs={getPageNotifs(page)}
-                                onClick={() => {
-                                    setSelectedPage(page.title);
-                                    setMobileMenuOpen(false);
-                                }}
+                                onClick={() => handlePageChange(page.title)}
                             />
                         ))}
                         <MobileNavItem
@@ -297,13 +290,30 @@ const DashboardSidebar = ({
                         />
                     </div>
                 </div>
-                <Modal
-                    isOpen={settingsModalOpen}
-                    setIsOpen={setSettingsModalOpen}
-                    closeOnOutsideClick={false}
-                    className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative dashboard-sm:hidden overflow-y-auto'
-                >
-                    <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} activeTab={activeTab} setActiveTab={setActiveTab} />
+                <Modal isOpen={unsavedModalOpen} setIsOpen={setUnsavedModalOpen} className='max-w-3xl p-7 rounded-[18px] relative primary-border-bold'>
+                    <div className='@container/unsaved-changes'>
+                        <h1 className='text-[27px] @min-[240px]/unsaved-changes:text-3xl @min-[265px]/unsaved-changes:text-[33px] @min-[285px]/unsaved-changes:text-4xl leading-[1.1] font-lusitana font-bold text-gray-900'>
+                            Unsaved Changes
+                        </h1>
+                        <p className='text-gray-800 text-[17px] font-figtree mt-2'>You have unsaved changes. Are you sure you want to leave?</p>
+                        <div className='grid grid-cols-1 @min-[380px]/unsaved-changes:grid-cols-2 mt-6 gap-3'>
+                            <button
+                                onClick={() => {
+                                    setUnsavedModalOpen(false);
+                                    setPendingPage(null);
+                                }}
+                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmNavigation}
+                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                            >
+                                Discard & Leave
+                            </button>
+                        </div>
+                    </div>
                 </Modal>
             </>
         );
@@ -318,7 +328,7 @@ const DashboardSidebar = ({
                 animate={{ width: open ? 240 : 80 }}
                 transition={{ duration: 0.3 }}
                 className={cn(
-                    'sticky top-0 h-full font-figtree rounded-l-[18px] shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden'
+                    'sticky top-0 h-full font-figtree rounded-l-[18px] shrink-0 border-r border-gray-100 bg-white z-40 dashboard-sm:flex flex-col justify-between shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] hidden',
                 )}
             >
                 <div className='flex flex-col h-full'>
@@ -354,7 +364,7 @@ const DashboardSidebar = ({
                                 key={page.title + index}
                                 icon={page.icon}
                                 title={page.title}
-                                onClick={() => setSelectedPage(page.title)}
+                                onClick={() => handlePageChange(page.title)}
                                 selected={selectedPage === page.title}
                                 open={open}
                                 notifs={getPageNotifs(page)}
@@ -449,7 +459,7 @@ const DashboardSidebar = ({
                                                     icon={Settings}
                                                     onClick={() => {
                                                         setUserDropdownOpen(false);
-                                                        setSettingsModalOpen(true);
+                                                        handlePageChange('Settings');
                                                     }}
                                                     label='Settings'
                                                 />
@@ -457,8 +467,7 @@ const DashboardSidebar = ({
                                                     icon={User}
                                                     onClick={() => {
                                                         setUserDropdownOpen(false);
-                                                        setSettingsModalOpen(true);
-                                                        setActiveTab('account');
+                                                        handlePageChange('Settings');
                                                     }}
                                                     label='Account'
                                                 />
@@ -468,8 +477,7 @@ const DashboardSidebar = ({
                                                         icon={CreditCard}
                                                         onClick={() => {
                                                             setUserDropdownOpen(false);
-                                                            setSettingsModalOpen(true);
-                                                            setActiveTab('payments');
+                                                            handlePageChange('Settings');
                                                         }}
                                                         label='Payments'
                                                     />
@@ -487,13 +495,29 @@ const DashboardSidebar = ({
                     </div>
                 </div>
             </motion.nav>
-            <Modal
-                isOpen={settingsModalOpen}
-                setIsOpen={setSettingsModalOpen}
-                closeOnOutsideClick={false}
-                className='max-w-4xl p-6 lg:p-7 rounded-[18px] primary-border-bold relative hidden dashboard-sm:block overflow-y-auto'
-            >
-                <SettingsModal setOpen={setSettingsModalOpen} session={session} update={update} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+            <Modal isOpen={unsavedModalOpen} setIsOpen={setUnsavedModalOpen} className='max-w-3xl p-7 rounded-[18px] relative primary-border-bold'>
+                <div className='@container/unsaved-changes'>
+                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Unsaved Changes</h1>
+                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>You have unsaved changes. Are you sure you want to leave?</p>
+                    <div className='grid grid-cols-1 @min-[285px]/unsaved-changes:grid-cols-2 mt-6 gap-3'>
+                        <button
+                            onClick={() => {
+                                setUnsavedModalOpen(false);
+                                setPendingPage(null);
+                            }}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={confirmNavigation}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                        >
+                            Discard & Leave
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </>
     );
@@ -521,7 +545,7 @@ const MobileNavItem = ({
         className={cn(
             'flex-1 cursor-pointer flex flex-col items-center justify-center gap-1.5 h-full transition-all duration-200 active:scale-95 font-figtree py-0.5 relative',
             selected ? 'text-primary bg-primary-extra-light' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
-            index === 0 ? 'rounded-l-[18px]' : index === 3 ? 'rounded-r-[18px]' : 'rounded-none'
+            index === 0 ? 'rounded-l-[18px]' : index === 3 ? 'rounded-r-[18px]' : 'rounded-none',
         )}
     >
         <div className={cn('rounded-xl transition-all w-7 h-7 @min-[330px]/nav:w-7.5 @min-[330px]/nav:h-7.5 @min-[450px]/nav:w-6 @min-[450px]/nav:h-6 grid place-items-center')}>
@@ -532,7 +556,7 @@ const MobileNavItem = ({
             <div
                 className={cn(
                     'absolute top-2 left-[50%] ml-3 transform-[translateX(-50%)] text-[9.9px] min-w-5 h-5 @min-[450px]/nav:m-0 @min-[450px]/nav:left-auto @min-[450px]/nav:transform-none @min-[450px]/nav:top-0.5 @min-[450px]/nav:right-[35%] flex @min-[450px]/nav:h-4.5 @min-[450px]/nav:min-w-4.5 items-center justify-center rounded-full bg-primary px-1 @min-[450px]/nav:text-[9.5px] font-bold text-white border-2',
-                    selected ? 'border-primary-extra-light' : 'border-white'
+                    selected ? 'border-primary-extra-light' : 'border-white',
                 )}
             >
                 {notifs}
@@ -548,7 +572,7 @@ const MobileDrawerItem = ({ icon: Icon, title, selected, notifs, onClick }: { ic
         onClick={onClick}
         className={cn(
             'w-full flex items-center justify-between cursor-pointer gap-4 px-4 py-3 rounded-xl transition-all duration-200',
-            selected ? 'text-primary bg-primary-extra-light font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary'
+            selected ? 'text-primary bg-primary-extra-light font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
         )}
     >
         <div className='flex items-center gap-4'>
@@ -563,7 +587,7 @@ const MenuItem = ({ icon: Icon, label, onClick, isDestructive = false }: { icon:
     <button
         className={cn(
             'w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer',
-            isDestructive ? 'text-red-600 hover:bg-red-50' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary'
+            isDestructive ? 'text-red-600 hover:bg-red-50' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
         )}
         onClick={onClick}
     >
@@ -596,7 +620,7 @@ const SidebarItem = ({
             className={cn(
                 'relative flex h-11 items-center justify-between rounded-xl transition-all duration-200 group cursor-pointer',
                 selected ? 'bg-primary-extra-light text-primary' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary',
-                open ? 'w-full' : 'ml-[5px] w-11'
+                open ? 'w-full' : 'ml-[5px] w-11',
             )}
         >
             <div className='flex items-center'>

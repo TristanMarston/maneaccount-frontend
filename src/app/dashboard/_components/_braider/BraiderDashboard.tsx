@@ -7,6 +7,7 @@ import { UserRole } from '../../Dashboard';
 import DashboardHome from '../DashboardHome';
 import { Session } from 'next-auth';
 import Services from './Services';
+import Settings from '../Settings';
 import Team from '../Team';
 import { getPublicID } from '@/app/actions/getPublicID';
 import Relations from '../Relations';
@@ -14,24 +15,26 @@ import Calendar from '../_calendar/Calendar';
 import Tasks from '../_tasks/Tasks';
 import Invoices from '../_invoices/Invoices';
 
+type Tab = 'profile' | 'account' | 'payments' | 'notifications';
+
 const BraiderDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
     const [name, setName] = useState('');
-    const [role, setRole] = useState<UserRole>('braider');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
     const [publicID, setPublicID] = useState('');
-    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+    const [unsavedChanges, setUnsavedChanges] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>('profile');
+
+    useEffect(() => {
+        setUnsavedChanges(false);
+    }, [selectedPage]);
 
     useEffect(() => {
         if (session?.user) {
             setName(session.user.name || 'User');
             setEmail(session.user.email || '');
             setImage(session.user.image || '');
-
-            if (session.user.role) {
-                setRole(session.user.role as UserRole);
-            }
         }
     }, [session]);
 
@@ -57,11 +60,13 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
             case 'Barns':
                 return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Invoices':
-                return <Invoices role='braider' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={setSettingsModalOpen} />;
+                return <Invoices role='braider' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={(open) => setSelectedPage('Settings')} />;
             case 'Pricing':
                 return <Services userEmail={email} />;
             case 'Team':
                 return <Team userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
+            case 'Settings':
+                return <Settings update={update} role='braider' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} />;
             default:
                 return <DashboardHome role='braider' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
         }
@@ -85,8 +90,7 @@ const BraiderDashboard = ({ session, loading, update }: { session: Session | nul
                 loading={loading}
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
-                settingsModalOpen={settingsModalOpen}
-                setSettingsModalOpen={setSettingsModalOpen}
+                unsavedChanges={unsavedChanges}
             />
             <main className='flex-1 h-full overflow-y-auto hide-scrollbar bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>

@@ -146,224 +146,232 @@ export async function createNotification(userId: string, type: NotificationType,
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user?.email) return { error: 'No email provided' };
 
-        if (type === NotificationType.team_invite || type === NotificationType.barn_invite) {
-            await sendConnectionRequestEmail({
-                to: user.email,
-                message,
-                image,
-            });
-        } else if (type === NotificationType.barn_status_change || type === NotificationType.team_status_change) {
-            const { sendStatusChangeEmail } = await import('@/lib/email');
-            await sendStatusChangeEmail({
-                to: user.email,
-                message,
-                connection: true,
-                image,
-                link: 'https://maneaccount.com/dashboard',
-            });
-        } else if (type === NotificationType.calendar_invite) {
-            if (targetId) {
-                const show = await prisma.show.findUnique({ where: { id: targetId } });
-                if (show) {
-                    const { sendCalendarInviteEmail } = await import('@/lib/email');
-                    let inviterName = 'A user';
-                    if (senderId) {
-                        const sender = await prisma.user.findUnique({ where: { id: senderId } });
-                        if (sender?.name) inviterName = sender.name;
-                    }
-
-                    await sendCalendarInviteEmail({
-                        to: user.email,
-                        eventName: show.name,
-                        date: `${show.startDate.toLocaleDateString()} - ${show.endDate.toLocaleDateString()}`,
-                        location: `${show.city}, ${show.state || show.country}`,
-                        inviterName,
-                        message,
-                    });
-                }
-            }
-        } else if (type === NotificationType.job_request) {
-            if (targetId) {
-                const job = await prisma.job.findUnique({
-                    where: { id: targetId },
-                    include: {
-                        show: true,
-                        barn: true,
-                        braider: true,
-                        assignments: {
-                            include: {
-                                horse: true,
-                                services: true,
-                            },
-                        },
-                    },
+        if (user.emailVerified) {
+            if (
+                (type === NotificationType.team_invite && user.allowedNotifications.includes('team_invite')) ||
+                (type === NotificationType.barn_invite && user.allowedNotifications.includes('barn_invite'))
+            ) {
+                await sendConnectionRequestEmail({
+                    to: user.email,
+                    message,
+                    image,
                 });
-
-                if (job) {
-                    const { sendJobRequestEmail } = await import('@/lib/email');
-                    const isSubcontractor = user.role === 'subcontractor';
-
-                    let assignedHorses: string[] = [];
-                    let earnings = job.assignments.reduce((acc, a) => acc + a.services.reduce((acc, s) => acc + s.priceUSD, 0), 0);
-                    let serviceCount = job.assignments.reduce((acc, a) => acc + a.services.length, 0);
-                    if (isSubcontractor) {
-                        assignedHorses = job.assignments.filter((a) => a.subcontractorId === userId).map((a) => a.horse.showName);
-                        earnings = job.assignments.filter((a) => a.subcontractorId === userId).reduce((acc, a) => acc + a.services.reduce((acc, s) => acc + s.priceUSD, 0), 0);
-                        serviceCount = job.assignments.filter((a) => a.subcontractorId === userId).reduce((acc, a) => acc + a.services.length, 0);
-                    }
-
-                    await sendJobRequestEmail({
-                        to: user.email,
-                        showName: job.show.name,
-                        barnName: job.barn.name || 'Barn',
-                        braiderName: job.braider.name || 'Braider',
-                        date: job.scheduledDate ? job.scheduledDate.toLocaleDateString() : 'TBD',
-                        horseCount: isSubcontractor ? assignedHorses.length : job.assignments.length,
-                        serviceCount,
-                        isSubcontractor,
-                        assignedHorses,
-                        earnings,
-                    });
-                }
-            }
-        } else if (type === NotificationType.job_status_change) {
-            if (targetId) {
-                const job = await prisma.job.findUnique({ where: { id: targetId } });
-
-                if (job) {
-                    const { sendStatusChangeEmail } = await import('@/lib/email');
-
-                    await sendStatusChangeEmail({
-                        to: user.email,
-                        message,
-                        connection: false,
-                        image,
-                        link: 'https://maneaccount.com/dashboard',
-                        date: job.scheduledDate ? job.scheduledDate.toLocaleDateString() : 'TBD',
-                    });
-                }
-            }
-        } else if (type === NotificationType.job_completed) {
-            if (targetId) {
-                const job = await prisma.job.findUnique({
-                    where: { id: targetId },
-                    include: {
-                        show: true,
-                        braider: true,
-                        assignments: {
-                            include: {
-                                horse: {
-                                    include: {
-                                        client: true,
-                                    },
-                                },
-                                services: true,
-                            },
-                        },
-                    },
+            } else if (
+                (type === NotificationType.barn_status_change && user.allowedNotifications.includes('barn_status_change')) ||
+                (type === NotificationType.team_status_change && user.allowedNotifications.includes('team_status_change'))
+            ) {
+                const { sendStatusChangeEmail } = await import('@/lib/email');
+                await sendStatusChangeEmail({
+                    to: user.email,
+                    message,
+                    connection: true,
+                    image,
+                    link: 'https://maneaccount.com/dashboard',
                 });
+            } else if (type === NotificationType.calendar_invite && user.allowedNotifications.includes('calendar_invite')) {
+                if (targetId) {
+                    const show = await prisma.show.findUnique({ where: { id: targetId } });
+                    if (show) {
+                        const { sendCalendarInviteEmail } = await import('@/lib/email');
+                        let inviterName = 'A user';
+                        if (senderId) {
+                            const sender = await prisma.user.findUnique({ where: { id: senderId } });
+                            if (sender?.name) inviterName = sender.name;
+                        }
 
-                if (job) {
-                    const { sendJobCompletedEmail } = await import('@/lib/email');
-
-                    const serviceDetails: { horseName: { showName: string; barnName: string }; serviceCount: number; earnings: number; client: any }[] = [];
-                    const horses = job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length);
-
-                    for (const horse of horses) {
-                        serviceDetails.push({
-                            horseName: { showName: horse.horse.showName, barnName: horse.horse.barnName },
-                            serviceCount: horse.services.filter((s) => !horse.canceledServiceIds.includes(s.id)).length,
-                            earnings: horse.services.reduce((acc, s) => (!horse.canceledServiceIds.includes(s.id) ? acc + s.priceUSD : acc), 0),
-                            client: horse.horse.client,
+                        await sendCalendarInviteEmail({
+                            to: user.email,
+                            eventName: show.name,
+                            date: `${show.startDate.toLocaleDateString()} - ${show.endDate.toLocaleDateString()}`,
+                            location: `${show.city}, ${show.state || show.country}`,
+                            inviterName,
+                            message,
                         });
                     }
-
-                    const paymentInformation: { venmo?: string; zelle?: string } = {};
-                    if (job.braider.venmo && job.braider.venmoEnabled) paymentInformation.venmo = job.braider.venmo;
-                    if (job.braider.zelle && job.braider.zelle !== 'disabled')
-                        paymentInformation.zelle = job.braider.zelle === 'email' ? job.braider.email || '' : job.braider.phoneNumber || '';
-
-                    await sendJobCompletedEmail({
-                        to: user.email,
-                        braiderName: job.braider.name || 'Braider',
-                        showName: job.show.name,
-                        horseName: 'your horses',
-                        isClient: false,
-                        image: image || '',
-                        paymentInformation,
-                        serviceDetails: serviceDetails.map((d) => ({
-                            horseName: d.horseName,
-                            serviceCount: d.serviceCount,
-                            earnings: d.earnings,
-                        })),
+                }
+            } else if (type === NotificationType.job_request && user.allowedNotifications.includes('job_request')) {
+                if (targetId) {
+                    const job = await prisma.job.findUnique({
+                        where: { id: targetId },
+                        include: {
+                            show: true,
+                            barn: true,
+                            braider: true,
+                            assignments: {
+                                include: {
+                                    horse: true,
+                                    services: true,
+                                },
+                            },
+                        },
                     });
 
-                    const notifiedClientIds = new Set<string>();
-                    for (const assignment of job.assignments) {
-                        if (assignment.canceledAt || assignment.canceledServiceIds.length === assignment.services.length) continue;
-                        
-                        const client = assignment.horse.client;
-                        if (client && client.email && !notifiedClientIds.has(client.id)) {
-                            const clientServiceDetails = serviceDetails.filter((d) => d.client.id === client.id);
+                    if (job) {
+                        const { sendJobRequestEmail } = await import('@/lib/email');
+                        const isSubcontractor = user.role === 'subcontractor';
 
-                            await sendJobCompletedEmail({
-                                to: client.email,
-                                braiderName: job.braider.name || 'Braider',
-                                showName: job.show.name,
-                                horseName: assignment.horse.showName,
-                                isClient: true,
-                                paymentInformation,
-                                serviceDetails: clientServiceDetails.map((d) => ({
-                                    horseName: d.horseName,
-                                    serviceCount: d.serviceCount,
-                                    earnings: d.earnings,
-                                })),
+                        let assignedHorses: string[] = [];
+                        let earnings = job.assignments.reduce((acc, a) => acc + a.services.reduce((acc, s) => acc + s.priceUSD, 0), 0);
+                        let serviceCount = job.assignments.reduce((acc, a) => acc + a.services.length, 0);
+                        if (isSubcontractor) {
+                            assignedHorses = job.assignments.filter((a) => a.subcontractorId === userId).map((a) => a.horse.showName);
+                            earnings = job.assignments.filter((a) => a.subcontractorId === userId).reduce((acc, a) => acc + a.services.reduce((acc, s) => acc + s.priceUSD, 0), 0);
+                            serviceCount = job.assignments.filter((a) => a.subcontractorId === userId).reduce((acc, a) => acc + a.services.length, 0);
+                        }
+
+                        await sendJobRequestEmail({
+                            to: user.email,
+                            showName: job.show.name,
+                            barnName: job.barn.name || 'Barn',
+                            braiderName: job.braider.name || 'Braider',
+                            date: job.scheduledDate ? job.scheduledDate.toLocaleDateString() : 'TBD',
+                            horseCount: isSubcontractor ? assignedHorses.length : job.assignments.length,
+                            serviceCount,
+                            isSubcontractor,
+                            assignedHorses,
+                            earnings,
+                        });
+                    }
+                }
+            } else if (type === NotificationType.job_status_change && user.allowedNotifications.includes('job_status_change')) {
+                if (targetId) {
+                    const job = await prisma.job.findUnique({ where: { id: targetId } });
+
+                    if (job) {
+                        const { sendStatusChangeEmail } = await import('@/lib/email');
+
+                        await sendStatusChangeEmail({
+                            to: user.email,
+                            message,
+                            connection: false,
+                            image,
+                            link: 'https://maneaccount.com/dashboard',
+                            date: job.scheduledDate ? job.scheduledDate.toLocaleDateString() : 'TBD',
+                        });
+                    }
+                }
+            } else if (type === NotificationType.job_completed && user.allowedNotifications.includes('job_completed')) {
+                if (targetId) {
+                    const job = await prisma.job.findUnique({
+                        where: { id: targetId },
+                        include: {
+                            show: true,
+                            braider: true,
+                            assignments: {
+                                include: {
+                                    horse: {
+                                        include: {
+                                            client: true,
+                                        },
+                                    },
+                                    services: true,
+                                },
+                            },
+                        },
+                    });
+
+                    if (job) {
+                        const { sendJobCompletedEmail } = await import('@/lib/email');
+
+                        const serviceDetails: { horseName: { showName: string; barnName: string }; serviceCount: number; earnings: number; client: any }[] = [];
+                        const horses = job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length);
+
+                        for (const horse of horses) {
+                            serviceDetails.push({
+                                horseName: { showName: horse.horse.showName, barnName: horse.horse.barnName },
+                                serviceCount: horse.services.filter((s) => !horse.canceledServiceIds.includes(s.id)).length,
+                                earnings: horse.services.reduce((acc, s) => (!horse.canceledServiceIds.includes(s.id) ? acc + s.priceUSD : acc), 0),
+                                client: horse.horse.client,
                             });
-                            notifiedClientIds.add(client.id);
+                        }
+
+                        const paymentInformation: { venmo?: string; zelle?: string } = {};
+                        if (job.braider.venmo && job.braider.venmoEnabled) paymentInformation.venmo = job.braider.venmo;
+                        if (job.braider.zelle && job.braider.zelle !== 'disabled')
+                            paymentInformation.zelle = job.braider.zelle === 'email' ? job.braider.email || '' : job.braider.phoneNumber || '';
+
+                        await sendJobCompletedEmail({
+                            to: user.email,
+                            braiderName: job.braider.name || 'Braider',
+                            showName: job.show.name,
+                            horseName: 'your horses',
+                            isClient: false,
+                            image: image || '',
+                            paymentInformation,
+                            serviceDetails: serviceDetails.map((d) => ({
+                                horseName: d.horseName,
+                                serviceCount: d.serviceCount,
+                                earnings: d.earnings,
+                            })),
+                        });
+
+                        const notifiedClientIds = new Set<string>();
+                        for (const assignment of job.assignments) {
+                            if (assignment.canceledAt || assignment.canceledServiceIds.length === assignment.services.length) continue;
+
+                            const client = assignment.horse.client;
+                            if (client && client.email && !notifiedClientIds.has(client.id)) {
+                                const clientServiceDetails = serviceDetails.filter((d) => d.client.id === client.id);
+
+                                await sendJobCompletedEmail({
+                                    to: client.email,
+                                    braiderName: job.braider.name || 'Braider',
+                                    showName: job.show.name,
+                                    horseName: assignment.horse.showName,
+                                    isClient: true,
+                                    paymentInformation,
+                                    serviceDetails: clientServiceDetails.map((d) => ({
+                                        horseName: d.horseName,
+                                        serviceCount: d.serviceCount,
+                                        earnings: d.earnings,
+                                    })),
+                                });
+                                notifiedClientIds.add(client.id);
+                            }
                         }
                     }
                 }
-            }
-        } else if (type === NotificationType.job_paid) {
-            if (targetId) {
-                const job = await prisma.job.findUnique({
-                    where: { id: targetId },
-                    include: {
-                        show: true,
-                        barn: true,
-                    },
-                });
-
-                if (job) {
-                    const { sendJobPaidEmail } = await import('@/lib/email');
-                    // Placeholder amount or logic
-                    const amount = 'Paid in Full';
-
-                    await sendJobPaidEmail({
-                        to: user.email,
-                        barnName: job.barn.name || 'Barn',
-                        amount,
-                        showName: job.show.name,
-                        date: new Date().toLocaleDateString(),
+            } else if (type === NotificationType.job_paid && user.allowedNotifications.includes('job_paid')) {
+                if (targetId) {
+                    const job = await prisma.job.findUnique({
+                        where: { id: targetId },
+                        include: {
+                            show: true,
+                            barn: true,
+                        },
                     });
-                }
-            }
-        } else if (type === NotificationType.new_message) {
-            const { sendNewMessageEmail } = await import('@/lib/email');
-            let senderName = 'A user';
-            let senderImage = null;
-            if (senderId) {
-                const sender = await prisma.user.findUnique({ where: { id: senderId } });
-                if (sender?.name) senderName = sender.name;
-                senderImage = sender?.image;
-            }
 
-            await sendNewMessageEmail({
-                to: user.email,
-                senderName,
-                messagePreview: message,
-                senderImage,
-            });
+                    if (job) {
+                        const { sendJobPaidEmail } = await import('@/lib/email');
+                        // Placeholder amount or logic
+                        const amount = 'Paid in Full';
+
+                        await sendJobPaidEmail({
+                            to: user.email,
+                            barnName: job.barn.name || 'Barn',
+                            amount,
+                            showName: job.show.name,
+                            date: new Date().toLocaleDateString(),
+                        });
+                    }
+                }
+            } else if (type === NotificationType.new_message && user.allowedNotifications.includes('new_message')) {
+                const { sendNewMessageEmail } = await import('@/lib/email');
+                let senderName = 'A user';
+                let senderImage = null;
+                if (senderId) {
+                    const sender = await prisma.user.findUnique({ where: { id: senderId } });
+                    if (sender?.name) senderName = sender.name;
+                    senderImage = sender?.image;
+                }
+
+                await sendNewMessageEmail({
+                    to: user.email,
+                    senderName,
+                    messagePreview: message,
+                    senderImage,
+                });
+            }
         }
 
         revalidatePath('/dashboard');

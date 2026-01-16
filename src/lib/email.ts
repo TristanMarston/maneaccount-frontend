@@ -20,6 +20,9 @@ const ses = new SESClient({
 export async function sendVerificationCode({ to, code }: { to: string; code: string }) {
     if (!to) return { error: 'No email provided' };
 
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
     try {
         const html = await render(ManeAccountCodeEmail({ code }));
 

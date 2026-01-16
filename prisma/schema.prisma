@@ -142,6 +142,8 @@ model User {
   
   notifications        Notification[] @relation("user")
   sentNotifications    Notification[] @relation("sender")
+  
+  allowedNotifications NotificationType[] @default([])
 }
 
 model Notification {

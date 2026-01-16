@@ -129,7 +129,7 @@ export async function inviteRelation(publicID: string) {
             },
         });
 
-        await createNotification(receiver.id, NotificationType.barn_invite, `${sender.name} sent you a connection request`, connection.id, sender.id);
+        await createNotification(receiver.id, NotificationType.barn_invite, `${sender.name} sent you a connection request`, connection.id, sender.id, sender.image);
 
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
@@ -152,7 +152,8 @@ export async function removeRelation(connectionId: string, rejected: boolean) {
                     NotificationType.barn_status_change,
                     `${connection.receiver.name} rejected your connection request`,
                     null,
-                    connection.receiver.id
+                    connection.receiver.id,
+                    connection.receiver.image
                 );
             }
         }
@@ -254,7 +255,14 @@ export async function acceptRelationRequest(connectionId: string) {
 
         await syncCalendar(connectionId);
 
-        await createNotification(connection.senderId, NotificationType.barn_status_change, `${connection.receiver.name} accepted your connection request`, null, connection.receiverId);
+        await createNotification(
+            connection.senderId,
+            NotificationType.barn_status_change,
+            `${connection.receiver.name} accepted your connection request`,
+            null,
+            connection.receiverId,
+            connection.receiver.image
+        );
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {

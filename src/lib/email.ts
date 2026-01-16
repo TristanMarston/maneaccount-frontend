@@ -1,74 +1,295 @@
-import { Resend } from 'resend';
-import { ManeAccountEmail } from '@/app/emails/EmailTemplate';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { render } from '@react-email/render';
 import ManeAccountCodeEmail from '@/app/emails/EmailCodeTemplate';
+import ManeAccountConnectionRequestEmail from '@/app/emails/EmailConnectionTemplate';
+import ManeAccountStatusChangeEmail, { ManeAccountRequestResponseEmail } from '@/app/emails/EmailRequestResponseTemplate';
+import ManeAccountCalendarInviteEmail from '@/app/emails/EmailCalendarInviteTemplate';
+import ManeAccountJobRequestEmail from '@/app/emails/EmailJobRequestTemplate';
+import ManeAccountJobCompletedEmail from '@/app/emails/EmailJobCompletedTemplate';
+import ManeAccountJobPaidEmail from '@/app/emails/EmailJobPaidTemplate';
+import ManeAccountNewMessageEmail from '@/app/emails/EmailNewMessageTemplate';
 
-// Ensure you set RESEND_API_KEY in your .env file
-const resend = new Resend(process.env.RESEND_API_KEY);
+const ses = new SESClient({
+    region: process.env.AWS_REGION!,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+});
 
-type EmailPayload = {
-    to: string;
-    subject: string;
-    heading: string;
-    message: React.ReactNode; // Can be string or JSX components
-    actionLabel?: string;
-    actionUrl?: string;
-};
-
-export async function sendNotificationEmail({ to, subject, heading, message, actionLabel, actionUrl }: EmailPayload) {
-    if (!to) return;
+export async function sendVerificationCode({ to, code }: { to: string; code: string }) {
+    if (!to) return { error: 'No email provided' };
 
     try {
-        const emailHtml = await render(
-            ManeAccountEmail({
-                previewText: subject,
-                heading,
-                message,
-                actionLabel,
-                actionUrl,
-            })
-        );
+        const html = await render(ManeAccountCodeEmail({ code }));
 
-        const { data, error } = await resend.emails.send({
-            from: 'ManeAccount <bounced@resend.dev>',
-            to: [to],
-            subject: subject,
-            html: emailHtml,
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: 'Verify your email' },
+                Body: {
+                    Html: { Data: html },
+                },
+            },
         });
 
-        if (error) {
-            console.error('Email sending failed:', error);
-            return { success: false, error };
-        }
-
-        return { success: true, data };
+        await ses.send(command);
+        return { success: true };
     } catch (error) {
-        console.error('Email system error:', error);
+        console.error('SES verification email failed:', error);
         return { success: false, error };
     }
 }
 
-export async function sendVerificationCode({ to, code }: { to: string; code: string }) {
-    if (!to) return;
+export async function sendConnectionRequestEmail({ to, message, image }: { to: string; message: string; image?: string | null }) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
 
     try {
-        const emailHtml = await render(ManeAccountCodeEmail({ code }));
+        const html = await render(ManeAccountConnectionRequestEmail({ message, image }));
 
-        const { data, error } = await resend.emails.send({
-            from: 'ManeAccount <bounced@resend.dev>',
-            to: [to],
-            subject: 'Verify your email',
-            html: emailHtml,
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: 'Connection request' },
+                Body: {
+                    Html: { Data: html },
+                },
+            },
         });
 
-        if (error) {
-            console.error('Email sending failed:', error);
-            return { success: false, error };
-        }
-
-        return { success: true, data };
+        await ses.send(command);
+        return { success: true };
     } catch (error) {
-        console.error('Email system error:', error);
+        console.error('SES connection request email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendStatusChangeEmail({
+    to,
+    message,
+    connection,
+    image,
+    link,
+    date,
+}: {
+    to: string;
+    message: string;
+    connection: boolean;
+    image?: string | null;
+    link?: string;
+    date?: string;
+}) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
+    try {
+        const html = await render(ManeAccountRequestResponseEmail({ message, connection, image, link, date }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: connection ? 'Connection Request' : 'Job Request' },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES status change email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendCalendarInviteEmail({
+    to,
+    eventName,
+    date,
+    location,
+    inviterName,
+    message,
+}: {
+    to: string;
+    eventName: string;
+    date: string;
+    location: string;
+    inviterName: string;
+    message?: string;
+}) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
+    try {
+        const html = await render(ManeAccountCalendarInviteEmail({ eventName, date, location, inviterName, message }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: `Invitation: ${eventName}` },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES calendar invite email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendJobRequestEmail({
+    to,
+    showName,
+    barnName,
+    braiderName,
+    date,
+    horseCount,
+    serviceCount,
+    assignedHorses,
+    isSubcontractor,
+    earnings,
+}: {
+    to: string;
+    showName: string;
+    barnName: string;
+    braiderName: string;
+    date: string;
+    horseCount: number;
+    serviceCount: number;
+    assignedHorses?: string[];
+    isSubcontractor: boolean;
+    earnings: number;
+}) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
+    try {
+        const html = await render(ManeAccountJobRequestEmail({ showName, barnName, braiderName, date, horseCount, serviceCount, assignedHorses, isSubcontractor, earnings }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: isSubcontractor ? `New Assignment: ${showName}` : `New Job Request: ${showName}` },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES job request email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendJobCompletedEmail({
+    to,
+    braiderName,
+    showName,
+    horseName,
+    isClient,
+    image,
+    paymentInformation,
+    serviceDetails,
+}: {
+    to: string;
+    braiderName: string;
+    showName: string;
+    horseName: string;
+    isClient: boolean;
+    image?: string;
+    paymentInformation: { venmo?: string; zelle?: string };
+    serviceDetails: { horseName: { showName: string; barnName: string }; serviceCount: number; earnings: number }[];
+}) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
+    try {
+        const html = await render(ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: `Services Completed: ${showName}` },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES job completed email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendJobPaidEmail({ to, barnName, amount, showName, date }: { to: string; barnName: string; amount: string; showName: string; date: string }) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
+    try {
+        const html = await render(ManeAccountJobPaidEmail({ barnName, amount, showName, date }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: `Payment Received: ${showName}` },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES job paid email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendNewMessageEmail({ to, senderName, messagePreview, senderImage }: { to: string; senderName: string; messagePreview: string; senderImage?: string | null }) {
+    if (!to) return { error: 'No email provided' };
+
+    console.log(to);
+    to = 'tristan@ericmarston.com';
+
+    try {
+        const html = await render(ManeAccountNewMessageEmail({ senderName, messagePreview, senderImage }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: `New Message from ${senderName}` },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES new message email failed:', error);
         return { success: false, error };
     }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { MapPin, X, User, Info, CheckSquare, CheckCircle2, Calendar, CalendarCheck, ChevronLeft, Check, ChevronDown, CircleAlert, Loader } from 'lucide-react';
+import { MapPin, X, User, Info, CheckSquare, CheckCircle2, Calendar, CalendarCheck, ChevronLeft, Check, ChevronDown, CircleAlert, Loader, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay } from 'date-fns';
@@ -304,7 +304,7 @@ export const JobDetailSubpage = ({
     const [selectedSub, setSelectedSub] = useState('');
     const [userId, setUserId] = useState('');
     const [notesModalOpen, setNotesModalOpen] = useState(false);
-    const [subcontractorLoading, setSubcontractorLoading] = useState(false);
+    const [subcontractorLoading, setSubcontractorLoading] = useState(-1);
     const [acceptJobHeight, setAcceptJobHeight] = useState(0);
     const [messagesPrescrolled, setMessagesPrescrolled] = useState(false);
     const acceptJobRef = useRef<HTMLDivElement>(null);
@@ -395,15 +395,15 @@ export const JobDetailSubpage = ({
         }
     };
 
-    const handleAssignSub = async (assignmentId: string, subId: string) => {
-        setSubcontractorLoading(true);
+    const handleAssignSub = async (assignmentId: string, subId: string, index: number) => {
+        setSubcontractorLoading(index);
         const res = await assignSubcontractorToAssignment(assignmentId, subId);
         if (res.success) {
             refresh();
-            setSubcontractorLoading(false);
+            setSubcontractorLoading(-1);
         } else {
             failToast('Failed to assign');
-            setSubcontractorLoading(false);
+            setSubcontractorLoading(-1);
         }
     };
 
@@ -679,8 +679,8 @@ export const JobDetailSubpage = ({
                                                         <SelectSubcontractorDropdown
                                                             value={assignment.subcontractor?.id || ''}
                                                             subImage={assignment.subcontractor?.image || ''}
-                                                            onChange={(val) => handleAssignSub(assignment.id, val)}
-                                                            loading={subcontractorLoading}
+                                                            onChange={(val) => handleAssignSub(assignment.id, val, i)}
+                                                            loading={subcontractorLoading === i}
                                                             team={team}
                                                             disabled={job.status !== 'accepted'}
                                                             completed={
@@ -704,8 +704,8 @@ export const JobDetailSubpage = ({
                                                 <SelectSubcontractorDropdown
                                                     value={assignment.subcontractor?.id || ''}
                                                     subImage={assignment.subcontractor?.image || ''}
-                                                    onChange={(val) => handleAssignSub(assignment.id, val)}
-                                                    loading={subcontractorLoading}
+                                                    onChange={(val) => handleAssignSub(assignment.id, val, i)}
+                                                    loading={subcontractorLoading === i}
                                                     team={team}
                                                     disabled={job.status !== 'accepted'}
                                                     completed={
@@ -933,7 +933,14 @@ export const JobDetailSubpage = ({
                         <button
                             disabled={
                                 job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) !==
-                                job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
+                                    job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) ||
+                                (job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) === 0 &&
+                                    job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length === 0 &&
+                                    job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) === 0 &&
+                                    job.assignments.reduce(
+                                        (acc, a) => (a.canceledAt ? acc + a.services.length : acc + a.services.filter((s) => a.canceledServiceIds.includes(s.id)).length),
+                                        0
+                                    ) === job.assignments.reduce((acc, a) => acc + a.services.length, 0))
                             }
                             onClick={() => {
                                 setCheckMarkedCompleted({
@@ -947,9 +954,24 @@ export const JobDetailSubpage = ({
                                     services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
                                 });
                             }}
-                            className='w-full grid place-items-center font-figtree font-bold text-background bg-primary-light rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'
+                            className='w-full flex justify-center items-center gap-2 font-figtree font-bold text-background bg-primary-light rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'
                         >
-                            Send Invoice
+                            <span>Send Invoice</span>
+                            <AlertCircle
+                                strokeWidth={2.5}
+                                className={cn(
+                                    'w-6 h-6',
+                                    job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) === 0 &&
+                                        job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length === 0 &&
+                                        job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) === 0 &&
+                                        job.assignments.reduce(
+                                            (acc, a) => (a.canceledAt ? acc + a.services.length : acc + a.services.filter((s) => a.canceledServiceIds.includes(s.id)).length),
+                                            0
+                                        ) === job.assignments.reduce((acc, a) => acc + a.services.length, 0)
+                                        ? 'block'
+                                        : 'hidden'
+                                )}
+                            />
                         </button>
                     )}
                 </div>

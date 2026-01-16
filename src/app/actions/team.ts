@@ -2,7 +2,6 @@
 
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { sendNotificationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
@@ -158,7 +157,6 @@ export async function inviteUser(publicID: string) {
             return { error: existing.status === 'pending' ? 'Invitation already pending' : 'User already in team' };
         }
 
-        // send an email here
         const connection = await prisma.connection.create({
             data: {
                 senderId: sender.id,
@@ -172,19 +170,9 @@ export async function inviteUser(publicID: string) {
             NotificationType.team_invite,
             `${sender.name} ${sender.role === 'braider' ? 'invited you to their team' : 'wants to join your team'}`,
             connection.id,
-            sender.id
+            sender.id,
+            sender.image
         );
-
-        // if (receiver.email) {
-        //     await sendNotificationEmail({
-        //         to: receiver.email,
-        //         subject: `New Invite from ${sender.name}`,
-        //         heading: 'You have a new connection request!',
-        //         message: `${sender.name} (${sender.role.toLowerCase()}) wants to add you to their team on ManeAccount.`,
-        //         actionLabel: 'View Dashboard',
-        //         actionUrl: `${process.env.NEXTAUTH_URL}/dashboard`,
-        //     });
-        // }
 
         revalidatePath('/dashboard');
         return { success: true, message: `Invitation sent to ${receiver.name}` };
@@ -239,7 +227,13 @@ export async function removeMember(connectionID: string, rejected: boolean) {
         if (rejected) {
             const connection = await prisma.connection.findUnique({ where: { id: connectionID }, include: { sender: true, receiver: true } });
             if (connection) {
-                createNotification(connection.sender.id, NotificationType.team_status_change, `${connection.receiver.name} rejected your team invitation`, connectionID, connection.receiver.id);
+                createNotification(
+                    connection.sender.id,
+                    NotificationType.team_status_change,
+                    `${connection.receiver.name} rejected your team invitation`,
+                    connectionID,
+                    connection.receiver.id
+                );
             }
         }
 

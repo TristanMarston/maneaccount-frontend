@@ -198,7 +198,7 @@ const SettingsModal = ({
             successToast('Code sent!');
             setVerificationStep('sent');
         } else {
-            failToast(res.error || 'Failed to send email');
+            failToast('Failed to send email');
         }
         setIsVerifying(false);
     };

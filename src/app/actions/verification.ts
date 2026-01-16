@@ -2,14 +2,11 @@
 
 import { randomBytes } from 'crypto';
 import { auth } from '@/lib/auth';
-import { sendNotificationEmail, sendVerificationCode } from '@/lib/email';
+import { sendVerificationCode } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 
 export async function generateVerificationToken(email: string) {
-    // Generate 6 digit code (100000 to 999999)
     const token = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Set expiration to 15 minutes
     const expires = new Date(new Date().getTime() + 15 * 60 * 1000);
 
     await prisma.verificationToken.deleteMany({
@@ -34,10 +31,14 @@ export async function requestVerificationEmail() {
     try {
         const token = await generateVerificationToken(session.user.email);
 
-        await sendVerificationCode({
+        const result = await sendVerificationCode({
             to: session.user.email,
             code: token,
         });
+
+        if (!result.success) {
+            return { error: result.error };
+        }
 
         return { success: true };
     } catch (error) {

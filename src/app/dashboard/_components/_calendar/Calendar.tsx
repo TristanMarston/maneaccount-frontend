@@ -924,15 +924,8 @@ const MonthView = ({
                                                         ? 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100'
                                                         : 'bg-primary-extra-light text-primary border-[#dae3de]',
                                                     show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
-                                                    show.jobData &&
-                                                        (show.jobData.status === 'completed' ||
-                                                            show.jobData.status === 'denied' ||
-                                                            show.jobData.status === 'canceled' ||
-                                                            show.jobData.status === 'sub_declined')
+                                                    show.jobData && (show.jobData.status === 'completed' || show.jobData.status === 'denied' || show.jobData.status === 'canceled')
                                                         ? 'opacity-50'
-                                                        : '',
-                                                    show.jobData && role === 'subcontractor' && show.jobData.subcontractors.some((s: any) => s.email === userEmail)
-                                                        ? 'bg-background hover:bg-blue-50 opacity-80'
                                                         : ''
                                                 )}
                                             >
@@ -1067,7 +1060,10 @@ const WeekView = ({
                                             className={cn(
                                                 'w-full text-left p-3 rounded-xl border border-gray-100 shadow-sm transition-all hover:shadow-md cursor-pointer group',
                                                 show.type === 'job' ? 'bg-blue-50 border-blue-200' : 'bg-white hover:border-primary/30',
-                                                show.inviteStatus === 'pending' ? 'opacity-80' : ''
+                                                show.inviteStatus === 'pending' ? 'opacity-80' : '',
+                                                show.jobData && (show.jobData.status === 'completed' || show.jobData.status === 'denied' || show.jobData.status === 'canceled')
+                                                    ? 'opacity-50'
+                                                    : ''
                                             )}
                                         >
                                             <p className={cn('font-bold text-sm truncate', show.type === 'job' ? 'text-blue-600' : 'text-gray-900 group-hover:text-primary')}>
@@ -1208,8 +1204,7 @@ const ListView = ({
                                                             occ.jobData.status === 'canceled' ||
                                                             occ.jobData.status === 'sub_declined')
                                                         ? 'opacity-50'
-                                                        : '',
-                                                    occ.jobData && role === 'subcontractor' && occ.jobData.subcontractors.some((s: any) => s.email === userEmail) ? 'opacity-70' : ''
+                                                        : ''
                                                 )}
                                             >
                                                 <div className='flex-1 min-w-0'>

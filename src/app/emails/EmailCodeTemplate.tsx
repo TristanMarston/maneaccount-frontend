@@ -12,7 +12,7 @@ export const ManeAccountCodeEmail = ({ code }: ManeAccountEmailProps) => {
             <Body style={main}>
                 <Container style={container}>
                     <Section style={header}>
-                        <Img style={image} src='https://maneaccount-frontend.vercel.app/maneaccount-logo.png'></Img>
+                        <Img style={image} src='https://maneaccount.com/maneaccount-logo-white.png'></Img>
                     </Section>
 
                     <Section style={content}>
@@ -44,40 +44,43 @@ export const ManeAccountCodeEmail = ({ code }: ManeAccountEmailProps) => {
 export default ManeAccountCodeEmail;
 
 const main = {
-    backgroundColor: '#f5f5f4',
-    fontFamily: 'HelveticaNeue, Helvetica, Arial, sans-serif',
+    backgroundColor: '#ffffff',
+    fontFamily: 'Helvetica, HelveticaNeue, Arial, sans-serif',
 };
 
 const container = {
     backgroundColor: '#ffffff',
-    margin: '40px auto 0',
-    padding: '40px 20px 20px 20px',
-    maxWidth: '600px',
-    borderRadius: '20px 20px 0 0',
+    maxWidth: '550px',
 };
 
 const header = {
-    marginBottom: '10px',
-    maxWidth: '200px',
+    marginBottom: '16px',
     width: '100%',
     textAlign: 'center' as const,
+    padding: '45px',
+    backgroundColor: '#538475',
+    border: '2px solid #3f6559',
+    borderRadius: '14px',
 };
 
 const image = {
-    maxWidth: '400px',
+    maxWidth: '460px',
 };
 
 const content = {
-    padding: '0 10px',
+    padding: '0 15px',
+    textAlign: 'center' as const,
+    border: '2px solid #3f6559',
+    borderRadius: '14px',
 };
 
 const h1 = {
     color: '#1c1917',
-    fontSize: '28px',
+    fontSize: '32px',
     fontWeight: 'bold',
     textAlign: 'center' as const,
-    margin: '20px 0',
-    fontFamily: 'Lusitana, Georgia, serif',
+    margin: '20px 0 10px 0',
+    fontFamily: 'Lusitana, EB Garamond, Georgia, serif',
 };
 
 const text = {
@@ -85,7 +88,7 @@ const text = {
     fontSize: '18px',
     lineHeight: '26px',
     textAlign: 'center' as const,
-    fontFamily: 'Figtree, Verdana, sans-serif',
+    fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
 };
 
 const codeContainer = {
@@ -100,10 +103,11 @@ const codeContainer = {
 const codeText = {
     color: '#166534',
     fontSize: '32px',
-    fontWeight: 'bold',
+    lineHeight: '24px',
+    fontWeight: '900',
     letterSpacing: '4px',
     margin: '0',
-    fontFamily: 'Figtree, Verdana, sans-serif',
+    fontFamily: 'Figtree, Helvetica, Verdana, sans-serif',
 };
 
 const hr = {
@@ -116,11 +120,11 @@ const footer = {
     fontSize: '12px',
     lineHeight: '16px',
     textAlign: 'center' as const,
-    fontFamily: 'Figtree, Verdana, sans-serif',
+    fontFamily: 'Figtree, Helvetica, Verdana, sans-serif',
 };
 
 const link = {
     color: '#538475',
     textDecoration: 'underline',
-    fontFamily: 'Figtree, Verdana, sans-serif',
+    fontFamily: 'Figtree, Helvetica, Verdana, sans-serif',
 };

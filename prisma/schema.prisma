@@ -150,6 +150,7 @@ model Notification {
   type      NotificationType
   senderId  String?
   targetId  String?          // related job, show, etc.
+  image     String?
   message   String
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
@@ -216,9 +217,9 @@ model ShowInvite {
 }
 
 model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+  identifier  String
+  token       String   @id
+  expires     DateTime
 
   @@unique([identifier, token])
 }

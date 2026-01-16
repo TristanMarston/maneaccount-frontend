@@ -120,16 +120,17 @@ export async function updateJobStatus(
         const updatedJob = await prisma.job.update({
             where: { id: jobId },
             data: updateData,
-            include: { braider: true, subcontractors: true, barn: true },
+            include: { braider: true, subcontractors: true, barn: true, show: true },
         });
 
         if (status === 'accepted' || status === 'denied') {
             await createNotification(
                 updatedJob.barnId,
                 NotificationType.job_status_change,
-                `Your job request for ${updatedJob.braider.name} was ${status}`,
+                `${updatedJob.braider.name} ${status} your job request for ${updatedJob.show.name}`,
                 jobId,
-                updatedJob.braiderId
+                updatedJob.braiderId,
+                updatedJob.braider.image,
             );
         }
 
@@ -219,7 +220,8 @@ export async function markJobCompleted(jobId: string) {
             NotificationType.job_completed,
             `Job completed by ${job.subcontractors.length > 0 ? job.subcontractors.map((s) => s.name).join(', ') : job.braider.name}. Please pay the invoice.`,
             jobId,
-            job.braiderId
+            job.braiderId,
+            job.braider.image,
         );
 
         revalidatePath('/dashboard');

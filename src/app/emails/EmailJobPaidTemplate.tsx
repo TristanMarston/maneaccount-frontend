@@ -2,12 +2,13 @@ import { Body, Container, Head, Heading, Html, Preview, Section, Text, Button, I
 
 interface ManeAccountEmailProps {
     barnName: string;
-    amount: string;
+    amount: number;
+    paymentMethod: string;
     showName: string;
-    date: string;
+    image?: string;
 }
 
-export const ManeAccountJobPaidEmail = ({ barnName, amount, showName, date }: ManeAccountEmailProps) => {
+export const ManeAccountJobPaidEmail = ({ barnName, amount, paymentMethod, showName, image }: ManeAccountEmailProps) => {
     return (
         <Html>
             <Head />
@@ -20,24 +21,30 @@ export const ManeAccountJobPaidEmail = ({ barnName, amount, showName, date }: Ma
 
                     <Section style={content}>
                         <Heading style={h1}>Payment Received</Heading>
+                        <Img style={{ ...profileImage, border: image ? 'none' : '2px solid #3f6559' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
 
                         <Text style={textBlock}>
                             <Text style={bold}>{barnName}</Text>
-                            <Text style={normal}> has marked your job at </Text>
+                            <Text style={normal}>&nbsp;has marked your job at&nbsp;</Text>
                             <Text style={bold}>{showName}</Text>
-                            <Text style={normal}> as paid.</Text>
+                            <Text style={normal}>&nbsp;as paid.</Text>
                         </Text>
 
-                        <Text style={amountText}>{amount}</Text>
-
-                        <Section style={detailsContainer}>
-                            <Text style={detailRow}>
-                                <span style={label}>Date:</span> {date}
-                            </Text>
+                        <Section style={detailsParent}>
+                            <Section style={detailsContainer}>
+                                <Text style={detailRow}>
+                                    <Text style={{ display: 'inline-block', fontWeight: 'bold', fontSize: '16px', margin: '0' }}>Total Earnings:&nbsp;</Text>
+                                    <Text style={{ display: 'inline-block', fontWeight: 'normal', fontSize: '16px', margin: '0' }}>${amount}</Text>
+                                </Text>
+                                <Text style={detailRow}>
+                                    <Text style={{ display: 'inline-block', fontWeight: 'bold', fontSize: '16px', margin: '0' }}>Payment Platform:&nbsp;</Text>
+                                    <Text style={{ display: 'inline-block', fontWeight: 'normal', fontSize: '16px', margin: '0' }}>{paymentMethod}</Text>
+                                </Text>
+                            </Section>
                         </Section>
 
                         <Button style={button} href='https://maneaccount.com/dashboard'>
-                            View Payment
+                            Go to Dashboard
                         </Button>
 
                         <Hr style={hr} />
@@ -87,6 +94,18 @@ const content = {
     borderRadius: '14px',
 };
 
+const profileImage = {
+    width: '125px',
+    height: '125px',
+    borderRadius: '50%',
+    objectFit: 'cover' as const,
+    marginBottom: '16px',
+    marginTop: '16px',
+    textAlign: 'center' as const,
+    margin: '0 auto',
+    border: '2px solid #3f6559',
+};
+
 const h1 = {
     color: '#1c1917',
     fontSize: '32px',
@@ -101,15 +120,6 @@ const textBlock = {
     margin: '10px 0',
 };
 
-const amountText = {
-    textAlign: 'center' as const,
-    fontSize: '36px',
-    fontWeight: 'bold',
-    color: '#538475',
-    margin: '20px 0',
-    fontFamily: 'Lusitana, EB Garamond, Georgia, serif',
-};
-
 const bold = {
     color: '#444',
     fontSize: '18px',
@@ -117,7 +127,7 @@ const bold = {
     fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     display: 'inline-block',
     fontWeight: 'bold',
-    margin: '4px 0',
+    margin: '0',
 };
 
 const normal = {
@@ -127,14 +137,19 @@ const normal = {
     fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     display: 'inline-block',
     fontWeight: 'normal',
-    margin: '4px 0',
+    margin: '0',
+};
+
+const detailsParent = {
+    margin: '0 auto',
+    padding: '0 40px',
 };
 
 const detailsContainer = {
-    backgroundColor: '#f9fafb',
-    padding: '16px',
+    backgroundColor: '#eef5f1',
+    border: '1px solid #69a190',
+    padding: '16px 16px 8px 16px',
     borderRadius: '8px',
-    margin: '20px auto',
     textAlign: 'left' as const,
 };
 

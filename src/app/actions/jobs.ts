@@ -103,7 +103,7 @@ export async function updateJobStatus(
     data?: {
         scheduledDate?: Date;
         subcontractorIds?: string[];
-    }
+    },
 ) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
@@ -194,7 +194,7 @@ export async function addNote(jobId: string, content: string) {
         const job = await prisma.job.findUnique({ where: { id: jobId }, include: { show: true } });
         const participants = [note.job.braiderId, note.job.barnId, ...note.job.subcontractors.map((s) => s.id)].filter((id) => id && id !== user.id);
         for (const participantId of participants) {
-            await createNotification(participantId!, NotificationType.new_message, `New message from ${user.name} ${job ? `on ${job.show.name} job` : ''}`, jobId, user.id);
+            await createNotification(participantId!, NotificationType.new_message, `New message from ${user.name} ${job ? `on ${job.show.name} job` : ''}`, note.id, user.id);
         }
 
         revalidatePath('/dashboard');
@@ -239,15 +239,16 @@ export async function markJobPaid(jobId: string, paymentPlatform: string) {
         const job = await prisma.job.findUnique({ where: { id: jobId }, include: { show: true } });
 
         if (job) {
-            await prisma.job.update({
+            const res = await prisma.job.update({
                 where: { id: jobId },
                 data: {
                     paidAt: new Date(),
                     paymentPlatform,
                 },
+                include: { barn: true },
             });
 
-            createNotification(job.braiderId, NotificationType.job_paid, `The ${job.show.name} job has been paid for`, jobId, job.barnId);
+            await createNotification(job.braiderId, NotificationType.job_paid, `The ${job.show.name} job has been paid for`, jobId, job.barnId, res.barn.image);
 
             revalidatePath('/dashboard');
             return { success: true };
@@ -389,6 +390,7 @@ export async function cancelAssignment(assignmentId: string) {
         const data: any = {};
         if (assignment.canceledServiceIds.length === assignment.services.length) data.canceledServiceIds = [];
         data.canceledAt = assignment.canceledAt || (data.canceledServicesIds && data.canceledServiceIds.length === 0) ? null : new Date();
+        if (data.canceledAt) data.completedServiceIds = [];
 
         await prisma.jobAssignment.update({
             where: { id: assignmentId },

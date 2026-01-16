@@ -147,13 +147,13 @@ export async function removeRelation(connectionId: string, rejected: boolean) {
         if (rejected) {
             const connection = await prisma.connection.findUnique({ where: { id: connectionId }, include: { sender: true, receiver: true } });
             if (connection) {
-                createNotification(
+                await createNotification(
                     connection.sender.id,
                     NotificationType.barn_status_change,
                     `${connection.receiver.name} rejected your connection request`,
                     null,
                     connection.receiver.id,
-                    connection.receiver.image
+                    connection.receiver.image,
                 );
             }
         }

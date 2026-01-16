@@ -242,14 +242,14 @@ export async function sendJobCompletedEmail({
     }
 }
 
-export async function sendJobPaidEmail({ to, barnName, amount, showName, date }: { to: string; barnName: string; amount: string; showName: string; date: string }) {
+export async function sendJobPaidEmail({ to, barnName, amount, showName, paymentMethod, image }: { to: string; barnName: string; amount: number; showName: string; paymentMethod: string; image?: string }) {
     if (!to) return { error: 'No email provided' };
 
     console.log(to);
     to = 'tristan@ericmarston.com';
 
     try {
-        const html = await render(ManeAccountJobPaidEmail({ barnName, amount, showName, date }));
+        const html = await render(ManeAccountJobPaidEmail({ barnName, amount, showName, paymentMethod, image }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
@@ -268,14 +268,14 @@ export async function sendJobPaidEmail({ to, barnName, amount, showName, date }:
     }
 }
 
-export async function sendNewMessageEmail({ to, senderName, messagePreview, senderImage }: { to: string; senderName: string; messagePreview: string; senderImage?: string | null }) {
+export async function sendNewMessageEmail({ to, senderName, message, senderImage, showName }: { to: string; senderName: string; message: string; senderImage?: string | null; showName: string }) {
     if (!to) return { error: 'No email provided' };
 
     console.log(to);
     to = 'tristan@ericmarston.com';
 
     try {
-        const html = await render(ManeAccountNewMessageEmail({ senderName, messagePreview, senderImage }));
+        const html = await render(ManeAccountNewMessageEmail({ senderName, message, senderImage, showName }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,

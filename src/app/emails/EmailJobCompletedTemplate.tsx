@@ -34,7 +34,7 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
 
                     <Section style={content}>
                         <Heading style={h1}>Services Completed</Heading>
-                        <Img style={profileImage} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
+                        <Img style={{ ...profileImage, border: image ? 'none' : '2px solid #3f6559' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
 
                         <Text style={textBlock}>
                             <Text style={bold}>{braiderName}</Text>

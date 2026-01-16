@@ -227,7 +227,7 @@ export async function removeMember(connectionID: string, rejected: boolean) {
         if (rejected) {
             const connection = await prisma.connection.findUnique({ where: { id: connectionID }, include: { sender: true, receiver: true } });
             if (connection) {
-                createNotification(
+                await createNotification(
                     connection.sender.id,
                     NotificationType.team_status_change,
                     `${connection.receiver.name} rejected your team invitation`,

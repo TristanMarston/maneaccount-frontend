@@ -97,7 +97,7 @@ const Settings = ({
     activeTab: Tab;
     setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
     userEmail: string;
-    updateSubscriptionTier: (
+    updateSubscriptionTier?: (
         sub: {
             subscriptionTier: SubscriptionTier;
             subscriptionStatus: SubscriptionStatus;
@@ -442,7 +442,7 @@ const Settings = ({
                             </div>
                         ) : (
                             <form id='settings-form' onSubmit={handleSubmit} className='w-full max-w-2xl space-y-8 pb-0.5 pr-0.5'>
-                                {activeTab === 'subscription' && role === 'braider' && (
+                                {activeTab === 'subscription' && role === 'braider' && updateSubscriptionTier && (
                                     <motion.div
                                         initial={{ opacity: 0, x: 20 }}
                                         animate={{ opacity: 1, x: 0 }}

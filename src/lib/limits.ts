@@ -26,28 +26,6 @@ export async function getBraiderUsage(braiderId: string, subscriptionTier: Subsc
         period = 'day';
     }
 
-    // Count assignments represented by jobs scheduled/occurring in this period.
-    // Logic:
-    // 1. Jobs with scheduledDate in range.
-    // 2. Jobs without scheduledDate, but show.startDate in range (approx for pending/unscheduled requests).
-
-    // We can stick to: Count "JobAssignments" where the parent Job falls in the window.
-    // Note: A single job might span days, but we treat it as "serviced" on its date.
-
-    // Query:
-    // Find all JobAssignments where:
-    //   job.braiderId == braiderId
-    //   AND
-    //   (
-    //     (job.scheduledDate >= startDate AND job.scheduledDate <= endDate)
-    //     OR
-    //     (job.scheduledDate IS NULL AND job.show.startDate >= startDate AND job.show.startDate <= endDate)
-    //   )
-    //   AND
-    //   job.status != 'canceled'
-    //   AND
-    //   assignment.canceledAt IS NULL
-
     const assignments = await prisma.jobAssignment.findMany({
         where: {
             job: {

@@ -27,9 +27,9 @@ export const ManeAccountLimitApproachingEmail = ({ count, limit, period }: ManeA
 
                         <Section style={messageContainer}>
                             <Text style={messageText}>
-                                It looks like you're having a great week! You have serviced <span style={{ fontWeight: 'bold' }}>{count}</span> out of your{' '}
-                                <span style={{ fontWeight: 'bold' }}>{limit}</span> {period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit. To make sure you can continue accommodating your customers and the demands of your
-                                success, please upgrade your subscription to grow your account, increase your capabilities, and service more horses.
+                                It looks like you're having a great week! You have serviced <span style={{ fontWeight: 'bold' }}>{count}</span> horses and are almost at your{' '}
+                                {period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit of <span style={{ fontWeight: 'bold' }}>{limit}</span> horses. To make sure
+                                you can continue accommodating your customers and the demands of your success, please upgrade your subscription to grow your account.
                             </Text>
                         </Section>
 

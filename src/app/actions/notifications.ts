@@ -2,6 +2,7 @@
 
 import { auth } from '@/lib/auth';
 import { sendConnectionRequestEmail } from '@/lib/email';
+import { getBraiderUsage } from '@/lib/limits';
 import { prisma } from '@/lib/prisma';
 import { NotificationType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
@@ -417,24 +418,14 @@ export async function createNotification(userId: string, type: NotificationType,
             } else if (type === NotificationType.limit_approaching && user.allowedNotifications.includes('limit_approaching')) {
                 const { sendLimitApproachingEmail } = await import('@/lib/email');
 
+                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier);
 
-
-                const parts = message.split('|');
-                if (parts.length === 3) {
-                    await sendLimitApproachingEmail({
-                        to: user.email,
-                        count: parseInt(parts[0]),
-                        limit: parseInt(parts[1]),
-                        period: parts[2],
-                    });
-                } else {
-                    await sendLimitApproachingEmail({
-                        to: user.email,
-                        count: 48,
-                        limit: 50,
-                        period: 'period',
-                    });
-                }
+                await sendLimitApproachingEmail({
+                    to: user.email,
+                    count: count,
+                    limit: limit,
+                    period: period,
+                });
             }
         }
 

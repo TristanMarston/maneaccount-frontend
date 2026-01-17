@@ -54,20 +54,6 @@ export async function createJob(data: { braiderId: string; showId: string; assig
 
         await createNotification(data.braiderId, NotificationType.job_request, `${barn.name} requested work for ${job.show.name}`, job.id, barn.id);
 
-        if (period !== 'unlimited') {
-            const newTotal = count + newHorsesCount;
-
-            if (count < 48 && newTotal >= 48) {
-                await createNotification(
-                    data.braiderId,
-                    NotificationType.limit_approaching,
-                    `You have serviced ${count} out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
-                    null,
-                    null,
-                );
-            }
-        }
-
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
@@ -177,6 +163,7 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
     try {
         const assignment = await prisma.jobAssignment.findUnique({
             where: { id: assignmentId },
+            include: { services: true, job: { include: { braider: true } } },
         });
         if (!assignment) return { error: 'Assignment not found' };
 
@@ -195,6 +182,26 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
             data: { completedServiceIds },
         });
 
+        if (
+            assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
+                [...new Set(completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
+            completedServiceIds.length > 0
+        ) {
+            const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier);
+
+            if (period !== 'unlimited') {
+                console.log(count, limit, period);
+                if (count === 48) {
+                    await createNotification(
+                        assignment.job.braiderId,
+                        NotificationType.limit_approaching,
+                        `You have serviced ${count} horses out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
+                        null,
+                        null,
+                    );
+                }
+            }
+        }
         revalidatePath('/dashboard');
         return { success: true, message: successMessage };
     } catch (error) {

@@ -20,9 +20,6 @@ const ses = new SESClient({
 export async function sendVerificationCode({ to, code }: { to: string; code: string }) {
     if (!to) return { error: 'No email provided' };
 
-    console.log(to);
-    to = 'tristan@ericmarston.com';
-
     try {
         const html = await render(ManeAccountCodeEmail({ code }));
 
@@ -47,9 +44,6 @@ export async function sendVerificationCode({ to, code }: { to: string; code: str
 
 export async function sendConnectionRequestEmail({ to, message, image }: { to: string; message: string; image?: string | null }) {
     if (!to) return { error: 'No email provided' };
-
-    console.log(to);
-    to = 'tristan@ericmarston.com';
 
     try {
         const html = await render(ManeAccountConnectionRequestEmail({ message, image }));
@@ -90,9 +84,6 @@ export async function sendStatusChangeEmail({
 }) {
     if (!to) return { error: 'No email provided' };
 
-    console.log(to);
-    to = 'tristan@ericmarston.com';
-
     try {
         const html = await render(ManeAccountRequestResponseEmail({ message, connection, image, link, date }));
 
@@ -129,9 +120,6 @@ export async function sendCalendarInviteEmail({
     message?: string;
 }) {
     if (!to) return { error: 'No email provided' };
-
-    console.log(to);
-    to = 'tristan@ericmarston.com';
 
     try {
         const html = await render(ManeAccountCalendarInviteEmail({ eventName, date, location, inviterName, message }));
@@ -178,9 +166,6 @@ export async function sendJobRequestEmail({
 }) {
     if (!to) return { error: 'No email provided' };
 
-    console.log(to);
-    to = 'tristan@ericmarston.com';
-
     try {
         const html = await render(ManeAccountJobRequestEmail({ showName, barnName, braiderName, date, horseCount, serviceCount, assignedHorses, isSubcontractor, earnings }));
 
@@ -222,9 +207,6 @@ export async function sendJobCompletedEmail({
 }) {
     if (!to) return { error: 'No email provided' };
 
-    console.log(to);
-    to = 'tristan@ericmarston.com';
-
     try {
         const html = await render(ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails }));
 
@@ -248,9 +230,6 @@ export async function sendJobCompletedEmail({
 export async function sendJobPaidEmail({ to, barnName, amount, showName, paymentMethod, image }: { to: string; barnName: string; amount: number; showName: string; paymentMethod: string; image?: string }) {
     if (!to) return { error: 'No email provided' };
 
-    console.log(to);
-    to = 'tristan@ericmarston.com';
-
     try {
         const html = await render(ManeAccountJobPaidEmail({ barnName, amount, showName, paymentMethod, image }));
 
@@ -273,9 +252,6 @@ export async function sendJobPaidEmail({ to, barnName, amount, showName, payment
 
 export async function sendNewMessageEmail({ to, senderName, message, senderImage, showName }: { to: string; senderName: string; message: string; senderImage?: string | null; showName: string }) {
     if (!to) return { error: 'No email provided' };
-
-    console.log(to);
-    to = 'tristan@ericmarston.com';
 
     try {
         const html = await render(ManeAccountNewMessageEmail({ senderName, message, senderImage, showName }));

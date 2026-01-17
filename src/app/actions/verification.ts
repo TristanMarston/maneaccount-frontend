@@ -98,6 +98,10 @@ export async function requestPasswordReset(email: string) {
             return { error: 'No account found with this email' };
         }
 
+        if (!existingUser.password) {
+            return { error: 'User signed in with google' }
+        }
+
         const token = await generateVerificationToken(email.toLowerCase());
 
         const result = await sendVerificationCode({

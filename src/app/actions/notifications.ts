@@ -113,6 +113,34 @@ export async function markAllTypeAsRead(type: NotificationType, targetId?: strin
     }
 }
 
+export async function markAllMessagesAsRead(targetId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({ where: { id: targetId }, include: { notes: true } });
+        if (!job) return { error: 'Job not found' };
+
+        const noteIds = job.notes.map((note) => note.id);
+
+        await prisma.notification.updateMany({
+            where: {
+                user: { email: session.user.email },
+                type: NotificationType.new_message,
+                targetId: { in: noteIds },
+                isRead: false,
+            },
+            data: { isRead: true },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Mark all type as read error:', error);
+        return { error: 'Failed to mark notifications as read' };
+    }
+}
+
 export async function deleteNotification(notificationId: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
@@ -386,6 +414,28 @@ export async function createNotification(userId: string, type: NotificationType,
                     senderImage,
                     showName: note?.job?.show.name || '',
                 });
+            } else if (type === NotificationType.limit_approaching && user.allowedNotifications.includes('limit_approaching')) {
+                const { sendLimitApproachingEmail } = await import('@/lib/email');
+
+                
+
+                const parts = message.split('|');
+                if (parts.length === 3) {
+                    await sendLimitApproachingEmail({
+                        to: user.email,
+                        count: parseInt(parts[0]),
+                        limit: parseInt(parts[1]),
+                        period: parts[2],
+                    });
+                } else {
+                    // Fallback
+                    await sendLimitApproachingEmail({
+                        to: user.email,
+                        count: 45,
+                        limit: 50,
+                        period: 'period',
+                    });
+                }
             }
         }
 

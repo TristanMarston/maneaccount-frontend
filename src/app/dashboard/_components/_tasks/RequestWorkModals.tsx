@@ -8,6 +8,8 @@ import { useState, useEffect } from 'react';
 
 import Image from 'next/image';
 import { getHorses } from '@/app/actions/horses';
+import Link from 'next/link';
+import { formatPhoneNumber } from '../_settings/Settings';
 
 export const ViewShowDetailsModal = ({
     show,
@@ -76,12 +78,14 @@ export const RequestWorkModal = ({
     onSubmit,
     setSelectedHorse,
     setShowDetailsModal,
+    setSelectedPage,
 }: {
     userEmail: string;
     onClose: () => void;
     onSubmit: (data: any) => void;
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
     setShowDetailsModal: React.Dispatch<React.SetStateAction<{ open: boolean; show: any; onSelect: () => void }>>;
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
 }) => {
     const [braiders, setBraiders] = useState<any[]>([]);
     const [selectedBraider, setSelectedBraider] = useState<any>(null);
@@ -190,7 +194,7 @@ export const RequestWorkModal = ({
                                                 }}
                                                 className={cn(
                                                     'px-4 py-2 rounded-xl shadow-sm border cursor-pointer flex items-center gap-3 transition-all',
-                                                    selectedBraider?.id === b.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50'
+                                                    selectedBraider?.id === b.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50',
                                                 )}
                                             >
                                                 <div className='min-w-8 min-h-8 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
@@ -232,7 +236,7 @@ export const RequestWorkModal = ({
                                                 }}
                                                 className={cn(
                                                     'pl-4 pr-2.5 py-2 rounded-xl shadow-sm border cursor-pointer flex items-center justify-between gap-3 transition-all',
-                                                    selectedShow?.id === show.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50'
+                                                    selectedShow?.id === show.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50',
                                                 )}
                                             >
                                                 <div className='flex flex-col min-w-0 truncate'>
@@ -260,7 +264,7 @@ export const RequestWorkModal = ({
                                                     }}
                                                     className={cn(
                                                         'rounded-full p-1.5 transition-all',
-                                                        selectedShow?.id === show.id ? 'bg-primary-extra-light hover:bg-white' : 'bg-white hover:bg-primary-extra-light'
+                                                        selectedShow?.id === show.id ? 'bg-primary-extra-light hover:bg-white' : 'bg-white hover:bg-primary-extra-light',
                                                     )}
                                                 >
                                                     <CircleArrowRight size={32} className='text-primary' />
@@ -354,39 +358,56 @@ export const RequestWorkModal = ({
                                 </div>
 
                                 <div className='flex flex-col'>
-                                    <label className='text-sm font-bold text-gray-400 uppercase'>Which Horse?</label>
-                                    <div className='grid pt-2 grid-cols-1 @min-[230px]/request:grid-cols-2 @min-[345px]/request:grid-cols-3 @min-[460px]/request:grid-cols-4 @min-[580px]/request:grid-cols-5 gap-3 max-h-[130px] overflow-y-auto overflow-x-hidden pb-1 px-2'>
-                                        {horses.map((horse) => (
-                                            <div
-                                                key={horse.id}
-                                                onClick={() => setTempHorse(horse)}
-                                                className={cn(
-                                                    'p-3 rounded-xl relative border flex flex-col shadow-sm items-center gap-2 cursor-pointer transition-all',
-                                                    tempHorse?.id === horse.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50',
-                                                    assignments.some((assignment) => assignment.horseId === horse.id) ? 'opacity-50 pointer-events-none' : ''
-                                                )}
-                                                title={horse.barnName}
+                                    {horses.length === 0 ? (
+                                        <p className='text-base font-semibold text-center text-gray-500 col-span-full'>
+                                            No horses found.{' '}
+                                            <span
+                                                className='text-primary-light cursor-pointer'
+                                                onClick={() => {
+                                                    onClose();
+                                                    setSelectedPage('Horses');
+                                                }}
                                             >
-                                                <div className='w-12 h-12 rounded-full bg-gray-100 overflow-hidden relative'>
-                                                    {horse.profileImage ? (
-                                                        <Image src={horse.profileImage} alt={horse.barnName} fill className='object-cover' />
-                                                    ) : (
-                                                        <div className='w-full h-full flex items-center justify-center text-gray-400 font-bold'>{horse.barnName[0]}</div>
-                                                    )}
-                                                </div>
-                                                <p className='font-bold text-sm text-center truncate w-full'>{horse.barnName}</p>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedHorse(horse);
-                                                    }}
-                                                    className='absolute cursor-pointer -top-2.5 -right-2.5 text-gray-300 hover:text-primary transition-colors bg-gray-100 border border-gray-100 rounded-full shadow-sm'
-                                                >
-                                                    <Info className='w-6.5 h-6.5' />
-                                                </button>
+                                                Add a horse
+                                            </span>
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <label className='text-sm font-bold text-gray-400 uppercase'>Which Horse?</label>
+                                            <div className='grid pt-2 grid-cols-1 @min-[230px]/request:grid-cols-2 @min-[345px]/request:grid-cols-3 @min-[460px]/request:grid-cols-4 @min-[580px]/request:grid-cols-5 gap-3 max-h-[130px] overflow-y-auto overflow-x-hidden pb-1 px-2'>
+                                                {horses.map((horse) => (
+                                                    <div
+                                                        key={horse.id}
+                                                        onClick={() => setTempHorse(horse)}
+                                                        className={cn(
+                                                            'p-3 rounded-xl relative border flex flex-col shadow-sm items-center gap-2 cursor-pointer transition-all',
+                                                            tempHorse?.id === horse.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50',
+                                                            assignments.some((assignment) => assignment.horseId === horse.id) ? 'opacity-50 pointer-events-none' : '',
+                                                        )}
+                                                        title={horse.barnName}
+                                                    >
+                                                        <div className='w-12 h-12 rounded-full bg-gray-100 overflow-hidden relative'>
+                                                            {horse.profileImage ? (
+                                                                <Image src={horse.profileImage} alt={horse.barnName} fill className='object-cover' />
+                                                            ) : (
+                                                                <div className='w-full h-full flex items-center justify-center text-gray-400 font-bold'>{horse.barnName[0]}</div>
+                                                            )}
+                                                        </div>
+                                                        <p className='font-bold text-sm text-center truncate w-full'>{horse.barnName}</p>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedHorse(horse);
+                                                            }}
+                                                            className='absolute cursor-pointer -top-2.5 -right-2.5 text-gray-300 hover:text-primary transition-colors bg-gray-100 border border-gray-100 rounded-full shadow-sm'
+                                                        >
+                                                            <Info className='w-6.5 h-6.5' />
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Step 2: Select Services */}
@@ -394,24 +415,41 @@ export const RequestWorkModal = ({
                                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className='flex-1 min-h-0 flex flex-col gap-2'>
                                         <label className='text-sm font-bold text-gray-400 uppercase'>What Services?</label>
                                         <div className='flex-1 overflow-y-auto max-h-[230px] space-y-2 px-2 pb-1'>
-                                            {services.map((service) => (
-                                                <div
-                                                    key={service.id}
-                                                    onClick={() => {
-                                                        setTempServices((prev) => (prev.includes(service.id) ? prev.filter((id) => id !== service.id) : [...prev, service.id]));
-                                                    }}
-                                                    className={cn(
-                                                        'p-3 rounded-xl border flex justify-between items-center cursor-pointer transition-all shadow-sm',
-                                                        tempServices.includes(service.id) ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/30'
+                                            {services.length === 0 ? (
+                                                <p className='text-base font-semibold text-left text-gray-500 col-span-full'>
+                                                    This braider hasn&apos;t added any services. Please contact them directly at{' '}
+                                                    <Link href={`mailto:${selectedBraider.email}`} className='text-primary-light hover:underline'>
+                                                        {selectedBraider.email}
+                                                    </Link>
+                                                    {selectedBraider.phoneNumber && ` or `}
+                                                    {selectedBraider.phoneNumber && (
+                                                        <Link href={`tel:${selectedBraider.phoneNumber}`} className='text-primary-light hover:underline'>
+                                                            {formatPhoneNumber(selectedBraider.phoneNumber)}
+                                                        </Link>
                                                     )}
-                                                >
-                                                    <div className='flex flex-col'>
-                                                        <span className='font-bold text-sm'>{service.name}</span>
-                                                        <span className='text-xs text-gray-500'>{service.duration ? `${service.duration}m` : 'Duration Varies'}</span>
+                                                </p>
+                                            ) : (
+                                                services.map((service) => (
+                                                    <div
+                                                        key={service.id}
+                                                        onClick={() => {
+                                                            setTempServices((prev) => (prev.includes(service.id) ? prev.filter((id) => id !== service.id) : [...prev, service.id]));
+                                                        }}
+                                                        className={cn(
+                                                            'p-3 rounded-xl border flex justify-between items-center cursor-pointer transition-all shadow-sm',
+                                                            tempServices.includes(service.id)
+                                                                ? 'bg-primary-extra-light border-primary'
+                                                                : 'bg-white border-gray-200 hover:border-primary/30',
+                                                        )}
+                                                    >
+                                                        <div className='flex flex-col'>
+                                                            <span className='font-bold text-sm'>{service.name}</span>
+                                                            <span className='text-xs text-gray-500'>{service.duration ? `${service.duration}m` : 'Duration Varies'}</span>
+                                                        </div>
+                                                        <span className='font-bold text-primary'>${service.priceUSD}</span>
                                                     </div>
-                                                    <span className='font-bold text-primary'>${service.priceUSD}</span>
-                                                </div>
-                                            ))}
+                                                ))
+                                            )}
                                         </div>
                                     </motion.div>
                                 )}

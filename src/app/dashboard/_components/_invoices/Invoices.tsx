@@ -40,6 +40,7 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { getUserSettings } from '@/app/actions/settings';
 import { failToast, successToast } from '@/app/context';
 import { format } from 'date-fns';
+import { formatPhoneNumber } from '../_settings/Settings';
 
 const Invoices = ({
     role,
@@ -125,12 +126,24 @@ const Invoices = ({
     const paidJobs = jobs.filter((j) => j.paidAt);
 
     const totalEarned = paidJobs.reduce(
-        (acc, j) => acc + j.assignments.reduce((sAcc: number, s: any) => sAcc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0),
-        0
+        (acc, j) =>
+            acc +
+            j.assignments.reduce(
+                (acc: number, a: any) =>
+                    acc + a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                0,
+            ),
+        0,
     );
     const pendingAmount = unpaidJobs.reduce(
-        (acc, j) => acc + j.assignments.reduce((sAcc: number, s: any) => sAcc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0),
-        0
+        (acc, j) =>
+            acc +
+            j.assignments.reduce(
+                (acc: number, a: any) =>
+                    acc + a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                0,
+            ),
+        0,
     );
 
     return (
@@ -139,7 +152,7 @@ const Invoices = ({
                 className={cn(
                     role === 'braider'
                         ? 'flex justify-between @min-[490px]/invoices:items-center flex-col @min-[490px]/invoices:flex-row mb-6 gap-4'
-                        : 'flex justify-between @min-[380px]/invoices:items-center flex-col @min-[380px]/invoices:flex-row mb-6 gap-4'
+                        : 'flex justify-between @min-[380px]/invoices:items-center flex-col @min-[380px]/invoices:flex-row mb-6 gap-4',
                 )}
             >
                 <div>
@@ -153,13 +166,13 @@ const Invoices = ({
                             'font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-primary primary-border-hover bg-background',
                             role === 'braider'
                                 ? 'text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[735px]/invoices:py-2 @min-[735px]/invoices:px-6'
-                                : 'text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[380px]/invoices:rounded-[20px] @min-[440px]/invoices:rounded-[10px] @min-[380px]/invoices:p-3 @min-[440px]/invoices:py-2 @min-[440px]/invoices:px-6 py-2 px-6'
+                                : 'text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[380px]/invoices:rounded-[20px] @min-[440px]/invoices:rounded-[10px] @min-[380px]/invoices:p-3 @min-[440px]/invoices:py-2 @min-[440px]/invoices:px-6 py-2 px-6',
                         )}
                     >
                         <RefreshCcw className={cn('w-6 h-6', loading ? 'animate-spin' : '')} strokeWidth={2.5} />
                         <span
                             className={cn(
-                                role === 'braider' ? 'block @min-[490px]/invoices:hidden @min-[735px]/invoices:block' : 'block @min-[380px]/invoices:hidden @min-[440px]/invoices:block'
+                                role === 'braider' ? 'block @min-[490px]/invoices:hidden @min-[735px]/invoices:block' : 'block @min-[380px]/invoices:hidden @min-[440px]/invoices:block',
                             )}
                         >
                             Refresh
@@ -298,15 +311,23 @@ const Invoices = ({
                         <h2 className='text-4xl font-lusitana font-bold mb-1'>Send Payment</h2>
                         <p className='text-gray-500 text-sm mb-6'>
                             Pay <span className='font-bold text-gray-900'>{selectedJob.braider.name}</span> for{' '}
-                            {selectedJob.assignments.reduce((acc: any, s: any) => acc + s.services.length, 0)} services across {selectedJob.assignments.length} horses.
-                            <span className='text-sm text-gray-400 text-left block mt-0.5'>Service date: {format(selectedJob.scheduledDate, 'MMM d, yyyy')}</span>
+                            {selectedJob.assignments.reduce((acc: any, s: any) => acc + s.services.length, 0)} services across {selectedJob.assignments.length} horses. The appropriate
+                            horse owners have been emailed the invoice. You may choose to pay it for them now.
+                            <span className='text-sm text-gray-400 text-left block mt-0.5'>Completed On: {format(selectedJob.updatedAt, 'MMM d, yyyy')}</span>
+                            <span className='mt-0.5 block'>When you know the braider has been paid for all services, come here and mark this job as paid.</span>
                         </p>
 
                         <div className='bg-emerald-50 p-4 rounded-xl mb-6 border border-emerald-200 shadow-sm'>
                             <div className='flex justify-between items-center'>
                                 <span className='text-emerald-600 font-semibold text-lg'>Total Amount</span>
                                 <span className='text-3xl font-bold font-lusitana text-emerald-600'>
-                                    ${selectedJob.assignments.reduce((acc: any, s: any) => acc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0)}
+                                    $
+                                    {selectedJob.assignments.reduce(
+                                        (acc: number, a: any) =>
+                                            acc +
+                                            a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                                        0,
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -321,7 +342,7 @@ const Invoices = ({
                                         'flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm',
                                         paymentMethod === 'venmo'
                                             ? 'border-[#008CFF] bg-[#008CFF]/5 ring-1 ring-[#008CFF]'
-                                            : 'border-gray-200 hover:border-[#008CFF]/30 hover:bg-[#008CFF]/5'
+                                            : 'border-gray-200 hover:border-[#008CFF]/30 hover:bg-[#008CFF]/5',
                                     )}
                                 >
                                     <div className='w-12 h-12 rounded-full relative overflow-hidden bg-[#008CFF]/10 flex items-center justify-center shrink-0'>
@@ -354,7 +375,7 @@ const Invoices = ({
                                             'flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm',
                                             paymentMethod === 'zelle'
                                                 ? 'border-[#6D1ED4] bg-[#6D1ED4]/5 ring-1 ring-[#6D1ED4]'
-                                                : 'border-gray-200 hover:border-[#6D1ED4]/30 hover:bg-[#6D1ED4]/5'
+                                                : 'border-gray-200 hover:border-[#6D1ED4]/30 hover:bg-[#6D1ED4]/5',
                                         )}
                                     >
                                         <div className='w-12 h-12 rounded-full relative overflow-hidden bg-[#6D1ED4]/10 flex items-center justify-center shrink-0'>
@@ -364,9 +385,7 @@ const Invoices = ({
                                             <div className='font-bold text-gray-900 text-lg'>Zelle</div>
                                             <div className='text-sm text-gray-500 flex items-center gap-1 min-w-0'>
                                                 <span className='truncate'>
-                                                    {selectedJob.braider.zelle === 'email'
-                                                        ? selectedJob.braider.email
-                                                        : selectedJob.braider.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
+                                                    {selectedJob.braider.zelle === 'email' ? selectedJob.braider.email : formatPhoneNumber(selectedJob.braider.phoneNumber)}
                                                 </span>
                                             </div>
                                         </div>
@@ -379,7 +398,7 @@ const Invoices = ({
                                     'flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm',
                                     paymentMethod === 'cash/check'
                                         ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
-                                        : 'border-gray-200 hover:border-emerald-200 hover:bg-emerald-50'
+                                        : 'border-gray-200 hover:border-emerald-200 hover:bg-emerald-50',
                                 )}
                             >
                                 <div className='w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-2xl shrink-0'>$</div>
@@ -430,7 +449,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                     onClick={() => setView('venmo')}
                     className={cn(
                         'flex-1 cursor-pointer relative z-10 w-full py-1.5 text-[15px] font-bold text-center rounded-full transition-colors tracking-wide',
-                        view === 'venmo' ? 'text-background' : 'text-primary'
+                        view === 'venmo' ? 'text-background' : 'text-primary',
                     )}
                 >
                     Venmo
@@ -439,7 +458,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                     onClick={() => setView('zelle')}
                     className={cn(
                         'flex-1 cursor-pointer relative z-10 w-full py-1.5 text-[15px] font-bold text-center rounded-full transition-colors tracking-wide',
-                        view === 'zelle' ? 'text-background' : 'text-primary'
+                        view === 'zelle' ? 'text-background' : 'text-primary',
                     )}
                 >
                     Zelle
@@ -538,14 +557,14 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                             <button
                                                 type='button'
                                                 onClick={() => {
-                                                    navigator.clipboard.writeText(user.zelle === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3'));
+                                                    navigator.clipboard.writeText(user.zelle === 'email' ? user.email : formatPhoneNumber(user.phoneNumber));
                                                     successToast('Copied to clipboard');
                                                 }}
-                                                title={user.zelle === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
+                                                title={user.zelle === 'email' ? user.email : formatPhoneNumber(user.phoneNumber)}
                                                 className='bg-gray-50 border cursor-pointer truncate text-gray-500 border-gray-200 shadow-sm flex items-center gap-2 w-full px-4 py-[5px] text-[17px] rounded-xl'
                                             >
                                                 <Copy size={18} className='min-w-4.5' />
-                                                <span className='truncate'>{user.zelle === 'email' ? user.email : user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}</span>
+                                                <span className='truncate'>{user.zelle === 'email' ? user.email : formatPhoneNumber(user.phoneNumber)}</span>
                                             </button>
                                         </div>
 
@@ -581,17 +600,22 @@ const InvoiceCard = ({ job, role, onAction, isHistory }: { job: any; role: strin
         <div
             className={cn(
                 'bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col @min-[490px]/invoices:flex-row gap-4 justify-between items-center',
-                isHistory ? 'opacity-60' : ''
+                isHistory ? 'opacity-60' : '',
             )}
         >
             <div className='flex items-center gap-4 w-full min-w-0'>
                 <div
                     className={cn(
                         'w-16 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
-                        isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light'
+                        isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light',
                     )}
                 >
-                    ${job.assignments.reduce((acc: any, s: any) => acc + s.services.reduce((ssAcc: number, ss: any) => ssAcc + ss.priceUSD, 0), 0)}
+                    $
+                    {job.assignments.reduce(
+                        (acc: number, a: any) =>
+                            acc + a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                        0,
+                    )}
                 </div>
                 <div className='min-w-0'>
                     <h3 className='font-bold font-figtree text-gray-900 truncate'>{role === 'barn' ? job.braider.name : job.barn.name}</h3>

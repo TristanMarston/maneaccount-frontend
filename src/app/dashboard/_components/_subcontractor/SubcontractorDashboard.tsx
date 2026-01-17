@@ -9,9 +9,8 @@ import Team from '../Team';
 import { getPublicID } from '@/app/actions/getPublicID';
 import Calendar from '../_calendar/Calendar';
 import Tasks from '../_tasks/Tasks';
-import Settings from '../Settings'; 
-
-type Tab = 'profile' | 'account' | 'payments' | 'notifications';
+import Settings from '../_settings/Settings';
+import { Tab } from '../_braider/BraiderDashboard';
 
 const SubcontractorDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -56,7 +55,7 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
             case 'Team':
                 return <Team userEmail={email} role='subcontractor' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Settings':
-                return <Settings update={update} role='subcontractor' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} />;
+                return <Settings update={update} role='subcontractor' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:
                 return <DashboardHome role='subcontractor' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
         }
@@ -74,6 +73,8 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
                 unsavedChanges={unsavedChanges}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
             />
             <main className='flex-1 h-full overflow-y-auto hide-scrollbar bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>
         </div>

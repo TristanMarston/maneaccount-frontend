@@ -1,18 +1,62 @@
 'use client';
 
-import { X, Camera, Check, AlertCircle, Loader2, User, Shield, AtSign, ZoomOut, ZoomIn, Move, CircleAlert, Phone, Mail, CreditCard, QrCode } from 'lucide-react';
+import {
+    X,
+    Camera,
+    Check,
+    AlertCircle,
+    Loader2,
+    User,
+    Shield,
+    AtSign,
+    ZoomOut,
+    ZoomIn,
+    Move,
+    CircleAlert,
+    Phone,
+    Mail,
+    CreditCard,
+    Bell,
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    Key,
+    Lock,
+    KeyRound,
+    Sparkles,
+} from 'lucide-react';
 import { Session } from 'next-auth';
 import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
-import { toast } from 'react-hot-toast';
 import { checkPublicIDAvailability, updateProfile, getUserSettings, deleteAccount, switchAccountRole } from '@/app/actions/settings';
 import { cn } from '@/lib/utils';
-import { failToast, successToast } from '../context';
-import Modal from './Modal';
-import { useRouter } from 'next/navigation';
+import { failToast, successToast } from '../../../context';
+import Modal from '../../Modal';
 import { signOut } from 'next-auth/react';
-import { requestVerificationEmail, verifyToken } from '../actions/verification';
+import { requestPasswordReset, requestVerificationEmail, resetPassword, verifyResetCode, verifyToken } from '../../../actions/verification';
+import SubscriptionSettings from './SubscriptionSettings';
+import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
+
+enum NotificationType {
+    calendar_invite = 'calendar_invite',
+    job_request = 'job_request',
+    job_status_change = 'job_status_change',
+    job_completed = 'job_completed',
+    job_paid = 'job_paid',
+    barn_invite = 'barn_invite',
+    barn_status_change = 'barn_status_change',
+    team_invite = 'team_invite',
+    team_status_change = 'team_status_change',
+    new_message = 'new_message',
+    limit_approaching = 'limit_approaching',
+}
+
+type NotificationMap = {
+    text: string;
+    type: NotificationType;
+    visibility: ('braider' | 'subcontractor' | 'barn')[];
+};
 
 function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -34,22 +78,33 @@ export const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-type Tab = 'profile' | 'account' | 'payments';
+type Tab = 'profile' | 'account' | 'payments' | 'notifications' | 'subscription';
 type ZelleOption = 'email' | 'phone' | 'disabled';
 type ZelleUpsetOption = 'phone' | 'email';
 
-const SettingsModal = ({
-    setOpen,
-    session,
+const Settings = ({
     update,
+    role: propRole,
+    setUnsavedChanges,
     activeTab,
     setActiveTab,
+    userEmail,
+    updateSubscriptionTier,
 }: {
-    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    session: Session | null;
     update: (data?: any) => Promise<Session | null>;
+    role: string;
+    setUnsavedChanges?: (isDirty: boolean) => void;
     activeTab: Tab;
     setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
+    userEmail: string;
+    updateSubscriptionTier: (
+        sub: {
+            subscriptionTier: SubscriptionTier;
+            subscriptionStatus: SubscriptionStatus;
+            trialEndsAt: Date | null;
+            stripeCustomerId: string | null;
+        } | null,
+    ) => void;
 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -64,7 +119,6 @@ const SettingsModal = ({
     const [verificationCode, setVerificationCode] = useState('');
     const [role, setRole] = useState<'braider' | 'subcontractor' | 'barn' | 'admin'>('barn');
     const [roleModal, setRoleModal] = useState(false);
-    const [closeModal, setCloseModal] = useState(false);
 
     const [venmoLink, setVenmoLink] = useState('');
     const [venmo, setVenmo] = useState('');
@@ -72,6 +126,8 @@ const SettingsModal = ({
     const [venmoUpset, setVenmoUpset] = useState(false);
     const [zelle, setZelle] = useState<ZelleOption>('disabled');
     const [zelleUpset, setZelleUpset] = useState<ZelleUpsetOption[]>([]);
+
+    const [allowedNotifications, setAllowedNotifications] = useState<NotificationType[]>([]);
 
     const [imagePreview, setImagePreview] = useState<string>('');
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -87,6 +143,7 @@ const SettingsModal = ({
         venmo: string;
         zelle: ZelleOption;
         venmoEnabled: boolean;
+        allowedNotifications: NotificationType[];
     }>({
         name: '',
         publicID: '',
@@ -96,12 +153,14 @@ const SettingsModal = ({
         venmo: '',
         zelle: 'disabled',
         venmoEnabled: false,
+        allowedNotifications: [],
     });
     const [deleteAccountModal, setDeleteAccountModal] = useState(false);
 
     const debouncedPublicID = useDebounce(publicID, 500);
     const [isIDAvailable, setIsIDAvailable] = useState<boolean | null>(null);
     const [isCheckingID, setIsCheckingID] = useState(false);
+    const [resetModalOpen, setResetModalOpen] = useState(false);
 
     useEffect(() => {
         if (venmo.length >= 5 && venmo.length <= 30) {
@@ -129,6 +188,7 @@ const SettingsModal = ({
                     venmo: data.venmo || '',
                     zelle: data.zelle || 'disabled',
                     venmoEnabled: data.venmoEnabled,
+                    allowedNotifications: (data.allowedNotifications as NotificationType[]) || [],
                 };
 
                 setName(data.name || '');
@@ -144,6 +204,7 @@ const SettingsModal = ({
                 setVenmo(data.venmo?.substring(data.venmo?.indexOf('/u/') + 3) || '');
                 setVenmoEnabled(data.venmoEnabled);
                 setZelle(data.zelle || 'disabled');
+                setAllowedNotifications((data.allowedNotifications as NotificationType[]) || []);
             }
             setIsLoading(false);
         };
@@ -170,6 +231,31 @@ const SettingsModal = ({
 
         checkID();
     }, [debouncedPublicID]);
+
+    const isDirty =
+        originalInfo.current.name !== name ||
+        originalInfo.current.publicID !== publicID ||
+        originalInfo.current.phoneNumber !== phoneNumber ||
+        originalInfo.current.image !== imagePreview ||
+        originalInfo.current.role !== role ||
+        (role === 'braider' && (originalInfo.current.venmo !== venmoLink || originalInfo.current.zelle !== zelle || originalInfo.current.venmoEnabled !== venmoEnabled)) ||
+        JSON.stringify(originalInfo.current.allowedNotifications.sort()) !== JSON.stringify(allowedNotifications.sort());
+
+    useEffect(() => {
+        if (setUnsavedChanges) {
+            setUnsavedChanges(isDirty);
+        }
+
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty, setUnsavedChanges]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -216,6 +302,18 @@ const SettingsModal = ({
         setIsVerifying(false);
     };
 
+    const handleNotificationToggle = (type: NotificationType) => {
+        if (!emailVerified) return; // Cannot toggle if not verified
+
+        setAllowedNotifications((prev) => {
+            if (prev.includes(type)) {
+                return prev.filter((t) => t !== type);
+            } else {
+                return [...prev, type];
+            }
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -224,21 +322,12 @@ const SettingsModal = ({
             return;
         }
 
-        if (
-            originalInfo.current.name === name &&
-            originalInfo.current.publicID === publicID &&
-            originalInfo.current.phoneNumber === phoneNumber &&
-            originalInfo.current.image === imagePreview &&
-            originalInfo.current.role === role &&
-            (originalInfo.current.role === 'braider'
-                ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
-                : true)
-        ) {
+        if (!isDirty) {
             failToast('Update at least one field to save changes');
             return;
         }
 
-        if (role === 'braider' ? venmo.length < 5 || venmo.length > 30 : false) {
+        if (role === 'braider' && venmoEnabled ? venmo.length < 5 || venmo.length > 30 : false) {
             failToast('Venmo username must be between 5 and 30 characters');
             return;
         }
@@ -253,6 +342,9 @@ const SettingsModal = ({
         if (venmoLink !== originalInfo.current.venmo) formData.venmo = venmoLink;
         if (zelle !== originalInfo.current.zelle) formData.zelle = zelle;
         if (venmoEnabled !== originalInfo.current.venmoEnabled) formData.venmoEnabled = venmoEnabled;
+        if (JSON.stringify(originalInfo.current.allowedNotifications.sort()) !== JSON.stringify(allowedNotifications.sort())) {
+            formData.allowedNotifications = allowedNotifications;
+        }
         if (role !== originalInfo.current.role) switchResult = await switchAccountRole();
 
         if (finalImageBlob) formData.image = finalImageBlob;
@@ -267,15 +359,26 @@ const SettingsModal = ({
                 if (result.image && result.image.length > 0) updateData.image = result.image;
                 await update(updateData);
 
-                setOpen(false);
+                // Update original info to new state
+                originalInfo.current = {
+                    ...originalInfo.current,
+                    name: name,
+                    publicID: publicID,
+                    phoneNumber: phoneNumber, // Keep formatted
+                    image: imagePreview,
+                    role: role,
+                    venmo: venmoLink,
+                    zelle: zelle,
+                    venmoEnabled: venmoEnabled,
+                    allowedNotifications: [...allowedNotifications],
+                };
             } else {
                 failToast(result.error || 'Failed to update');
             }
         } else if (switchResult && switchResult.success && switchResult.newRole) {
             successToast('Profile updated!');
             await update({ role: switchResult.newRole });
-
-            setOpen(false);
+            originalInfo.current.role = role;
         } else {
             failToast('Failed to update');
         }
@@ -285,35 +388,71 @@ const SettingsModal = ({
 
     return (
         <>
-            <div className='@container/settings pr-0.5'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 h-full @container/settings relative'>
                 <div className='flex justify-between items-center'>
-                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
+                    <div>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
+                        <p className='text-gray-500 font-figtree mt-1'>Manage your account preferences and notifications.</p>
+                    </div>
                 </div>
 
-                <div className='flex flex-col @min-[520px]/settings:flex-row flex-1 overflow-hidden mt-4'>
-                    <div
-                        className={cn(
-                            'w-auto bg-gray-50 border rounded-t-[18px] @min-[520px]/settings:rounded-l-[18px] @min-[520px]/settings:rounded-t-none border-gray-100 p-4 @min-[700px]/settings:p-6 flex flex-col @min-[430px]/settings:grid @min-[520px]:flex @min-[520px]:flex-col gap-2 shrink-0',
-                            role === 'braider' ? '@min-[430px]/settings:grid-cols-3' : '@min-[430px]/settings:grid-cols-2'
-                        )}
-                    >
+                <div className='flex flex-col @min-[650px]/settings:flex-row flex-1 overflow-hidden mt-4 gap-6 items-start'>
+                    <div className='w-full @min-[650px]/settings:w-64 bg-gray-50 border rounded-[18px] border-gray-100 p-4 flex flex-col gap-2 shrink-0 sticky top-0'>
                         <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
                         <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
-                        {role === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payments' />}
+                        {role === 'braider' && <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />}
+                        {role === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payout Methods' />}
+                        <NavTab active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={Bell} label='Notifications' />
+                        <motion.div className={cn('flex flex-col gap-3', isDirty ? '' : 'pointer-events-none')} initial={{ opacity: 0.3 }} animate={{ opacity: isDirty ? 1 : 0.3 }}>
+                            <button
+                                onClick={() => {
+                                    setName(originalInfo.current.name);
+                                    setPublicID(originalInfo.current.publicID);
+                                    setPhoneNumber(originalInfo.current.phoneNumber);
+                                    setImagePreview(originalInfo.current.image);
+                                    setRole(originalInfo.current.role as any);
+                                    setVenmoLink(originalInfo.current.venmo);
+                                    setZelle(originalInfo.current.zelle);
+                                    setVenmoEnabled(originalInfo.current.venmoEnabled);
+                                    setAllowedNotifications(originalInfo.current.allowedNotifications);
+                                    setVenmo(originalInfo.current.venmo?.substring(originalInfo.current.venmo?.indexOf('/u/') + 3) || '');
+                                    setFinalImageBlob(null);
+                                    setIsIDAvailable(true);
+                                }}
+                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-primary text-nowrap rounded-[10px] py-2 px-4 primary-border-hover'
+                            >
+                                Discard
+                            </button>
+                            <button
+                                form='settings-form'
+                                type='submit'
+                                disabled={isSaving || isIDAvailable === false || isLoading}
+                                className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-nowrap rounded-[10px] py-2 px-4 bg-primary-light text-white primary-border-hover'
+                            >
+                                {isSaving && <Loader2 size={16} className='animate-spin' />}
+                                Save Changes
+                            </button>
+                        </motion.div>
                     </div>
 
-                    <div
-                        className={cn(
-                            'flex-1 overflow-y-auto p-4 @min-[300px]/settings:p-6 @min-[300px]/settings:pb-8 @min-[700px]/settings:p-8 @min-[700px]/settings:pb-10 border border-gray-100 bg-white rounded-b-[18px] @min-[520px]/settings:rounded-r-[18px] @min-[520px]/settings:rounded-bl-none relative',
-                            isLoading ? 'py-16!' : ''
-                        )}
-                    >
+                    <div className={cn('flex-1 w-full relative pb-28 dashboard-sm:pb-8', isLoading ? 'min-h-[300px]' : '')}>
                         {isLoading ? (
                             <div className='absolute inset-0 flex items-center justify-center'>
                                 <span className='loader-primary'></span>
                             </div>
                         ) : (
-                            <form id='settings-form' onSubmit={handleSubmit} className='max-w-xl space-y-8'>
+                            <form id='settings-form' onSubmit={handleSubmit} className='w-full max-w-2xl space-y-8 pb-0.5 pr-0.5'>
+                                {activeTab === 'subscription' && role === 'braider' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className='space-y-6 @container/subscription font-figtree'
+                                    >
+                                        <SubscriptionSettings updateSubscriptionTier={updateSubscriptionTier} />
+                                    </motion.div>
+                                )}
+
                                 {activeTab === 'profile' && (
                                     <motion.div
                                         initial={{ opacity: 0, x: 20 }}
@@ -321,7 +460,7 @@ const SettingsModal = ({
                                         transition={{ duration: 0.3 }}
                                         className='space-y-8 font-figtree @container/profile'
                                     >
-                                        <div className='flex flex-col @min-[260px]/profile:flex-row items-center gap-6'>
+                                        <div className='flex flex-col @min-[400px]/profile:flex-row items-center gap-6'>
                                             <div className='relative group cursor-pointer shrink-0'>
                                                 <div className='w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100'>
                                                     {imagePreview && imagePreview.length > 0 ? (
@@ -337,7 +476,7 @@ const SettingsModal = ({
                                                 </div>
                                                 <input type='file' accept='image/*' onChange={handleImageChange} className='absolute inset-0 opacity-0 cursor-pointer' />
                                             </div>
-                                            <div className='text-center @min-[260px]/profile:text-left'>
+                                            <div className='text-center @min-[400px]/profile:text-left'>
                                                 <h3 className='font-bold font-figtree text-xl text-gray-900'>Profile Picture</h3>
                                                 <p className='text-sm text-gray-500 font-figtree'>Click the image to upload a new photo.</p>
                                             </div>
@@ -378,7 +517,7 @@ const SettingsModal = ({
                                                             ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
                                                             : isIDAvailable === true
                                                               ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
-                                                              : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                              : 'border-gray-200 focus:border-primary focus:ring-primary/10',
                                                     )}
                                                     placeholder='public-id'
                                                     autoCorrect='off'
@@ -426,13 +565,13 @@ const SettingsModal = ({
                                     >
                                         <div className='flex flex-col gap-2 w-full'>
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Email Address</label>
-                                            <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[225px]/account:p-4 font-figtree'>
-                                                <div className='flex flex-col @min-[365px]/account:flex-row @min-[365px]/account:items-center justify-between gap-4 w-full'>
+                                            <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[350px]/account:p-4 font-figtree'>
+                                                <div className='flex flex-col @min-[500px]/account:flex-row @min-[500px]/account:items-center justify-between gap-4 w-full'>
                                                     <div className='flex items-center gap-3'>
                                                         <div
                                                             className={cn(
                                                                 'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
-                                                                emailVerified ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'
+                                                                emailVerified ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600',
                                                             )}
                                                         >
                                                             <Mail size={18} />
@@ -463,8 +602,8 @@ const SettingsModal = ({
 
                                         <div className='flex flex-col gap-2 w-full'>
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Account Type</label>
-                                            <div className='bg-blue-50 shadow-sm border border-blue-100 rounded-xl p-3 @min-[225px]/account:p-4 font-figtree'>
-                                                <div className='flex flex-col @min-[365px]/account:flex-row @min-[365px]/account:items-center justify-between gap-4 w-full'>
+                                            <div className='bg-blue-50 shadow-sm border border-blue-100 rounded-xl p-3 @min-[350px]/account:p-4 font-figtree'>
+                                                <div className='flex flex-col @min-[500px]/account:flex-row @min-[500px]/account:items-center justify-between gap-4 w-full'>
                                                     <div className='flex items-center gap-3'>
                                                         <div className='w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-blue-500 bg-blue-100'>
                                                             <Shield size={18} />
@@ -509,6 +648,14 @@ const SettingsModal = ({
 
                                         <hr className='border-gray-100 my-6' />
 
+                                        <button
+                                            onClick={() => setResetModalOpen(true)}
+                                            type='button'
+                                            className='w-full bg-amber-50 mb-2 text-amber-500 font-figtree border rounded-xl border-amber-200 px-4 py-2 flex gap-2 cursor-pointer hover:bg-amber-100 transition-colors'
+                                        >
+                                            <Lock className='w-6 h-6' />
+                                            Change Password
+                                        </button>
                                         <button
                                             onClick={() => setDeleteAccountModal(true)}
                                             type='button'
@@ -569,7 +716,7 @@ const SettingsModal = ({
                                                         <AtSign
                                                             className={cn(
                                                                 'absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4',
-                                                                venmo && venmo.length > 0 ? 'text-black' : 'text-gray-400'
+                                                                venmo && venmo.length > 0 ? 'text-black' : 'text-gray-400',
                                                             )}
                                                         />
                                                         <input
@@ -591,7 +738,7 @@ const SettingsModal = ({
                                                                     ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
                                                                     : venmoUpset
                                                                       ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-                                                                      : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                                      : 'border-gray-200 focus:border-primary focus:ring-primary/10',
                                                             )}
                                                             placeholder='venmo-username'
                                                             autoCorrect='off'
@@ -631,7 +778,7 @@ const SettingsModal = ({
                                                         <span className='block text-xs text-gray-400 mt-1'>(You must have Zelle set up in order to do this)</span>
                                                     </span>
 
-                                                    <div className='grid grid-cols-1 gap-3 @min-[460px]/payments:grid-cols-2 @min-[460px]/payments:gap-2 ml-4'>
+                                                    <div className='grid grid-cols-1 gap-3 @min-[500px]/payments:grid-cols-2 @min-[500px]/payments:gap-4 ml-4'>
                                                         {originalInfo.current.phoneNumber.length > 0 && (
                                                             <div className='flex flex-col gap-2 w-full'>
                                                                 <div className='flex items-center gap-2'>
@@ -654,7 +801,7 @@ const SettingsModal = ({
                                                                 <div
                                                                     className={cn(
                                                                         'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
-                                                                        zelleUpset.includes('phone') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : ''
+                                                                        zelleUpset.includes('phone') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : '',
                                                                     )}
                                                                 >
                                                                     {originalInfo.current.phoneNumber}
@@ -682,7 +829,7 @@ const SettingsModal = ({
                                                             <div
                                                                 className={cn(
                                                                     'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
-                                                                    zelleUpset.includes('email') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : ''
+                                                                    zelleUpset.includes('email') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : '',
                                                                 )}
                                                             >
                                                                 {email}
@@ -694,70 +841,72 @@ const SettingsModal = ({
                                         </div>
                                     </motion.div>
                                 )}
+
+                                {activeTab === 'notifications' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className='space-y-6 @container/notifications font-figtree'
+                                    >
+                                        <div className='ml-1'>
+                                            <label className='text-sm font-bold text-gray-500 uppercase'>Email Notifications</label>
+                                            <p className='text-xs font-semibold text-gray-500'>
+                                                Choose which updates you want to receive via email. You must verify your email to enable these.
+                                            </p>
+                                        </div>
+
+                                        {!emailVerified && (
+                                            <div className='bg-amber-50 text-amber-800 p-4 rounded-xl border border-amber-200 flex items-start gap-3'>
+                                                <AlertCircle className='w-5 h-5 shrink-0 mt-0.5' />
+                                                <div>
+                                                    <h4 className='font-bold text-sm'>Email Verification Required</h4>
+                                                    <p className='text-xs mt-1'>
+                                                        Please verify your email address in the{' '}
+                                                        <span className='font-bold cursor-pointer underline' onClick={() => setActiveTab('account')}>
+                                                            Account
+                                                        </span>{' '}
+                                                        tab to enable email notifications.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className={cn('space-y-4', !emailVerified ? 'opacity-50' : '')}>
+                                            {notificationTypes
+                                                .filter((n) => n.visibility.includes(propRole as 'braider' | 'subcontractor' | 'barn'))
+                                                .map(({ text, type }) => (
+                                                    <div key={text} className='flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm'>
+                                                        <span className='font-semibold text-gray-700 capitalize'>{text}</span>
+                                                        <button
+                                                            type='button'
+                                                            onClick={() => handleNotificationToggle(type)}
+                                                            disabled={!emailVerified}
+                                                            className={cn(
+                                                                'relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-6 w-11 shrink-0',
+                                                                !emailVerified
+                                                                    ? 'bg-gray-200 cursor-not-allowed opacity-50'
+                                                                    : allowedNotifications.includes(type)
+                                                                      ? 'bg-primary'
+                                                                      : 'bg-gray-300',
+                                                            )}
+                                                        >
+                                                            <motion.div
+                                                                className='h-4 w-4 rounded-full bg-white shadow-sm'
+                                                                animate={{ x: allowedNotifications.includes(type) ? 20 : 0 }}
+                                                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </motion.div>
+                                )}
                             </form>
                         )}
                     </div>
                 </div>
-                <div className='grid grid-cols-1 pb-1 @min-[275px]/settings:grid-cols-2 mt-4 gap-3 @min-[275px]:gap-2.5 @min-[315px]/settings:gap-4'>
-                    <button
-                        onClick={() => {
-                            if (
-                                originalInfo.current.name === name &&
-                                originalInfo.current.publicID === publicID &&
-                                originalInfo.current.phoneNumber === phoneNumber &&
-                                originalInfo.current.image === imagePreview &&
-                                originalInfo.current.role === role &&
-                                (originalInfo.current.role === 'braider'
-                                    ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
-                                    : true)
-                            ) {
-                                setOpen(false);
-                            } else setCloseModal(true);
-                        }}
-                        className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        form='settings-form'
-                        disabled={
-                            isSaving ||
-                            isIDAvailable === false ||
-                            isLoading ||
-                            (originalInfo.current.name === name &&
-                                originalInfo.current.publicID === publicID &&
-                                originalInfo.current.phoneNumber === phoneNumber &&
-                                originalInfo.current.image === imagePreview &&
-                                originalInfo.current.role === role &&
-                                (originalInfo.current.role === 'braider'
-                                    ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
-                                    : true))
-                        }
-                        type='submit'
-                        className='disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[315px]/settings:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
-                    >
-                        {isSaving && <Loader2 size={16} className='animate-spin' />}
-                        Save Changes
-                    </button>
-                </div>
             </div>
-            <X
-                onClick={() => {
-                    if (
-                        originalInfo.current.name === name &&
-                        originalInfo.current.publicID === publicID &&
-                        originalInfo.current.phoneNumber === phoneNumber &&
-                        originalInfo.current.image === imagePreview &&
-                        originalInfo.current.role === role &&
-                        (originalInfo.current.role === 'braider'
-                            ? originalInfo.current.venmo === venmoLink && originalInfo.current.zelle === zelle && originalInfo.current.venmoEnabled === venmoEnabled
-                            : true)
-                    ) {
-                        setOpen(false);
-                    } else setCloseModal(true);
-                }}
-                className='absolute right-6 top-6 text-gray-500 cursor-pointer hover:scale-105 transition-all'
-            />
             <Modal
                 isOpen={isCropping && imageFile !== null}
                 setIsOpen={setIsCropping}
@@ -818,34 +967,196 @@ const SettingsModal = ({
                     </div>
                 </div>
             </Modal>
-            <Modal isOpen={closeModal} setIsOpen={setCloseModal} className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative'>
-                <div className='@container/unsaved-changes'>
-                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>You have unsaved changes.</h1>
-                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>Are you sure you want to discard your changes and close the settings?</p>
-                    <div className='grid grid-cols-1 @min-[285px]/unsaved-changes:grid-cols-2 mt-4 gap-3 @min-[285px]:gap-2.5 @min-[315px]/unsaved-changes:gap-4'>
-                        <button
-                            onClick={() => setCloseModal(false)}
-                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/unsaved-changes:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
-                        >
-                            Go Back
-                        </button>
-                        <button
-                            onClick={() => {
-                                setCloseModal(false);
-                                setOpen(false);
-                            }}
-                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/unsaved-changes:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
-                        >
-                            Discard Changes
-                        </button>
-                    </div>
-                </div>
-            </Modal>
+            <ResetPasswordModal isOpen={resetModalOpen} setIsOpen={setResetModalOpen} initialEmail={userEmail} />
         </>
     );
 };
 
-const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Dispatch<React.SetStateAction<string>>; onSubmit: () => void }) => {
+const ResetPasswordModal = ({ isOpen, setIsOpen, initialEmail }: { isOpen: boolean; setIsOpen: (open: boolean) => void; initialEmail: string }) => {
+    const [step, setStep] = useState<'request' | 'verify' | 'reset' | 'success'>('request');
+    const [code, setCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [passwordShown, setPasswordShown] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setStep('request');
+            setCode('');
+            setNewPassword('');
+        }
+    }, [isOpen, initialEmail]);
+
+    const handleRequestCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await requestPasswordReset(initialEmail);
+        if (res.success) {
+            successToast('Code sent!');
+            setStep('verify');
+        } else {
+            failToast(String(res.error || 'Failed to send reset code'));
+        }
+        setLoading(false);
+    };
+
+    const handleVerifyCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await verifyResetCode(initialEmail, code);
+        if (res.success) {
+            setStep('reset');
+        } else {
+            failToast(res.error || 'Invalid code');
+        }
+        setLoading(false);
+    };
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await resetPassword(initialEmail, code, newPassword);
+        if (res.success) {
+            successToast('Password reset successfully!');
+            setStep('success');
+            setTimeout(() => {
+                setIsOpen(false);
+            }, 5000);
+        } else {
+            failToast(res.error || 'Failed to reset password');
+        }
+        setLoading(false);
+    };
+
+    return (
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen} className='max-w-md p-0 overflow-hidden rounded-2xl primary-border-bold'>
+            <div className='p-6 lg:p-8 font-figtree'>
+                <AnimatePresence mode='wait'>
+                    {step === 'request' && (
+                        <motion.div key='request' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <KeyRound className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>Reset Password</h2>
+                                <p className='text-gray-500 text-center'>We&apos;ll send you a code to reset your password. Check your spam folder if you don&apos;t see it.</p>
+                            </div>
+                            <form onSubmit={handleRequestCode} className='space-y-4'>
+                                <div className='relative opacity-60 pointer-events-none'>
+                                    <Mail className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-700')} />
+                                    <input
+                                        className='w-full text-gray-700 bg-gray-50 outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                        type='email'
+                                        value={initialEmail}
+                                        placeholder='Email Address'
+                                        autoCorrect='off'
+                                        autoComplete='off'
+                                        spellCheck={false}
+                                        required
+                                        disabled
+                                    />
+                                </div>
+                                <button
+                                    type='submit'
+                                    disabled={loading}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Send Code'}
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'verify' && (
+                        <motion.div key='verify' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <Key className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>Check your email</h2>
+                                <p className='text-gray-500'>We sent a 6-digit verification code to {initialEmail}</p>
+                            </div>
+                            <form onSubmit={handleVerifyCode} className='space-y-4'>
+                                <InputOTP code={code} setCode={setCode} onSubmit={() => {}} resetPassword />
+                                <button
+                                    type='submit'
+                                    disabled={loading || code.length !== 6}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Verify Code'}
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'reset' && (
+                        <motion.div key='reset' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <Lock className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>New Password</h2>
+                                <p className='text-gray-500'>Choose a strong password for your account.</p>
+                            </div>
+                            <form onSubmit={handleResetPassword} className='space-y-4'>
+                                <div className='relative'>
+                                    <Lock className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', newPassword.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                    <input
+                                        className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                        type={passwordShown ? 'text' : 'password'}
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder='New Password'
+                                        autoCorrect='off'
+                                        autoComplete='off'
+                                        spellCheck={false}
+                                        required
+                                    />
+                                    <button
+                                        type='button'
+                                        onClick={() => setPasswordShown(!passwordShown)}
+                                        className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary'
+                                    >
+                                        {passwordShown ? <Eye className='w-5 h-5' /> : <EyeOff className='w-5 h-5' />}
+                                    </button>
+                                </div>
+                                <button
+                                    type='submit'
+                                    disabled={loading}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Reset Password'}
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'success' && (
+                        <motion.div key='success' initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className='text-center space-y-4 py-4'>
+                            <div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto'>
+                                <CheckCircle2 className='w-10 h-10 text-green-600' />
+                            </div>
+                            <h2 className='text-2xl font-bold'>All set!</h2>
+                            <p className='text-gray-500'>Your password has been reset successfully. Next time you sign in, make sure to use your new password.</p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </Modal>
+    );
+};
+
+const InputOTP = ({
+    code,
+    setCode,
+    onSubmit,
+    resetPassword = false,
+}: {
+    code: string;
+    setCode: React.Dispatch<React.SetStateAction<string>>;
+    onSubmit: () => void;
+    resetPassword?: boolean;
+}) => {
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     const focusInput = (index: number) => {
@@ -893,7 +1204,7 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
             }
         }
 
-        if (e.key === 'Enter' && onSubmit) {
+        if (e.key === 'Enter' && onSubmit && !resetPassword) {
             onSubmit();
         }
     };
@@ -928,18 +1239,22 @@ const InputOTP = ({ code, setCode, onSubmit }: { code: string; setCode: React.Di
                             className='w-full aspect-square @min-[315px]/account:h-10 @min-[365px]/account:w-11 @min-[365px]/account:h-11 text-center text-[17px] @min-[250px]/account:text-lg @min-[315px]/account:text-xl font-figtree font-semibold border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary-extra-light outline-none transition-all'
                             aria-label={`Digit ${index + 1}`}
                         />
-                        {index === 2 && <div className='min-w-4 h-[3px] bg-gray-500 rounded-full hidden @min-[270px]/account:block' />}
+                        {index === 2 && (
+                            <div className={cn('min-w-4 h-[3px] bg-gray-500 rounded-full', resetPassword ? 'hidden min-[380px]:block' : 'hidden @min-[270px]/account:block')} />
+                        )}
                     </Fragment>
                 ))}
             </div>
 
-            <button
-                type='button'
-                onClick={onSubmit}
-                className='px-3 py-1.5 @min-[290px]/account:px-4 @min-[290px]/account:py-2 w-full @min-[465px]/account:h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] @min-[290px]/account:text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors'
-            >
-                Submit
-            </button>
+            {!resetPassword && (
+                <button
+                    type='button'
+                    onClick={onSubmit}
+                    className='px-3 py-1.5 @min-[290px]/account:px-4 @min-[290px]/account:py-2 w-full @min-[465px]/account:h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] @min-[290px]/account:text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors'
+                >
+                    Submit
+                </button>
+            )}
         </div>
     );
 };
@@ -950,7 +1265,7 @@ const NavTab = ({ active, onClick, icon: Icon, label }: { active: boolean; onCli
         type='button'
         className={cn(
             'flex items-center gap-3 px-3 pl-4 @min-[520px]/settings:pr-12 py-2 rounded-xl transition-all w-full text-left font-figtree cursor-pointer',
-            active ? 'bg-white shadow-sm text-primary border border-gray-200 font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary-dark font-normal'
+            active ? 'bg-white shadow-sm text-primary border border-gray-200 font-semibold' : 'text-gray-500 hover:bg-primary-extra-light hover:text-primary-dark font-normal',
         )}
     >
         <Icon className={cn('min-w-4.5 w-4.5 h-4.5', active ? 'stroke-[2.5px]' : '')} />
@@ -979,7 +1294,7 @@ const DeleteAccountModal = ({ setOpen, verification }: { setOpen: React.Dispatch
                             'w-full outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors',
                             typedVerification.toLowerCase() === verification.toLowerCase()
                                 ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
-                                : 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                : 'border-red-300 focus:border-red-500 focus:ring-red-100',
                         )}
                         name='typed-verification'
                         value={typedVerification}
@@ -1095,7 +1410,7 @@ const ImageCropper = ({ file, onCancel, onComplete }: { file: File; onCancel: ()
                 }
             },
             'image/jpeg',
-            0.9
+            0.9,
         );
     };
 
@@ -1196,4 +1511,80 @@ const ImageCropper = ({ file, onCancel, onComplete }: { file: File; onCancel: ()
     );
 };
 
-export default SettingsModal;
+const notificationTypes: NotificationMap[] = [
+    {
+        text: 'Calendar Invitations',
+        type: NotificationType.calendar_invite,
+        visibility: ['subcontractor', 'barn'],
+    },
+    {
+        text: 'Job Requests',
+        type: NotificationType.job_request,
+        visibility: ['braider', 'subcontractor'],
+    },
+    {
+        text: 'Job Invitation Responses',
+        type: NotificationType.job_status_change,
+        visibility: ['barn'],
+    },
+    {
+        text: 'Job Completions',
+        type: NotificationType.job_completed,
+        visibility: ['barn'],
+    },
+
+    {
+        text: 'Barn Connection Requests',
+        type: NotificationType.barn_invite,
+        visibility: ['braider'],
+    },
+    {
+        text: 'Braider Connection Requests',
+        type: NotificationType.barn_invite,
+        visibility: ['barn'],
+    },
+    {
+        text: 'Barn Connection Responses',
+        type: NotificationType.barn_status_change,
+        visibility: ['braider'],
+    },
+    {
+        text: 'Braider Connection Responses',
+        type: NotificationType.barn_status_change,
+        visibility: ['barn'],
+    },
+
+    {
+        text: 'Subcontractor Join Requests',
+        type: NotificationType.team_invite,
+        visibility: ['braider'],
+    },
+    {
+        text: 'Braider Connection Requests',
+        type: NotificationType.team_invite,
+        visibility: ['subcontractor'],
+    },
+    {
+        text: 'Subcontractor Join Responses',
+        type: NotificationType.team_status_change,
+        visibility: ['braider'],
+    },
+    {
+        text: 'Braider Connection Responses',
+        type: NotificationType.team_status_change,
+        visibility: ['subcontractor'],
+    },
+
+    {
+        text: 'Job Notes',
+        type: NotificationType.new_message,
+        visibility: ['subcontractor', 'barn'],
+    },
+    {
+        text: 'Usage Limit Alerts',
+        type: NotificationType.limit_approaching,
+        visibility: ['braider'],
+    },
+];
+
+export default Settings;

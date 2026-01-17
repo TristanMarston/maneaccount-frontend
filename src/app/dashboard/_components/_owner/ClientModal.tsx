@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { formatPhoneNumber } from '../../SettingsModal';
+import { formatPhoneNumber } from '../_settings/Settings';
 
 export type ClientFormData = {
     name: string;

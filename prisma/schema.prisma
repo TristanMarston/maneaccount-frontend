@@ -104,6 +104,20 @@ enum ZelleOption {
   disabled
 }
 
+enum SubscriptionTier {
+  starter
+  professional
+  enterprise
+}
+
+enum SubscriptionStatus {
+  inactive
+  trialing
+  active
+  past_due
+  canceled
+}
+
 model User {
   id              String    @id @default(cuid())
   publicID        String?   @unique
@@ -142,8 +156,19 @@ model User {
   
   notifications        Notification[] @relation("user")
   sentNotifications    Notification[] @relation("sender")
-  
+
   allowedNotifications NotificationType[] @default([])
+
+
+
+  stripeCustomerId       String?  @unique
+  stripeSubscriptionId   String?  @unique
+
+  subscriptionTier       SubscriptionTier @default(starter)
+  subscriptionStatus     SubscriptionStatus @default(inactive)
+
+  trialEndsAt            DateTime?
+  hasUsedTrial           Boolean  @default(false)
 }
 
 model Notification {
@@ -172,6 +197,7 @@ enum NotificationType {
   team_invite
   team_status_change
   new_message
+  limit_approaching
 }
 
 model Show {

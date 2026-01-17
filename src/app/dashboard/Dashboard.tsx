@@ -37,27 +37,28 @@ const Dashboard = () => {
         };
 
         if (status === 'authenticated' && session) {
-            setLoading(false);
             const userRole = session.user?.role;
+            if (userRole !== 'braider') setLoading(false);
             if (userRole === 'admin') router.push('/admin');
             else if (userRole.length > 0) setRole(userRole as UserRole);
             if (session.user?.email) validateConnection(session.user.email);
         }
     }, [session, status]);
 
-    return !loading && session && role.length > 0 ? (
+    return session && role.length > 0 ? (
         <GradientBackground
             gradient='from-primary-dark/50 via-primary/50 to-primary-light/50'
             animated={false}
             className='flex flex-col items-center justify-center fixed inset-0 h-dvh overflow-hidden dashboard-sm:p-3 3xl:p-4'
         >
             {role === 'braider' ? (
-                <BraiderDashboard session={session} loading={loading} update={update} />
-            ) : role === 'subcontractor' ? (
+                <BraiderDashboard session={session} loading={loading} update={update} setLoading={setLoading} />
+            ) : !loading && role === 'subcontractor' ? (
                 <SubcontractorDashboard session={session} loading={loading} update={update} />
             ) : (
-                role === 'barn' && <BarnDashboard session={session} loading={loading} update={update} />
+                !loading && role === 'barn' && <BarnDashboard session={session} loading={loading} update={update} />
             )}
+            {loading && <span className='loader'></span>}
         </GradientBackground>
     ) : (
         <span className='loader'></span>

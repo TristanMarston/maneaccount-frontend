@@ -74,7 +74,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                           ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                           : job.braider.name)
                                     ? 'self-end items-end'
-                                    : 'self-start items-start'
+                                    : 'self-start items-start',
                             )}
                         >
                             <div
@@ -87,7 +87,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                               ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                               : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
-                                        : 'bg-white text-gray-800 rounded-tl-sm'
+                                        : 'bg-white text-gray-800 rounded-tl-sm',
                                 )}
                             >
                                 {note.content}
@@ -185,7 +185,7 @@ const SelectSubcontractorDropdown = ({
                 className={cn(
                     'w-full @min-[530px]/assignment-detail:w-fit flex items-center justify-between gap-3 outline-none shadow-sm border cursor-pointer px-3 py-2 rounded-xl transition-all bg-white',
                     isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300',
-                    disabled || completed ? 'opacity-50 cursor-not-allowed hover:border-gray-200' : ''
+                    disabled || completed ? 'opacity-50 cursor-not-allowed hover:border-gray-200' : '',
                 )}
             >
                 <div className='flex items-center gap-2 text-sm min-w-0'>
@@ -202,7 +202,7 @@ const SelectSubcontractorDropdown = ({
                         className={cn(
                             'truncate min-w-0',
                             value ? 'text-gray-900' : 'text-gray-500 font-medium',
-                            loading ? 'text-transparent bg-gray-100 rounded-full animate-pulse' : ''
+                            loading ? 'text-transparent bg-gray-100 rounded-full animate-pulse' : '',
                         )}
                     >
                         {value ? selectedMember?.name || 'Unknown' : 'Myself'}
@@ -277,6 +277,8 @@ const SelectSubcontractorDropdown = ({
     );
 };
 
+import { SubscriptionTier } from '@prisma/client';
+
 export const JobDetailSubpage = ({
     job: initialJob,
     role,
@@ -287,6 +289,7 @@ export const JobDetailSubpage = ({
     setSelectedHorse,
     setCheckMarkedCompleted,
     canMarkCompleted = true,
+    subscriptionTier,
 }: {
     job: Job;
     role: string;
@@ -297,6 +300,7 @@ export const JobDetailSubpage = ({
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
     setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
     canMarkCompleted?: boolean;
+    subscriptionTier?: SubscriptionTier;
 }) => {
     const [job, setJob] = useState<Job>(initialJob);
     const [date, setDate] = useState<Date | null>(job.scheduledDate ? new Date(job.scheduledDate) : null);
@@ -532,7 +536,7 @@ export const JobDetailSubpage = ({
                     <span
                         className={cn(
                             'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
-                            statusColors[job.paidAt ? 'paid' : job.status]
+                            statusColors[job.paidAt ? 'paid' : job.status],
                         )}
                     >
                         {job.paidAt ? 'paid' : job.status}
@@ -574,7 +578,7 @@ export const JobDetailSubpage = ({
                         {job.subcontractors.map((sub, idx) => {
                             const horses = job.assignments.filter((a) => a.subcontractor?.id === sub.id);
                             const completedHorses = horses.filter(
-                                (h) => [...new Set(h.completedServiceIds)].length + [...new Set(h.canceledServiceIds)].length === [...new Set(h.services)].length
+                                (h) => [...new Set(h.completedServiceIds)].length + [...new Set(h.canceledServiceIds)].length === [...new Set(h.services)].length,
                             );
                             const finishedAllServices = completedHorses.length === horses.length;
 
@@ -583,7 +587,7 @@ export const JobDetailSubpage = ({
                                     key={idx}
                                     className={cn(
                                         'flex items-center gap-3 p-4 border shadow-sm rounded-[14px] relative',
-                                        finishedAllServices ? 'bg-blue-50/50 border-blue-100' : 'bg-amber-50/50 border-amber-100'
+                                        finishedAllServices ? 'bg-blue-50/50 border-blue-100' : 'bg-amber-50/50 border-amber-100',
                                     )}
                                 >
                                     <div className={cn('relative min-w-10 h-10 rounded-full overflow-hidden', finishedAllServices ? 'bg-blue-100' : 'bg-amber-100')}>
@@ -600,7 +604,7 @@ export const JobDetailSubpage = ({
                                     <span
                                         className={cn(
                                             'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
-                                            finishedAllServices ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'
+                                            finishedAllServices ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200',
                                         )}
                                     >
                                         {completedHorses.length}/{horses.length} Completed
@@ -630,7 +634,7 @@ export const JobDetailSubpage = ({
                                             !isAssignmentCanceled &&
                                                 activeServices.length === [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length
                                                 ? 'bg-primary-extra-light border-primary/20'
-                                                : ''
+                                                : '',
                                         )}
                                     >
                                         <div className='flex justify-between items-start mb-3'>
@@ -648,7 +652,7 @@ export const JobDetailSubpage = ({
                                                     <span
                                                         className={cn(
                                                             'font-bold truncate group-hover:text-primary transition-colors',
-                                                            isAssignmentCanceled ? 'text-gray-500 line-through' : 'text-gray-900'
+                                                            isAssignmentCanceled ? 'text-gray-500 line-through' : 'text-gray-900',
                                                         )}
                                                     >
                                                         {assignment.horse.barnName}
@@ -668,13 +672,13 @@ export const JobDetailSubpage = ({
                                                             className={cn(
                                                                 'p-1 transition-colors text-xs cursor-pointer font-bold uppercase',
                                                                 isAssignmentCanceled ? 'text-primary hover:text-primary-dark' : 'text-red-400 hover:text-red-600',
-                                                                job.status === 'completed' ? 'pointer-events-none' : ''
+                                                                job.status === 'completed' ? 'pointer-events-none' : '',
                                                             )}
                                                         >
                                                             {isAssignmentCanceled ? 'Restore' : 'Cancel Horse'}
                                                         </button>
                                                     )}
-                                                {!isAssignmentCanceled && role === 'braider' && (
+                                                {!isAssignmentCanceled && role === 'braider' && subscriptionTier !== 'starter' && (
                                                     <div className={cn('hidden @min-[530px]/assignment-detail:block', job.status === 'completed' ? 'pointer-events-none' : '')}>
                                                         <SelectSubcontractorDropdown
                                                             value={assignment.subcontractor?.id || ''}
@@ -730,7 +734,7 @@ export const JobDetailSubpage = ({
                                                         key={idx}
                                                         className={cn(
                                                             'flex justify-between items-center text-sm min-w-0 py-1 group/service',
-                                                            assignment.canceledServiceIds.includes(service.id) ? 'opacity-50' : ''
+                                                            assignment.canceledServiceIds.includes(service.id) ? 'opacity-50' : '',
                                                         )}
                                                     >
                                                         <div className='flex items-center gap-3 min-w-0 flex-1'>
@@ -744,7 +748,7 @@ export const JobDetailSubpage = ({
                                                                             'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed',
                                                                             canEdit ? 'cursor-pointer hover:border-primary' : 'opacity-50',
                                                                             isCompleted ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300',
-                                                                            assignment.canceledServiceIds.includes(service.id) && 'opacity-50 cursor-not-allowed hover:border-gray-300'
+                                                                            assignment.canceledServiceIds.includes(service.id) && 'opacity-50 cursor-not-allowed hover:border-gray-300',
                                                                         )}
                                                                     >
                                                                         {isCompleted && <CheckSquare size={14} strokeWidth={3} />}
@@ -761,7 +765,7 @@ export const JobDetailSubpage = ({
                                                                         activeServices.length > 0 &&
                                                                         activeServices.every((s) => assignment.completedServiceIds.includes(s.id))
                                                                         ? 'text-primary-light/80'
-                                                                        : ''
+                                                                        : '',
                                                                 )}
                                                             >
                                                                 {service.name} {assignment.canceledServiceIds.includes(service.id) ? '(Canceled)' : ''}
@@ -779,7 +783,7 @@ export const JobDetailSubpage = ({
                                                                             'transition-all p-1 cursor-pointer',
                                                                             assignment.canceledServiceIds.includes(service.id)
                                                                                 ? 'text-primary hover:text-primary-dark font-bold text-[10px] uppercase'
-                                                                                : 'text-gray-300 hover:text-red-500'
+                                                                                : 'text-gray-300 hover:text-red-500',
                                                                         )}
                                                                     >
                                                                         {assignment.canceledServiceIds.includes(service.id) ? 'Restore' : <X size={14} />}
@@ -797,7 +801,7 @@ export const JobDetailSubpage = ({
                                                         'text-xs font-bold text-gray-400 uppercase tracking-wider',
                                                         activeServices.length > 0 && activeServices.every((s) => assignment.completedServiceIds.includes(s.id))
                                                             ? 'text-primary-light'
-                                                            : ''
+                                                            : '',
                                                     )}
                                                 >
                                                     Subtotal
@@ -817,7 +821,7 @@ export const JobDetailSubpage = ({
                                     .filter((a) => role !== 'subcontractor' || a.subcontractor?.id === userId)
                                     .reduce(
                                         (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
-                                        0
+                                        0,
                                     )}
                             </span>
                         </div>
@@ -854,7 +858,7 @@ export const JobDetailSubpage = ({
                                                           ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                                           : job.braider.name)
                                                     ? 'self-end items-end'
-                                                    : 'self-start items-start'
+                                                    : 'self-start items-start',
                                             )}
                                         >
                                             <div
@@ -867,7 +871,7 @@ export const JobDetailSubpage = ({
                                                               ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                                               : job.braider.name)
                                                         ? 'bg-primary text-white rounded-tr-sm'
-                                                        : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+                                                        : 'bg-gray-100 text-gray-800 rounded-tl-sm',
                                                 )}
                                             >
                                                 {note.content}
@@ -940,7 +944,7 @@ export const JobDetailSubpage = ({
                                     job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) === 0 &&
                                     job.assignments.reduce(
                                         (acc, a) => (a.canceledAt ? acc + a.services.length : acc + a.services.filter((s) => a.canceledServiceIds.includes(s.id)).length),
-                                        0
+                                        0,
                                     ) === job.assignments.reduce((acc, a) => acc + a.services.length, 0))
                             }
                             onClick={() => {
@@ -949,7 +953,7 @@ export const JobDetailSubpage = ({
                                     id: job.id,
                                     earnings: job.assignments.reduce(
                                         (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
-                                        0
+                                        0,
                                     ),
                                     horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
                                     services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
@@ -967,10 +971,10 @@ export const JobDetailSubpage = ({
                                         job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) === 0 &&
                                         job.assignments.reduce(
                                             (acc, a) => (a.canceledAt ? acc + a.services.length : acc + a.services.filter((s) => a.canceledServiceIds.includes(s.id)).length),
-                                            0
+                                            0,
                                         ) === job.assignments.reduce((acc, a) => acc + a.services.length, 0)
                                         ? 'block'
-                                        : 'hidden'
+                                        : 'hidden',
                                 )}
                             />
                         </button>
@@ -988,7 +992,7 @@ export const JobDetailSubpage = ({
                         {role === 'barn' && (
                             <div
                                 onClick={handleReRequestJob}
-                                className='w-full grid place-items-center font-figtree font-bold text-white bg-background-light primary-border-hover rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer transition-colors'
+                                className='w-full grid place-items-center font-figtree font-bold text-white bg-primary-light primary-border-hover rounded-[10px] py-1.5 text-[17px] @min-[240px]/job-detail:text-lg cursor-pointer transition-colors'
                             >
                                 Re-Request Service{job.assignments.reduce((acc, a) => acc + a.services.length, 0) > 1 ? 's' : ''}
                             </div>

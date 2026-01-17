@@ -23,6 +23,7 @@ import {
     Briefcase,
     Wallet,
     Warehouse,
+    Sparkles,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
 import { AnimatePresence, motion, Variants } from 'motion/react';
@@ -34,7 +35,8 @@ import { Session } from 'next-auth';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import Modal from '../Modal';
 import { useNotifications } from '@/app/NotificationContext';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, SubscriptionTier } from '@prisma/client';
+import { Tab } from './_braider/BraiderDashboard';
 
 type Page = {
     title: string;
@@ -42,8 +44,6 @@ type Page = {
     path: string;
     accountTypes: string[];
 };
-
-type Tab = 'profile' | 'account' | 'payments' | 'notifications';
 
 const HorseIcon = () => <Icon className='w-full h-full max-h-5 max-w-5 dashboard-sm:max-w-6 dashboard-sm:max-h-6' iconNode={horseHead} />;
 
@@ -60,7 +60,6 @@ const pages: Page[] = [
     { title: 'Pricing', path: '/dashboard/pricing', icon: BadgeDollarSign, accountTypes: ['braider'] },
 ];
 
-
 const DashboardSidebar = ({
     dashboard,
     session,
@@ -71,6 +70,9 @@ const DashboardSidebar = ({
     selectedPage,
     setSelectedPage,
     unsavedChanges,
+    activeTab,
+    setActiveTab,
+    subscriptionTier,
 }: {
     dashboard: string;
     session: Session | null;
@@ -81,6 +83,9 @@ const DashboardSidebar = ({
     selectedPage: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
     unsavedChanges?: boolean;
+    activeTab: Tab;
+    setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
+    subscriptionTier?: SubscriptionTier | null;
 }) => {
     const { unreadCounts, refreshCounts } = useNotifications();
     const [open, setOpen] = useState(true);
@@ -88,7 +93,6 @@ const DashboardSidebar = ({
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
     const [pendingPage, setPendingPage] = useState<string | null>(null);
-
 
     useEffect(() => {
         refreshCounts();
@@ -170,7 +174,10 @@ const DashboardSidebar = ({
     };
 
     const normalizedRole = (dashboard || 'braider').toLowerCase();
-    const filteredPages = pages.filter((page) => page.accountTypes.includes(normalizedRole));
+    const filteredPages = pages.filter((page) => {
+        if (subscriptionTier === 'starter' && page.title === 'Team') return false;
+        return page.accountTypes.includes(normalizedRole);
+    });
 
     const mobilePrimaryPages = filteredPages.slice(0, 3);
     const mobileSecondaryPages = filteredPages.slice(3);
@@ -249,9 +256,33 @@ const DashboardSidebar = ({
 
                                     <div className='space-y-1'>
                                         <p className='px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2'>Account</p>
-                                        <MobileDrawerItem icon={Settings} title='Settings' onClick={() => handlePageChange('Settings')} selected={selectedPage === 'Settings'} />
-                                        <MobileDrawerItem icon={User} title='Account' onClick={() => handlePageChange('Settings')} />
-                                        {dashboard === 'braider' && <MobileDrawerItem icon={CreditCard} title='Payments' onClick={() => handlePageChange('Settings')} />}
+                                        <MobileDrawerItem
+                                            icon={Settings}
+                                            title='Settings'
+                                            onClick={() => {
+                                                setActiveTab('profile');
+                                                handlePageChange('Settings');
+                                            }}
+                                            selected={selectedPage === 'Settings'}
+                                        />
+                                        <MobileDrawerItem
+                                            icon={User}
+                                            title='Account'
+                                            onClick={() => {
+                                                setActiveTab('account');
+                                                handlePageChange('Settings');
+                                            }}
+                                        />
+                                        {dashboard === 'braider' && (
+                                            <MobileDrawerItem
+                                                icon={CreditCard}
+                                                title='Payments'
+                                                onClick={() => {
+                                                    setActiveTab('payments');
+                                                    handlePageChange('Settings');
+                                                }}
+                                            />
+                                        )}
                                     </div>
 
                                     <button
@@ -373,7 +404,7 @@ const DashboardSidebar = ({
                         ))}
                     </div>
 
-                    <div className='border-t border-gray-50 p-3'>
+                    <div className='border-t border-gray-100 p-3 space-y-1'>
                         <SidebarItem
                             icon={() => (
                                 <motion.div
@@ -392,6 +423,7 @@ const DashboardSidebar = ({
                             selected={false}
                             open={open}
                         />
+                        <SidebarItem icon={Settings} title='Settings' onClick={() => handlePageChange('Settings')} selected={selectedPage === 'Settings'} open={open} />
 
                         <div className='relative'>
                             <div
@@ -434,10 +466,7 @@ const DashboardSidebar = ({
                                     >
                                         <div className='p-1'>
                                             <div className='px-3 py-3 border-b border-gray-50 mb-1 font-figtree'>
-                                                <div className='flex items-center gap-2'>
-                                                    <p className='text-sm font-semibold text-gray-900 truncate'>{name}</p>
-                                                    <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary'>Pro</span>
-                                                </div>
+                                                <p className='text-sm font-semibold text-gray-900 truncate'>{name}</p>
                                                 <div className='flex items-center gap-1'>
                                                     <Mail className='w-3 h-3 text-gray-500' />
                                                     <p className='text-xs text-gray-500 truncate'>{session?.user.email}</p>
@@ -452,21 +481,21 @@ const DashboardSidebar = ({
                                                     )}
                                                     <p className='text-xs text-gray-500 truncate'>{dashboard}</p>
                                                 </div>
+                                                {dashboard === 'braider' && (
+                                                    <div className='mt-1'>
+                                                        <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 border-primary/20 text-primary capitalize'>
+                                                            {subscriptionTier}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className='space-y-0.5'>
                                                 <MenuItem
-                                                    icon={Settings}
-                                                    onClick={() => {
-                                                        setUserDropdownOpen(false);
-                                                        handlePageChange('Settings');
-                                                    }}
-                                                    label='Settings'
-                                                />
-                                                <MenuItem
                                                     icon={User}
                                                     onClick={() => {
                                                         setUserDropdownOpen(false);
+                                                        setActiveTab('account');
                                                         handlePageChange('Settings');
                                                     }}
                                                     label='Account'
@@ -474,12 +503,13 @@ const DashboardSidebar = ({
 
                                                 {dashboard === 'braider' && (
                                                     <MenuItem
-                                                        icon={CreditCard}
+                                                        icon={Sparkles}
                                                         onClick={() => {
                                                             setUserDropdownOpen(false);
+                                                            setActiveTab('subscription');
                                                             handlePageChange('Settings');
                                                         }}
-                                                        label='Payments'
+                                                        label='Subscription'
                                                     />
                                                 )}
                                             </div>

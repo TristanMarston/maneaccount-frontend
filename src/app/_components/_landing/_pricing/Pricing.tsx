@@ -6,9 +6,9 @@ import FAQ from './FAQ';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
-const plans = [
+export const pricingPlans = [
     {
-        name: 'Starter',
+        name: 'starter',
         priceMonthly: '29',
         priceYearly: '299',
         description: 'Perfect for individual braiders.',
@@ -23,7 +23,7 @@ const plans = [
         popular: false,
     },
     {
-        name: 'Professional',
+        name: 'professional',
         priceMonthly: '69',
         priceYearly: '699',
         description: 'For established braiders and teams.',
@@ -38,7 +38,7 @@ const plans = [
         popular: true,
     },
     {
-        name: 'Enterprise',
+        name: 'enterprise',
         priceMonthly: '129',
         priceYearly: '1299',
         description: 'For large braiding operations.',
@@ -122,7 +122,7 @@ const Pricing = () => {
                             </div>
 
                             <div className='w-full grid grid-cols-1 pricing-lg:grid-cols-2 pricing-max:grid-cols-3 gap-4 pricing-max:gap-8 items-start max-w-6xl'>
-                                {plans.map((plan, index) => (
+                                {pricingPlans.map((plan, index) => (
                                     <div
                                         key={index}
                                         className={`
@@ -141,7 +141,7 @@ const Pricing = () => {
                                         )}
 
                                         <div className='mb-6'>
-                                            <h3 className={`font-lusitana text-3xl ${plan.popular ? 'text-primary' : 'text-gray-800'}`}>{plan.name}</h3>
+                                            <h3 className={`font-lusitana capitalize text-3xl ${plan.popular ? 'text-primary' : 'text-gray-800'}`}>{plan.name}</h3>
                                             <p className='font-figtree text-gray-500 text-sm mt-2 h-auto pricing-max:h-11 4xl:h-auto'>{plan.description}</p>
                                         </div>
 

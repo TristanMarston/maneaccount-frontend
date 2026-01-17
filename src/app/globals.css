@@ -195,6 +195,66 @@
     box-shadow: none;
 }
 
+.amber-border-hovered {
+    border-width: 1.9px;
+    border-color: #d97706;
+}
+
+.violet-border {
+    border-width: 1.9px;
+    border-color: #7c3aed;
+    box-shadow: 2.5px 2.5px 0 0 #7c3aed;
+}
+
+.p-PaymentAccordionButtonIconContainer--start {
+    margin: 0 !important;
+    margin-inline: 0 !important;
+}
+
+.violet-border-hover {
+    border-width: 1.9px;
+    border-color: #7c3aed;
+    box-shadow: 2.5px 2.5px 0 0 #7c3aed;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 250ms;
+}
+
+.violet-border-hover:hover {
+    translate: 2.5px 2.5px 0;
+    box-shadow: none;
+}
+
+.violet-border-hovered {
+    border-width: 1.9px;
+    border-color: #7c3aed;
+}
+
+.sky-border {
+    border-width: 1.9px;
+    border-color: #0284c7;
+    box-shadow: 2.5px 2.5px 0 0 #0284c7;
+}
+
+.sky-border-hover {
+    border-width: 1.9px;
+    border-color: #0284c7;
+    box-shadow: 2.5px 2.5px 0 0 #0284c7;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 250ms;
+}
+
+.sky-border-hover:hover {
+    translate: 2.5px 2.5px 0;
+    box-shadow: none;
+}
+
+.sky-border-hovered {
+    border-width: 1.9px;
+    border-color: #0284c7;
+}
+
 .zelle-border {
     border-width: 1.9px;
     border-color: #5410a6;

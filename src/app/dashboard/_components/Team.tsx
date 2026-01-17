@@ -32,16 +32,20 @@ type TeamMember = {
 
 type PendingMember = TeamMember & { sentAt: Date };
 
+import { SubscriptionTier } from '@prisma/client';
+
 const Team = ({
     userEmail,
     role,
     userPublicID,
     setSelectedPage,
+    subscriptionTier,
 }: {
     userEmail: string;
     role: string;
     userPublicID: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    subscriptionTier?: SubscriptionTier;
 }) => {
     const [members, setMembers] = useState<TeamMember[]>([]);
     const [pending, setPending] = useState<{ incoming: PendingMember[]; outgoing: PendingMember[] }>({ incoming: [], outgoing: [] });
@@ -155,7 +159,13 @@ const Team = ({
                             <span className='block @min-[490px]/team:hidden @min-[735px]/team:block'>Refresh</span>
                         </button>
                         <button
-                            onClick={() => setIsInviting(true)}
+                            onClick={() => {
+                                if (role === 'braider' && subscriptionTier === 'professional' && members.length >= 10) {
+                                    failToast('Professional plan is limited to 10 subcontractors.');
+                                    return;
+                                }
+                                setIsInviting(true);
+                            }}
                             className='font-figtree w-full @min-[490px]/team:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/team:text-lg @min-[650px]/team:text-[19px] @min-[735px]/team:text-lg text-nowrap rounded-[14px] @min-[490px]/team:rounded-[20px] @min-[650px]/team:rounded-[14px] @min-[735px]/team:rounded-[10px] py-2 px-6 @min-[490px]/team:p-3 @min-[650px]/team:py-2 @min-[650px]/team:px-6 bg-primary-light text-background primary-border-hover'
                         >
                             <PlusCircle className='w-6 h-6 @min-[490px]/team:w-7 @min-[490px]/team:h-7 @min-[650px]/team:w-6 @min-[650px]/team:h-6' strokeWidth={2.5} />
@@ -210,6 +220,10 @@ const Team = ({
                                                 </button>
                                                 <button
                                                     onClick={() => {
+                                                        if (role === 'braider' && subscriptionTier === 'professional' && members.length >= 10) {
+                                                            failToast('Professional plan is limited to 10 subcontractors.');
+                                                            return;
+                                                        }
                                                         if (role === 'braider')
                                                             setCheckAcceptModal({ open: true, name: req.name || '', callback: () => handleAccept(req.connectionID), type: 'accept' });
                                                         else handleAccept(req.connectionID);
@@ -337,7 +351,7 @@ const Team = ({
                                                 </div>
                                                 <span className='font-medium transition-all'>{`(${member.phoneNumber.slice(0, 3)}) ${member.phoneNumber.slice(
                                                     3,
-                                                    6
+                                                    6,
                                                 )}-${member.phoneNumber.slice(6, 10)}`}</span>
                                             </Link>
                                         )}
@@ -579,7 +593,7 @@ const InviteModal = ({
                         <button
                             className={cn(
                                 'cursor-pointer font-medium grid place-items-center pr-3.5 pl-3 transition-all relative w-full h-full',
-                                inviteMode === 'id' ? 'text-background' : 'text-primary'
+                                inviteMode === 'id' ? 'text-background' : 'text-primary',
                             )}
                             onClick={() => setInviteMode('id')}
                         >
@@ -588,7 +602,7 @@ const InviteModal = ({
                         <button
                             className={cn(
                                 'cursor-pointer font-medium grid place-items-center pl-4 pr-3 transition-all relative w-full h-full',
-                                inviteMode === 'qr' ? 'text-background' : 'text-primary'
+                                inviteMode === 'qr' ? 'text-background' : 'text-primary',
                             )}
                             onClick={() => setInviteMode('qr')}
                         >
@@ -623,7 +637,7 @@ const InviteModal = ({
                                                 ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
                                                 : loadingUser === 'success'
                                                   ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
-                                                  : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                  : 'border-gray-200 focus:border-primary focus:ring-primary/10',
                                         )}
                                         name='invite'
                                         value={inviteInput}

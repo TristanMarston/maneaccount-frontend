@@ -9,7 +9,7 @@ import { establishConnection } from '@/app/actions/join';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions as nextAuthOptions } from '@/app/api/auth/[...nextauth]/route';
+import { stripe } from '@/lib/stripe-init';
 
 export const authOptions: AuthOptions = {
     adapter: PrismaAdapter(prisma),
@@ -61,26 +61,7 @@ export const authOptions: AuthOptions = {
         }),
     ],
     events: {
-        async signIn({ user, account }) {
-            if (account?.provider === 'google') {
-                try {
-                    const cookieStore = await cookies();
-                    const roleCookie = cookieStore.get('signup_role');
-                    const role = roleCookie?.value;
-
-                    if (role && ['braider', 'subcontractor', 'barn', 'admin'].includes(role)) {
-                        if (user.email) {
-                            await prisma.user.update({
-                                where: { email: user.email },
-                                data: { role: role as any },
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error setting role during OAuth:', error);
-                }
-            }
-
+        async signIn({ user }) {
             if (user.email) {
                 try {
                     const dbUser = await prisma.user.findUnique({
@@ -115,7 +96,28 @@ export const authOptions: AuthOptions = {
         },
     },
     callbacks: {
-        async jwt({ token, trigger, user, session }) {
+        async signIn({ user, account }) {
+            if (account?.provider === 'google') {
+                try {
+                    const cookieStore = await cookies();
+                    const intent = cookieStore.get('auth_intent')?.value;
+
+                    if (intent === 'signin') {
+                        const existingUser = await prisma.user.findUnique({
+                            where: { email: user.email as string },
+                        });
+
+                        if (!existingUser) {
+                            return '/login?mode=signup&error=AccountNotFound';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error during google sign-in check:', error);
+                }
+            }
+            return true;
+        },
+        async jwt({ token, trigger, user, session, account }) {
             if (trigger === 'update' && session) {
                 if (session.name && session.name.length > 0) token.name = session.name;
                 if (session.image && session.image.length > 0) token.image = session.image;
@@ -126,6 +128,47 @@ export const authOptions: AuthOptions = {
                 token.name = user.name;
                 token.role = user.role;
                 token.image = user.image;
+
+                if (account?.provider === 'google') {
+                    try {
+                        const cookieStore = await cookies();
+                        const roleCookie = cookieStore.get('signup_role');
+                        const role = roleCookie?.value;
+
+                        if (role && ['braider', 'subcontractor', 'barn', 'admin'].includes(role)) {
+                            if (user.email) {
+                                const updateData: any = { role: role as any }
+
+                                if (role === 'braider') {
+                                    const customer = await stripe.customers.create({
+                                        email: user.email,
+                                        name: user.name || undefined,
+                                        metadata: {
+                                            userId: user.id,
+                                            role: 'braider'
+                                        }
+                                    });
+
+                                    const trialEndDate = new Date();
+                                    trialEndDate.setDate(trialEndDate.getDate() + 60);
+
+                                    updateData.stripeCustomerId = customer.id;
+                                    updateData.trialEndsAt = trialEndDate;
+                                    updateData.subscriptionStatus = 'trialing';
+                                    updateData.subscriptionTier = 'enterprise'; 
+                                }
+
+                                await prisma.user.update({
+                                    where: { email: user.email },
+                                    data: updateData,
+                                });
+                                token.role = role;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error setting role during OAuth sign-in:', error);
+                    }
+                }
             }
             return token;
         },

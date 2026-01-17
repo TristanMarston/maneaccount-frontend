@@ -31,7 +31,20 @@ import {
     Copy,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { createJob, cancelJob, getJobs, updateJobStatus, addNote, getBraiderData, reRequestJob, deleteJob, markJobCompleted, toggleServiceCompletion } from '@/app/actions/jobs';
+import {
+    getJobs,
+    reRequestJob,
+    createJob,
+    cancelJob,
+    markJobCompleted,
+    addNote,
+    markJobPaid,
+    getBraiderUsageAction,
+    deleteJob,
+    updateJobStatus,
+    getBraiderData,
+    toggleServiceCompletion,
+} from '@/app/actions/jobs';
 import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
@@ -42,15 +55,15 @@ import { ViewShowDetailsModal, RequestWorkModal } from './RequestWorkModals';
 import { createPortal } from 'react-dom';
 import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, scrollVariants } from '@/app/context';
-import { markAllTypeAsRead } from '@/app/actions/notifications';
-import { NotificationType } from '@prisma/client';
+import { markAllMessagesAsRead, markAllTypeAsRead } from '@/app/actions/notifications';
+import { NotificationType, SubscriptionTier } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { addShowToCalendar } from '@/app/actions/calendar';
 import DatePicker from '../DatePicker';
 import { getIDByEmail } from '@/app/actions/join';
-import { formatPhoneNumber } from '../../SettingsModal';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import { formatPhoneNumber } from '../_settings/Settings';
 
 export type Job = {
     id: string;
@@ -92,7 +105,17 @@ export const statusColors = {
     paid: 'bg-yellow-100 text-yellow-700 border-yellow-200',
 };
 
-const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
+const Tasks = ({
+    role,
+    userEmail,
+    setSelectedPage,
+    subscriptionTier,
+}: {
+    role: string;
+    userEmail: string;
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    subscriptionTier?: SubscriptionTier;
+}) => {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [requestModalOpen, setRequestModalOpen] = useState(false);
@@ -105,6 +128,16 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
     const [checkMarkedCompleted, setCheckMarkedCompleted] = useState({ open: false, id: '', earnings: 0, horses: 0, services: 0 });
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
     const [exactTime, setExactTime] = useState(new Date());
+    const [braiderUsage, setBraiderUsage] = useState<{ count: number; limit: number; period: string } | null>(null);
+
+    useEffect(() => {
+        const getUsages = async () => {
+            const res = await getBraiderUsageAction(userEmail);
+            if (res) setBraiderUsage(res);
+        };
+
+        if (role === 'braider') getUsages();
+    }, [userEmail, role, jobs]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -171,20 +204,22 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
     }, [refreshCounts]);
 
     useEffect(() => {
-        if (notesJob) {
-            markAllTypeAsRead(NotificationType.new_message, notesJob.id).then(() => {
-                refreshCounts();
-            });
-        }
-    }, [notesJob, refreshCounts]);
+        const markAsRead = async (id: string) => {
+            await markAllMessagesAsRead(id);
+            refreshCounts();
+        };
+
+        if (notesJob) markAsRead(notesJob.id);
+    }, [notesJob]);
 
     useEffect(() => {
-        if (selectedJob) {
-            markAllTypeAsRead(NotificationType.new_message, selectedJob.id).then(() => {
-                refreshCounts();
-            });
-        }
-    }, [selectedJob, refreshCounts]);
+        const markAsRead = async (id: string) => {
+            await markAllMessagesAsRead(id);
+            refreshCounts();
+        };
+
+        if (selectedJob) markAsRead(selectedJob.id);
+    }, [selectedJob]);
 
     const refreshJobs = async () => {
         const updated = await getJobs(userEmail, role);
@@ -241,7 +276,27 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                     </button>
                                 )}
                             </header>
-
+                            {braiderUsage && braiderUsage.period !== 'unlimited' && (
+                                <div className='w-full bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mb-2'>
+                                    <div className='flex justify-between items-end mb-2'>
+                                        <div>
+                                            <h3 className='font-bold text-gray-900'>Service Limit</h3>
+                                            <p className='text-xs font-semibold text-gray-500'>
+                                                {braiderUsage.count} / {braiderUsage.limit} horses serviced this {braiderUsage.period}
+                                            </p>
+                                        </div>
+                                        <span className='font-bold text-primary text-lg'>{Math.round((braiderUsage.count / braiderUsage.limit) * 100)}%</span>
+                                    </div>
+                                    <div className='w-full bg-gray-100 rounded-full h-3 overflow-hidden'>
+                                        <motion.div
+                                            className='bg-primary h-full rounded-full'
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.min((braiderUsage.count / braiderUsage.limit) * 100, 100)}%` }}
+                                            transition={{ duration: 1, ease: 'easeOut' }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             {loading ? (
                                 <div className='grid grid-cols-1 gap-4 animate-pulse'>
                                     {[1, 2, 3].map((i) => (
@@ -447,6 +502,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                                 handleCancelJobModal={handleCancelJobModal}
                                 setSelectedHorse={setSelectedHorse}
                                 setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                subscriptionTier={subscriptionTier}
                             />
                         </motion.div>
                     )}
@@ -459,6 +515,7 @@ const Tasks = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: 
                     setSelectedHorse={setSelectedHorse}
                     setShowDetailsModal={setShowDetailsModal}
                     onSubmit={handleCreateJob}
+                    setSelectedPage={setSelectedPage}
                 />
             </Modal>
 
@@ -605,7 +662,7 @@ const JobCard = ({
             id: job.id,
             earnings: job.assignments.reduce(
                 (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
-                0
+                0,
             ),
             horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
             services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
@@ -617,7 +674,7 @@ const JobCard = ({
             onClick={() => setSelectedJob(job)}
             className={cn(
                 'bg-white p-5 @min-[450px]/tasks:p-6 relative rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col @min-[600px]/tasks:flex-row gap-4 justify-between items-start @min-[600px]/tasks:items-center @container/job-card',
-                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : ''
+                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : '',
             )}
         >
             <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>
@@ -663,7 +720,7 @@ const JobCard = ({
                                             .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
                                             .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
                                         ? 'text-primary-light'
-                                        : 'text-gray-500'
+                                        : 'text-gray-500',
                                 )}
                             >
                                 <span className='flex items-center gap-1'>
@@ -683,7 +740,7 @@ const JobCard = ({
             <div
                 className={cn(
                     'flex whitespace-nowrap flex-row-reverse @min-[600px]/tasks:flex-row min-w-0 items-center gap-2 @min-[350px]/job-card:gap-4 w-full @min-[600px]/tasks:w-auto justify-between @min-[600px]/tasks:justify-end mt-2 @min-[600px]/tasks:mt-0',
-                    completedNotPaid ? 'opacity-60' : ''
+                    completedNotPaid ? 'opacity-60' : '',
                 )}
             >
                 <div className='flex items-center gap-2'>
@@ -753,7 +810,7 @@ const JobCard = ({
                     }}
                     className={cn(
                         'cursor-pointer flex items-center gap-2 font-figtree uppercase font-bold absolute -top-3 right-2 text-[15px] tracking-wide px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 hover:bg-amber-200 transition-all',
-                        role === 'subcontractor' ? 'pointer-events-none' : ''
+                        role === 'subcontractor' ? 'pointer-events-none' : '',
                     )}
                 >
                     {role === 'barn' ? 'Payment Required' : 'Invoice Sent to Barn'}
@@ -811,7 +868,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                           ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                           : job.braider.name)
                                     ? 'self-end items-end'
-                                    : 'self-start items-start'
+                                    : 'self-start items-start',
                             )}
                         >
                             <div
@@ -824,7 +881,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                                               ? job.subcontractors.find((s) => s.name === note.author.name)?.name || ''
                                               : job.braider.name)
                                         ? 'bg-primary text-white rounded-tr-sm'
-                                        : 'bg-white text-gray-800 rounded-tl-sm'
+                                        : 'bg-white text-gray-800 rounded-tl-sm',
                                 )}
                             >
                                 {note.content}

@@ -7,6 +7,7 @@ import { subDays } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
+import { getBraiderUsage } from '@/lib/limits';
 
 export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[] }[] }) {
     const session = await auth();
@@ -18,6 +19,20 @@ export async function createJob(data: { braiderId: string; showId: string; assig
 
         if (!data.braiderId || !data.showId || data.assignments.length === 0) {
             return { error: 'Missing required fields' };
+        }
+
+        const braider = await prisma.user.findUnique({ where: { id: data.braiderId } });
+        if (!braider) return { error: 'Braider not found' };
+
+        // Check Limits
+        const show = await prisma.show.findUnique({ where: { id: data.showId } });
+        if (!show) return { error: 'Show not found' };
+
+        const { count, limit, period } = await getBraiderUsage(data.braiderId, braider.subscriptionTier, new Date());
+        const newHorsesCount = data.assignments.length;
+
+        if (period !== 'unlimited' && count + newHorsesCount > limit) {
+            return { error: `Request exceeds braider's limit of ${limit} horses per ${period}` };
         }
 
         const job = await prisma.job.create({
@@ -38,7 +53,17 @@ export async function createJob(data: { braiderId: string; showId: string; assig
             include: { show: true },
         });
 
+        // Notifications
         await createNotification(data.braiderId, NotificationType.job_request, `${barn.name} requested work for ${job.show.name}`, job.id, barn.id);
+
+        // Check if 45th horse threshold is crossed/reached
+        if (period !== 'unlimited') {
+            const newTotal = count + newHorsesCount;
+
+            if (count < 30 && newTotal >= 30) {
+                await createNotification(data.braiderId, NotificationType.limit_approaching, `You have serviced ${count} out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`, null, null);
+            }
+        }
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -446,5 +471,19 @@ export async function cancelAssignmentService(assignmentId: string, serviceId: s
     } catch (error) {
         console.error('Cancel service error:', error);
         return { error: 'Failed to update service' };
+    }
+}
+export async function getBraiderUsageAction(email: string) {
+    if (!email) return null;
+    try {
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return null;
+
+        // For "Tasks" bar, we usually want usage relative to "today" or "this week".
+        const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date());
+        return { count, limit, period };
+    } catch (error) {
+        console.error('Get braider usage error:', error);
+        return null;
     }
 }

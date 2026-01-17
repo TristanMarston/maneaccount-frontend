@@ -33,15 +33,21 @@ const SignInPage = () => {
     const [resetModalOpen, setResetModalOpen] = useState(false);
     const { data: session, status } = useSession();
 
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
     useEffect(() => {
         if (status === 'authenticated' && session) {
             if (session.user && session.user.role === 'admin') router.push('/admin');
             else router.push('/dashboard');
         }
-    }, [session, status]);
 
-    const router = useRouter();
-    const searchParams = useSearchParams();
+        const error = searchParams.get('error');
+        if (error === 'AccountNotFound') {
+            failToast('Account not found. Please select a role and use the sign up form!');
+        }
+    }, [session, status, searchParams]);
+
     const passedMode = searchParams.get('mode');
     const validRoles = searchParams.get('validRoles')?.split(',') || ['barn', 'braider', 'subcontractor'];
     const [mode, setMode] = useState<'signin' | 'signup'>(passedMode === 'signin' || passedMode === 'signup' ? passedMode : 'signup');
@@ -72,6 +78,7 @@ const SignInPage = () => {
 
     const handleGoogleSignIn = (providerId: string) => {
         document.cookie = `signup_role=${formData.role}; path=/; max-age=300`;
+        document.cookie = `auth_intent=signup; path=/; max-age=300`;
 
         signIn(providerId, { callbackUrl: '/dashboard' });
     };
@@ -176,7 +183,10 @@ const SignInPage = () => {
                                         onClick={() => {
                                             if (formData.role !== undefined && mode === 'signup') handleGoogleSignIn(provider.id);
                                             else if (formData.role === undefined && mode === 'signup') failToast('Please select a role to sign up.');
-                                            else if (mode === 'signin') signIn(provider.id, { callbackUrl: '/dashboard' });
+                                            else if (mode === 'signin') {
+                                                document.cookie = `auth_intent=signin; path=/; max-age=300`;
+                                                signIn(provider.id, { callbackUrl: '/dashboard' });
+                                            }
                                         }}
                                         className='shadow-sm border border-gray-200 bg-white w-full flex justify-center items-center gap-3 px-4 py-1.5 lg:py-2 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors mb-4 lg:mb-6'
                                     >
@@ -351,7 +361,9 @@ const ResetPasswordModal = ({ isOpen, setIsOpen, initialEmail }: { isOpen: boole
                                     <KeyRound className='w-7 h-7 text-background' />
                                 </div>
                                 <h2 className='text-2xl font-bold'>Reset Password</h2>
-                                <p className='text-gray-500 text-center'>Enter your email and we&apos;ll send you a code to reset your password.</p>
+                                <p className='text-gray-500 text-center'>
+                                    Enter your email and we&apos;ll send you a code to reset your password. Check your spam folder if you don&apos;t see it.
+                                </p>
                             </div>
                             <form onSubmit={handleRequestCode} className='space-y-4'>
                                 <div className='relative'>

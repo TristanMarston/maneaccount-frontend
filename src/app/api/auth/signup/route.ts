@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { stripe } from '@/lib/stripe-init';
 
 export async function POST(req: NextRequest) {
     const { email, password, name, role } = await req.json();
@@ -20,6 +21,31 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({
         data: { email, password: hashedPassword, name, role },
     });
+
+    if (role === 'braider' && user) {
+        const customer = await stripe.customers.create({
+            email: email,
+            name: name || undefined,
+            metadata: {
+                userId: user.id,
+                role: 'braider',
+            },
+        });
+
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 60);
+
+        const updateData: any = {};
+        updateData.stripeCustomerId = customer.id;
+        updateData.trialEndsAt = trialEndDate;
+        updateData.subscriptionStatus = 'trialing';
+        updateData.subscriptionTier = 'enterprise';
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: updateData,
+        });
+    }
 
     return NextResponse.json({ user });
 }

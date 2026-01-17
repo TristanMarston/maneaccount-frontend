@@ -8,6 +8,7 @@ import ManeAccountJobRequestEmail from '@/app/emails/EmailJobRequestTemplate';
 import ManeAccountJobCompletedEmail from '@/app/emails/EmailJobCompletedTemplate';
 import ManeAccountJobPaidEmail from '@/app/emails/EmailJobPaidTemplate';
 import ManeAccountNewMessageEmail from '@/app/emails/EmailNewMessageTemplate';
+import ManeAccountLimitApproachingEmail from '@/app/emails/EmailLimitApproachingTemplate';
 
 const ses = new SESClient({
     region: process.env.AWS_REGION!,
@@ -227,7 +228,21 @@ export async function sendJobCompletedEmail({
     }
 }
 
-export async function sendJobPaidEmail({ to, barnName, amount, showName, paymentMethod, image }: { to: string; barnName: string; amount: number; showName: string; paymentMethod: string; image?: string }) {
+export async function sendJobPaidEmail({
+    to,
+    barnName,
+    amount,
+    showName,
+    paymentMethod,
+    image,
+}: {
+    to: string;
+    barnName: string;
+    amount: number;
+    showName: string;
+    paymentMethod: string;
+    image?: string;
+}) {
     if (!to) return { error: 'No email provided' };
 
     try {
@@ -250,7 +265,19 @@ export async function sendJobPaidEmail({ to, barnName, amount, showName, payment
     }
 }
 
-export async function sendNewMessageEmail({ to, senderName, message, senderImage, showName }: { to: string; senderName: string; message: string; senderImage?: string | null; showName: string }) {
+export async function sendNewMessageEmail({
+    to,
+    senderName,
+    message,
+    senderImage,
+    showName,
+}: {
+    to: string;
+    senderName: string;
+    message: string;
+    senderImage?: string | null;
+    showName: string;
+}) {
     if (!to) return { error: 'No email provided' };
 
     try {
@@ -269,6 +296,29 @@ export async function sendNewMessageEmail({ to, senderName, message, senderImage
         return { success: true };
     } catch (error) {
         console.error('SES new message email failed:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendLimitApproachingEmail({ to, count, limit, period }: { to: string; count: number; limit: number; period: string }) {
+    if (!to) return { error: 'No email provided' };
+
+    try {
+        const html = await render(ManeAccountLimitApproachingEmail({ count, limit, period }));
+
+        const command = new SendEmailCommand({
+            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: 'Usage Limit Approaching' },
+                Body: { Html: { Data: html } },
+            },
+        });
+
+        await ses.send(command);
+        return { success: true };
+    } catch (error) {
+        console.error('SES limit approaching email failed:', error);
         return { success: false, error };
     }
 }

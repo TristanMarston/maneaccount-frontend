@@ -12,10 +12,9 @@ import { getPublicID } from '@/app/actions/getPublicID';
 import Calendar from '../_calendar/Calendar';
 import Services from '../_braider/Services';
 import Invoices from '../_invoices/Invoices';
-import Settings from '../Settings';
+import Settings from '../_settings/Settings';
 import Tasks from '../_tasks/Tasks';
-
-type Tab = 'profile' | 'account' | 'payments' | 'notifications';
+import { Tab } from '../_braider/BraiderDashboard';
 
 const BarnDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
@@ -52,7 +51,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
             case 'Invoices':
                 return <Invoices role='barn' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={(open) => setSelectedPage('Settings')} />;
             case 'Settings':
-                return <Settings update={update} role='barn' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} />;
+                return <Settings update={update} role='barn' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:
                 return <DashboardHome role='barn' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
         }
@@ -77,6 +76,8 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
                 selectedPage={selectedPage}
                 setSelectedPage={setSelectedPage}
                 unsavedChanges={unsavedChanges}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
             />
 
             <main className='flex-1 h-full overflow-y-auto hide-scrollbar bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>

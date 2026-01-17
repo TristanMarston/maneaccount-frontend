@@ -490,7 +490,7 @@ const DropdownPortal = ({
             {isOpen && coords && (
                 <>
                     <div
-                        className='fixed inset-0 z-[100]'
+                        className='fixed inset-0 z-100'
                         onClick={(e) => {
                             e.stopPropagation();
                             onClose();
@@ -501,7 +501,10 @@ const DropdownPortal = ({
                         variants={wrapperVariants}
                         animate='open'
                         exit='closed'
-                        className={cn('fixed z-[101]', className)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn('fixed z-101', className)}
                         style={{
                             top: coords.top,
                             left: coords.left,
@@ -513,7 +516,7 @@ const DropdownPortal = ({
                 </>
             )}
         </AnimatePresence>,
-        document.body
+        document.body,
     );
 };
 

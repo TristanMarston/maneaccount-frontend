@@ -11,9 +11,9 @@ import { failToast, successToast } from '@/app/context';
 import { createClient } from '@/app/api/supabase/client/client';
 import { getClients, addClient, editClient, deleteClient } from '@/app/actions/clients';
 import { ClientModal, ClientFormData } from './ClientModal';
-import { formatPhoneNumber } from '../../SettingsModal';
 import { cn } from '@/lib/utils';
 import { createPortal } from 'react-dom';
+import { formatPhoneNumber } from '../_settings/Settings';
 
 type Gender = 'mare' | 'gelding' | 'stallion' | 'filly' | 'colt';
 
@@ -667,7 +667,7 @@ const HorseModal = ({
                                                     }}
                                                     className={cn(
                                                         'px-4 py-2 rounded-xl shadow-sm border cursor-pointer flex items-center gap-3 transition-all',
-                                                        data.clientId === client.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50'
+                                                        data.clientId === client.id ? 'bg-primary-extra-light border-primary' : 'bg-white border-gray-200 hover:border-primary/50',
                                                     )}
                                                 >
                                                     <div className='min-w-8 min-h-8 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
@@ -832,7 +832,7 @@ const ImageCropper = ({ file, onCancel, onComplete }: { file: File; onCancel: ()
                 }
             },
             'image/jpeg',
-            0.9
+            0.9,
         );
     };
 
@@ -1178,7 +1178,10 @@ const DropdownPortal = ({
                         variants={wrapperVariants}
                         animate='open'
                         exit='closed'
-                        className={cn('fixed z-[101]', className)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn('fixed z-101', className)}
                         style={{
                             top: coords.top,
                             left: coords.left,
@@ -1190,7 +1193,7 @@ const DropdownPortal = ({
                 </>
             )}
         </AnimatePresence>,
-        document.body
+        document.body,
     );
 };
 

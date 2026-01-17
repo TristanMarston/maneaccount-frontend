@@ -49,7 +49,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang='en' className={`${figtree.variable} ${lusitana.variable} ${lustria.variable} ${reenieBeanie.variable}`}>
-            <body className={`overflow-x-hidden h-dvh w-dvh p-0 bg-background`}>{children}</body>
+            <body className={`overflow-x-hidden h-dvh w-dvw p-0 bg-background`}>{children}</body>
         </html>
     );
 }

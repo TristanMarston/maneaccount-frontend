@@ -1122,11 +1122,13 @@ const ListView = ({
 
     const groupedByDate: { [key: string]: typeof allOccurrences } = {};
     allOccurrences.forEach((occ) => {
-        const dateKey = format(occ.occurrenceDate, 'yyyy-MM-dd');
-        if (!groupedByDate[dateKey]) {
-            groupedByDate[dateKey] = [];
+        if (occ.jobData ? occ.jobData.status === 'accepted' || occ.jobData.status === 'completed' : true) {
+            const dateKey = format(occ.occurrenceDate, 'yyyy-MM-dd');
+            if (!groupedByDate[dateKey]) {
+                groupedByDate[dateKey] = [];
+            }
+            groupedByDate[dateKey].push(occ);
         }
-        groupedByDate[dateKey].push(occ);
     });
 
     const todayKey = format(new Date().setHours(0, 0, 0, 0), 'yyyy-MM-dd');

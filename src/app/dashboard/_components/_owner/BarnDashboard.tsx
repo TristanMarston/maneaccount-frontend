@@ -13,6 +13,7 @@ import Calendar from '../_calendar/Calendar';
 import Services from '../_braider/Services';
 import Invoices from '../_invoices/Invoices';
 import Settings from '../Settings';
+import Tasks from '../_tasks/Tasks';
 
 type Tab = 'profile' | 'account' | 'payments' | 'notifications';
 
@@ -47,7 +48,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
             case 'Calendar':
                 return <Calendar role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Services':
-                return <Services userEmail={email} />;
+                return <Tasks role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Invoices':
                 return <Invoices role='barn' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={(open) => setSelectedPage('Settings')} />;
             case 'Settings':

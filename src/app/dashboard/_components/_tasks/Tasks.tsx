@@ -282,7 +282,7 @@ const Tasks = ({
                                         <div>
                                             <h3 className='font-bold text-gray-900'>Service Limit</h3>
                                             <p className='text-xs font-semibold text-gray-500'>
-                                                {braiderUsage.count} / {braiderUsage.limit} horses serviced this {braiderUsage.period}
+                                                {braiderUsage.count} / {braiderUsage.limit} horses serviced {braiderUsage.period === 'week' ? 'this week' : braiderUsage.period === 'day' ? 'today' : 'this week'}
                                             </p>
                                         </div>
                                         <span className='font-bold text-primary text-lg'>{Math.round((braiderUsage.count / braiderUsage.limit) * 100)}%</span>

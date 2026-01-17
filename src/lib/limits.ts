@@ -16,13 +16,13 @@ export async function getBraiderUsage(braiderId: string, subscriptionTier: Subsc
         // Weekly limit (Sunday start)
         startDate = startOfWeek(referenceDate, { weekStartsOn: 0 });
         endDate = endOfWeek(referenceDate, { weekStartsOn: 0 });
-        limit = 35;
+        limit = 50;
         period = 'week';
     } else {
         // Professional: Daily limit
         startDate = startOfDay(referenceDate);
         endDate = endOfDay(referenceDate);
-        limit = 35;
+        limit = 50;
         period = 'day';
     }
 

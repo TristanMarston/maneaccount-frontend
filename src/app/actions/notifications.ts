@@ -417,7 +417,7 @@ export async function createNotification(userId: string, type: NotificationType,
             } else if (type === NotificationType.limit_approaching && user.allowedNotifications.includes('limit_approaching')) {
                 const { sendLimitApproachingEmail } = await import('@/lib/email');
 
-                
+
 
                 const parts = message.split('|');
                 if (parts.length === 3) {
@@ -428,10 +428,9 @@ export async function createNotification(userId: string, type: NotificationType,
                         period: parts[2],
                     });
                 } else {
-                    // Fallback
                     await sendLimitApproachingEmail({
                         to: user.email,
-                        count: 45,
+                        count: 48,
                         limit: 50,
                         period: 'period',
                     });

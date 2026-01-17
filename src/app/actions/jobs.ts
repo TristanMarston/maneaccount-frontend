@@ -24,7 +24,6 @@ export async function createJob(data: { braiderId: string; showId: string; assig
         const braider = await prisma.user.findUnique({ where: { id: data.braiderId } });
         if (!braider) return { error: 'Braider not found' };
 
-        // Check Limits
         const show = await prisma.show.findUnique({ where: { id: data.showId } });
         if (!show) return { error: 'Show not found' };
 
@@ -53,15 +52,19 @@ export async function createJob(data: { braiderId: string; showId: string; assig
             include: { show: true },
         });
 
-        // Notifications
         await createNotification(data.braiderId, NotificationType.job_request, `${barn.name} requested work for ${job.show.name}`, job.id, barn.id);
 
-        // Check if 45th horse threshold is crossed/reached
         if (period !== 'unlimited') {
             const newTotal = count + newHorsesCount;
 
-            if (count < 30 && newTotal >= 30) {
-                await createNotification(data.braiderId, NotificationType.limit_approaching, `You have serviced ${count} out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`, null, null);
+            if (count < 48 && newTotal >= 48) {
+                await createNotification(
+                    data.braiderId,
+                    NotificationType.limit_approaching,
+                    `You have serviced ${count} out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
+                    null,
+                    null,
+                );
             }
         }
 

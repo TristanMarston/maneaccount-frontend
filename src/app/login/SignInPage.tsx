@@ -1,16 +1,20 @@
 'use client';
 
 import { getProviders, signIn, useSession } from 'next-auth/react';
-import React, { useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Toaster } from 'react-hot-toast';
 import { Eye, EyeOff, Scissors, Users, Building2, LucideProps, Warehouse } from 'lucide-react'; // Added icons
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import { GradientBackground } from '../_components/GradientBackground';
-import { failToast, scrollVariants } from '../context';
+import { failToast, scrollVariants, successToast } from '../context';
 import Logo from '../_components/_navbar/Logo';
 import { cn } from '@/lib/utils';
+import Modal from '../dashboard/Modal';
+import { requestPasswordReset, verifyResetCode, resetPassword } from '../actions/verification';
+import toast from 'react-hot-toast';
+import { Mail, Lock, Key, CheckCircle2, ArrowRight, Loader2, KeyRound } from 'lucide-react';
 
 type UserRole = 'braider' | 'subcontractor' | 'barn';
 
@@ -26,6 +30,7 @@ const SignInPage = () => {
     const [providers, setProviders] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [passwordShown, setPasswordShown] = useState(false);
+    const [resetModalOpen, setResetModalOpen] = useState(false);
     const { data: session, status } = useSession();
 
     useEffect(() => {
@@ -178,7 +183,7 @@ const SignInPage = () => {
                                         <Image src='/google-logo.png' alt='Google Logo' width={24} height={24} />
                                         <span className='text-gray-700 font-semibold'>Continue with {provider.name}</span>
                                     </button>
-                                ) : null
+                                ) : null,
                             )}
 
                             <div className='flex items-center gap-4 mb-4 lg:mb-6'>
@@ -253,6 +258,15 @@ const SignInPage = () => {
                                 </span>
                             </p>
 
+                            {mode === 'signin' && (
+                                <p className='text-gray-500 mt-2 text-center text-sm'>
+                                    Forgot password?{' '}
+                                    <span className='cursor-pointer text-primary font-bold hover:underline' onClick={() => setResetModalOpen(true)}>
+                                        Reset it
+                                    </span>
+                                </p>
+                            )}
+
                             <div className='w-full flex justify-center mt-4 lg:mt-8'>
                                 <Logo />
                             </div>
@@ -262,7 +276,270 @@ const SignInPage = () => {
                     )}
                 </AnimatePresence>
             </GradientBackground>
+
+            <ResetPasswordModal isOpen={resetModalOpen} setIsOpen={setResetModalOpen} initialEmail={formData.email} />
         </>
+    );
+};
+
+const ResetPasswordModal = ({ isOpen, setIsOpen, initialEmail }: { isOpen: boolean; setIsOpen: (open: boolean) => void; initialEmail: string }) => {
+    const [step, setStep] = useState<'request' | 'verify' | 'reset' | 'success'>('request');
+    const [email, setEmail] = useState(initialEmail);
+    const [code, setCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [passwordShown, setPasswordShown] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setEmail(initialEmail);
+            setStep('request');
+            setCode('');
+            setNewPassword('');
+        }
+    }, [isOpen, initialEmail]);
+
+    const handleRequestCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await requestPasswordReset(email);
+        if (res.success) {
+            successToast('Code sent!');
+            setStep('verify');
+        } else {
+            failToast(String(res.error || 'Failed to send reset code'));
+        }
+        setLoading(false);
+    };
+
+    const handleVerifyCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await verifyResetCode(email, code);
+        if (res.success) {
+            setStep('reset');
+        } else {
+            failToast(res.error || 'Invalid code');
+        }
+        setLoading(false);
+    };
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await resetPassword(email, code, newPassword);
+        if (res.success) {
+            successToast('Password reset successfully!');
+            setStep('success');
+            setTimeout(() => {
+                setIsOpen(false);
+            }, 2000);
+        } else {
+            failToast(res.error || 'Failed to reset password');
+        }
+        setLoading(false);
+    };
+
+    return (
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen} className='max-w-md p-0 overflow-hidden rounded-2xl primary-border-bold'>
+            <div className='p-6 lg:p-8 font-figtree'>
+                <AnimatePresence mode='wait'>
+                    {step === 'request' && (
+                        <motion.div key='request' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <KeyRound className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>Reset Password</h2>
+                                <p className='text-gray-500 text-center'>Enter your email and we&apos;ll send you a code to reset your password.</p>
+                            </div>
+                            <form onSubmit={handleRequestCode} className='space-y-4'>
+                                <div className='relative'>
+                                    <Mail className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', email.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                    <input
+                                        className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                        type='email'
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder='Email Address'
+                                        autoCorrect='off'
+                                        autoComplete='off'
+                                        spellCheck={false}
+                                        required
+                                    />
+                                </div>
+                                <button
+                                    type='submit'
+                                    disabled={loading}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Send Code'}
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'verify' && (
+                        <motion.div key='verify' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <Key className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>Check your email</h2>
+                                <p className='text-gray-500'>We sent a 6-digit verification code to {email}</p>
+                            </div>
+                            <form onSubmit={handleVerifyCode} className='space-y-4'>
+                                <InputOTP code={code} setCode={setCode} />
+                                <button
+                                    type='submit'
+                                    disabled={loading || code.length !== 6}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Verify Code'}
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'reset' && (
+                        <motion.div key='reset' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <Lock className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>New Password</h2>
+                                <p className='text-gray-500'>Choose a strong password for your account.</p>
+                            </div>
+                            <form onSubmit={handleResetPassword} className='space-y-4'>
+                                <div className='relative'>
+                                    <Lock className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', newPassword.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                    <input
+                                        className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                        type={passwordShown ? 'text' : 'password'}
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder='New Password'
+                                        autoCorrect='off'
+                                        autoComplete='off'
+                                        spellCheck={false}
+                                        required
+                                    />
+                                    <button
+                                        type='button'
+                                        onClick={() => setPasswordShown(!passwordShown)}
+                                        className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary'
+                                    >
+                                        {passwordShown ? <Eye className='w-5 h-5' /> : <EyeOff className='w-5 h-5' />}
+                                    </button>
+                                </div>
+                                <button
+                                    type='submit'
+                                    disabled={loading}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Reset Password'}
+                                </button>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'success' && (
+                        <motion.div key='success' initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className='text-center space-y-4 py-4'>
+                            <div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto'>
+                                <CheckCircle2 className='w-10 h-10 text-green-600' />
+                            </div>
+                            <h2 className='text-2xl font-bold'>All set!</h2>
+                            <p className='text-gray-500'>Your password has been reset successfully. You can now sign in.</p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </Modal>
+    );
+};
+
+const InputOTP = ({ code, setCode }: { code: string; setCode: React.Dispatch<React.SetStateAction<string>> }) => {
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+    const focusInput = (index: number) => {
+        if (inputRefs.current[index]) {
+            inputRefs.current[index]?.focus();
+            inputRefs.current[index]?.select();
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+        const value = e.target.value;
+        if (!/^\d*$/.test(value)) return;
+        if (code.length < index) return;
+
+        const codeArray = code.split('').concat(Array(6).fill('')).slice(0, 6);
+        codeArray[index] = value.slice(-1);
+
+        const newCode = codeArray.join('');
+        setCode(newCode);
+
+        if (value && index < 5 && code.length >= index) {
+            focusInput(index + 1);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (index < 5) focusInput(index + 1);
+        }
+
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (index > 0) focusInput(index - 1);
+        }
+
+        if (e.key === 'Backspace') {
+            if (!code[index] && index > 0) {
+                e.preventDefault();
+                focusInput(index - 1);
+
+                const codeArray = code.split('');
+                codeArray[index - 1] = '';
+                setCode(codeArray.join(''));
+            }
+        }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').replaceAll(/–/g, '').slice(0, 6);
+        if (/^\d+$/.test(pastedData)) {
+            setCode(pastedData);
+            const nextIndex = Math.min(pastedData.length, 5);
+            focusInput(nextIndex === 6 ? 5 : nextIndex);
+        }
+    };
+
+    return (
+        <div className='flex items-center pb-0 gap-1 @min-[365px]/account:gap-2'>
+            {Array.from({ length: 6 }).map((_, index) => (
+                <Fragment key={index}>
+                    <input
+                        key={index}
+                        ref={(el) => {
+                            inputRefs.current[index] = el;
+                        }}
+                        type='text'
+                        maxLength={1}
+                        inputMode='numeric'
+                        value={code[index] || ''}
+                        onChange={(e) => handleChange(e, index)}
+                        onKeyDown={(e) => handleKeyDown(e, index)}
+                        onPaste={handlePaste}
+                        className='w-full aspect-square text-center text-xl font-figtree font-semibold border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary-extra-light outline-none transition-all'
+                        aria-label={`Digit ${index + 1}`}
+                    />
+                    {index === 2 && <div className='min-w-4 h-[3px] mx-1 bg-gray-500 rounded-full hidden min-[380px]:block' />}
+                </Fragment>
+            ))}
+        </div>
     );
 };
 

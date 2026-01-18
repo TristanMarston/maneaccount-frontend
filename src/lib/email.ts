@@ -92,7 +92,7 @@ export async function sendStatusChangeEmail({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
             Destination: { ToAddresses: [to] },
             Message: {
-                Subject: { Data: connection ? 'Connection Request' : 'Job Request' },
+                Subject: { Data: connection ? 'Connection Response' : 'Job Response' },
                 Body: { Html: { Data: html } },
             },
         });
@@ -310,7 +310,7 @@ export async function sendLimitEmail({ to, count, limit, period, type, barnName 
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
             Destination: { ToAddresses: [to] },
             Message: {
-                Subject: { Data: 'Usage Limit Approaching' },
+                Subject: { Data: type === 'approaching' ? 'Approaching Horse Limit' : 'Horse Limit Exceeded' },
                 Body: { Html: { Data: html } },
             },
         });

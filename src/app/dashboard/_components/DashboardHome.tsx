@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
+import { parseUTCToLocal } from '@/lib/date-utils';
 import { Show } from './_calendar/Calendar';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
@@ -105,7 +106,12 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     useAutoRefresh(fetchData);
 
     const upcomingShows = shows
-        .filter((s) => new Date(s.endDate) >= new Date(new Date().setHours(0, 0, 0, 0)))
+        .filter((s) => {
+            const endDate = parseUTCToLocal(s.endDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return endDate && endDate >= today;
+        })
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
         .slice(0, 3);
 
@@ -277,7 +283,7 @@ const Notifications = ({
                             exit='closed'
                             className={cn(
                                 'absolute top-[calc(100%+16px)] w-[80dvw] dashboard-sm:w-[325px] dashboard-sm:@min-[350px]/home:w-xs dashboard-sm:@min-[400px]/home:w-cm dashboard-sm:@min-[450px]/home:w-[450px] dashboard-sm:@min-[500px]/home:w-lg primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40',
-                                isWrapped ? 'left-0 right-auto' : 'right-0 left-auto'
+                                isWrapped ? 'left-0 right-auto' : 'right-0 left-auto',
                             )}
                         >
                             <div className='p-5 @container/notification-window'>
@@ -486,7 +492,7 @@ const Notification = ({
                                       ? 'Team'
                                       : notification.type === 'new_message'
                                         ? 'Messages'
-                                        : ''
+                                        : '',
                         );
                     } else if (role === 'barn') {
                         setSelectedPage(
@@ -502,7 +508,7 @@ const Notification = ({
                                         ? 'Team'
                                         : notification.type === 'new_message'
                                           ? 'Messages'
-                                          : ''
+                                          : '',
                         );
                     }
                     setNotificationsOpen(false);
@@ -548,7 +554,7 @@ const Notification = ({
                 <div
                     className={cn(
                         '-top-3 absolute text-xs right-2 bg-primary-extra-light text-primary-dark border border-primary/25 shadow-sm rounded-full px-2 py-0.5',
-                        notification.isRead ? 'text-gray-400 bg-gray-50 border-gray-200' : ''
+                        notification.isRead ? 'text-gray-400 bg-gray-50 border-gray-200' : '',
                     )}
                 >
                     {format(notification.createdAt, 'Pp')}
@@ -590,9 +596,9 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
             acc +
             j.assignments.reduce(
                 (sAcc: number, s: any) => sAcc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
-                0
+                0,
             ),
-        0
+        0,
     );
     const upcomingEvents = upcomingShows.filter(
         (s) =>
@@ -602,7 +608,7 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
                 s.jobData.status !== 'completed' &&
                 s.jobData.status !== 'denied' &&
                 s.jobData.status !== 'canceled' &&
-                s.jobData.status !== 'sub_declined')
+                s.jobData.status !== 'sub_declined'),
     ).length;
 
     return (
@@ -662,7 +668,7 @@ const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingS
                 s.jobData.status !== 'completed' &&
                 s.jobData.status !== 'denied' &&
                 s.jobData.status !== 'canceled' &&
-                s.jobData.status !== 'sub_declined')
+                s.jobData.status !== 'sub_declined'),
     ).length;
 
     return (
@@ -678,7 +684,7 @@ const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingS
                                 s.jobData.status !== 'completed' &&
                                 s.jobData.status !== 'denied' &&
                                 s.jobData.status !== 'canceled' &&
-                                s.jobData.status !== 'sub_declined'
+                                s.jobData.status !== 'sub_declined',
                         )
                         .length.toString()}
                     icon={Briefcase}
@@ -720,9 +726,9 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
             acc +
             j.assignments.reduce(
                 (sAcc: number, s: any) => sAcc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
-                0
+                0,
             ),
-        0
+        0,
     );
 
     return (
@@ -738,7 +744,7 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
                 />
                 <StatCard
                     title='Next Event'
-                    value={upcomingShows[0] ? format(new Date(upcomingShows[0].startDate), 'MMM d') : '-'}
+                    value={upcomingShows[0] ? format(parseUTCToLocal(upcomingShows[0].startDate) || new Date(), 'MMM d') : '-'}
                     icon={Calendar}
                     color='primary'
                     subtext={`${upcomingShows[0]?.name || 'No upcoming events'}${upcomingShows[0]?.type === 'job' ? ' • Job' : ''}`}
@@ -802,7 +808,7 @@ const StatCard = ({
             onClick={onClick}
             className={cn(
                 'p-6 rounded-[20px] bg-white border border-gray-100 shadow-sm flex items-start justify-between cursor-pointer hover:shadow-md transition-all group relative overflow-hidden',
-                styles.border
+                styles.border,
             )}
         >
             <div className='relative z-10 min-w-0'>
@@ -852,17 +858,17 @@ const ShowCard = ({ show }: { show: Show }) => {
         <div
             className={cn(
                 'flex items-center gap-4 p-4 rounded-[18px] bg-gray-50/50 border border-gray-100 transition-all group',
-                show.jobData && show.jobData.status === 'completed' ? 'opacity-50' : ''
+                show.jobData && show.jobData.status === 'completed' ? 'opacity-50' : '',
             )}
         >
             <div
                 className={cn(
                     'flex flex-col items-center justify-center w-14 h-14 rounded-2xl shrink-0 font-figtree',
-                    show.type === 'job' ? 'bg-blue-100 text-blue-600' : 'bg-primary-extra-light text-primary'
+                    show.type === 'job' ? 'bg-blue-100 text-blue-600' : 'bg-primary-extra-light text-primary',
                 )}
             >
-                <span className='text-xs font-bold uppercase'>{format(new Date(show.startDate), 'MMM')}</span>
-                <span className='text-xl font-black'>{format(new Date(show.startDate), 'd')}</span>
+                <span className='text-xs font-bold uppercase'>{format(parseUTCToLocal(show.startDate) || new Date(), 'MMM')}</span>
+                <span className='text-xl font-black'>{format(parseUTCToLocal(show.startDate) || new Date(), 'd')}</span>
             </div>
             <div className='min-w-0 flex-1'>
                 <div className='flex items-center gap-2'>
@@ -887,7 +893,7 @@ const ShowCard = ({ show }: { show: Show }) => {
 const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; color: 'amber' | 'purple' }) => {
     const total = job.assignments.reduce(
         (acc: any, s: any) => acc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
-        0
+        0,
     );
 
     return (
@@ -900,7 +906,7 @@ const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; colo
                 </div>
                 <div className='min-w-0'>
                     <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'barn' ? job.braider.name : job.barn.name}</p>
-                    <p className='text-xs text-gray-500 font-medium'>{format(new Date(job.scheduledDate), 'MMM d, yyyy')}</p>
+                    <p className='text-xs text-gray-500 font-medium'>{format(parseUTCToLocal(job.scheduledDate) || new Date(), 'MMM d, yyyy')}</p>
                 </div>
             </div>
             <span className={cn('font-lusitana font-bold text-lg hidden @min-[360px]/home:block', color === 'amber' ? 'text-amber-700' : 'text-purple-700')}>
@@ -909,7 +915,7 @@ const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; colo
             <span
                 className={cn(
                     'font-lusitana font-bold absolute -top-3 right-2 text-base px-3 py-0.5 rounded-full shadow-sm text-amber-700 block @min-[360px]/home:hidden',
-                    color === 'amber' ? 'bg-amber-100 border border-amber-200 text-amber-700' : 'bg-purple-100 border border-purple-200 text-purple-700'
+                    color === 'amber' ? 'bg-amber-100 border border-amber-200 text-amber-700' : 'bg-purple-100 border border-purple-200 text-purple-700',
                 )}
             >
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}

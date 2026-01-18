@@ -2,7 +2,12 @@ import { prisma } from './prisma';
 import { SubscriptionTier } from '@prisma/client';
 import { startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 
-export async function getBraiderUsage(braiderId: string, subscriptionTier: SubscriptionTier, referenceDate: Date = new Date()) {
+export async function getBraiderUsage(
+    braiderId: string,
+    subscriptionTier: SubscriptionTier,
+    referenceDate: Date = new Date(),
+    timezoneOffset: number = 0, // Minutes from UTC (e.g. 480 for PST)
+) {
     let startDate: Date;
     let endDate: Date;
     let limit: number;
@@ -12,16 +17,27 @@ export async function getBraiderUsage(braiderId: string, subscriptionTier: Subsc
         return { count: 0, limit: Infinity, period: 'unlimited' };
     }
 
+    // Adjust referenceDate to local time to calculate start/end of day/week
+    const localDate = new Date(referenceDate.getTime() - timezoneOffset * 60000);
+
     if (subscriptionTier === 'starter') {
         // Weekly limit (Sunday start)
-        startDate = startOfWeek(referenceDate, { weekStartsOn: 0 });
-        endDate = endOfWeek(referenceDate, { weekStartsOn: 0 });
+        const localStart = startOfWeek(localDate, { weekStartsOn: 0 });
+        const localEnd = endOfWeek(localDate, { weekStartsOn: 0 });
+
+        // Convert back to UTC for database comparison
+        startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
+        endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
         limit = 50;
         period = 'week';
     } else {
         // Professional: Daily limit
-        startDate = startOfDay(referenceDate);
-        endDate = endOfDay(referenceDate);
+        const localStart = startOfDay(localDate);
+        const localEnd = endOfDay(localDate);
+
+        // Convert back to UTC for database comparison
+        startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
+        endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
         limit = 50;
         period = 'day';
     }

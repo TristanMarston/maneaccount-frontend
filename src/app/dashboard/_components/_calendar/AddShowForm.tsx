@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DatePicker from '../DatePicker';
 import { Show } from '@/app/dashboard/_components/_calendar/Calendar';
+import { parseUTCToLocal } from '@/lib/date-utils';
 
 const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: () => void; onSuccess: () => void; initialData?: Show; userEmail: string }) => {
     const [formData, setFormData] = useState({
@@ -18,8 +19,8 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
         country: initialData?.country || 'USA',
         state: initialData?.state || '',
         city: initialData?.city || '',
-        startDate: initialData?.startDate ? new Date(initialData.startDate) : null,
-        endDate: initialData?.endDate ? new Date(initialData.endDate) : null,
+        startDate: initialData?.startDate ? parseUTCToLocal(initialData.startDate) : null,
+        endDate: initialData?.endDate ? parseUTCToLocal(initialData.endDate) : null,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [startDateSelectorOpen, setStartDateSelectorOpen] = useState(false);
@@ -83,8 +84,8 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                     formData.country !== initialData.country ||
                     formData.state !== initialData.state ||
                     formData.city !== initialData.city ||
-                    formData.startDate?.getTime() !== new Date(initialData.startDate).getTime() ||
-                    formData.endDate?.getTime() !== new Date(initialData.endDate).getTime()
+                    formData.startDate?.getTime() !== parseUTCToLocal(initialData.startDate)?.getTime() ||
+                    formData.endDate?.getTime() !== parseUTCToLocal(initialData.endDate)?.getTime(),
             );
         } else {
             setChangesMade(!!formData.name || !!formData.state || !!formData.city || !!formData.startDate || !!formData.endDate);
@@ -317,7 +318,7 @@ const DropdownPortal = ({
             {isOpen && coords && (
                 <>
                     <div
-                        className='fixed inset-0 z-[100]'
+                        className='fixed inset-0 z-100'
                         onClick={(e) => {
                             e.stopPropagation();
                             onClose();
@@ -343,7 +344,7 @@ const DropdownPortal = ({
                 </>
             )}
         </AnimatePresence>,
-        document.body
+        document.body,
     );
 };
 

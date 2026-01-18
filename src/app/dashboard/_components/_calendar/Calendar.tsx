@@ -41,6 +41,7 @@ import {
     isEqual,
 } from 'date-fns';
 import { deleteShow, getInvites, getShows, respondToShowInvite } from '@/app/actions/calendar';
+import { parseUTCToLocal } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
@@ -199,7 +200,7 @@ const ShowDetailsModal = ({
                                 <div>
                                     <p className='text-xs font-bold text-primary uppercase tracking-wide'>Dates</p>
                                     <p className='text-sm font-medium text-gray-900'>
-                                        {format(new Date(show.startDate), 'MMM d')} - {format(new Date(show.endDate), 'MMM d, yyyy')}
+                                        {format(parseUTCToLocal(show.startDate) || new Date(), 'MMM d')} - {format(parseUTCToLocal(show.endDate) || new Date(), 'MMM d, yyyy')}
                                     </p>
                                 </div>
                             </div>
@@ -268,14 +269,14 @@ const DayDetailsModal = ({
                                             onClick={() => onEventClick(show)}
                                             className={cn(
                                                 'w-full cursor-pointer text-left flex flex-col gap-1 p-3 bg-white border border-gray-100 rounded-xl hover:border-primary/30 shadow-sm transition-all group',
-                                                show.type === 'job' ? 'bg-blue-50 border-blue-200 hover:border-blue-200' : ''
+                                                show.type === 'job' ? 'bg-blue-50 border-blue-200 hover:border-blue-200' : '',
                                             )}
                                         >
                                             <div className='flex justify-between items-start gap-2 w-full'>
                                                 <span
                                                     className={cn(
                                                         'font-bold text-gray-900 group-hover:text-primary transition-colors truncate min-w-0',
-                                                        show.type === 'job' ? 'group-hover:text-blue-500' : ''
+                                                        show.type === 'job' ? 'group-hover:text-blue-500' : '',
                                                     )}
                                                 >
                                                     {show.name}
@@ -664,7 +665,7 @@ const Notifications = ({
                         exit='closed'
                         className={cn(
                             'absolute top-[calc(100%+24px)] w-[80vw] dashboard-sm:w-[50vw] @min-[550px]/calendar:w-[380px] @min-[730px]/calendar:w-[440px] primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40',
-                            anchor === 'left' ? 'left-0' : 'right-0'
+                            anchor === 'left' ? 'left-0' : 'right-0',
                         )}
                     >
                         <div className='p-5 @container/calendar-invites'>
@@ -751,7 +752,7 @@ const MonthNavigation = ({ navigate, currentDate, className = '' }: { navigate: 
         <div
             className={cn(
                 'h-full font-figtree w-auto font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] @min-[670px]/calendar:rounded-[10px] px-2 py-2 bg-background text-primary primary-border',
-                className
+                className,
             )}
         >
             <button onClick={() => navigate('prev')} className='p-1 cursor-pointer hover:bg-gray-50 rounded-lg text-gray-600'>
@@ -776,7 +777,7 @@ const ViewSwitcher = ({ view, setView, className = '' }: { view: CalendarViewTyp
             <button
                 className={cn(
                     'cursor-pointer py-0 @min-[550px]/calendar:py-[3px] font-medium grid place-items-center pl-2 pr-3 transition-all relative w-full h-full',
-                    view === 'month' ? 'text-background' : 'text-primary'
+                    view === 'month' ? 'text-background' : 'text-primary',
                 )}
                 onClick={() => setView('month')}
             >
@@ -785,7 +786,7 @@ const ViewSwitcher = ({ view, setView, className = '' }: { view: CalendarViewTyp
             <button
                 className={cn(
                     'cursor-pointer py-0 @min-[550px]/calendar:py-[3px] font-medium grid place-items-center px-2 transition-all relative w-full h-full',
-                    view === 'week' ? 'text-background' : 'text-primary'
+                    view === 'week' ? 'text-background' : 'text-primary',
                 )}
                 onClick={() => setView('week')}
             >
@@ -794,7 +795,7 @@ const ViewSwitcher = ({ view, setView, className = '' }: { view: CalendarViewTyp
             <button
                 className={cn(
                     'cursor-pointer py-0 @min-[550px]/calendar:py-[3px] font-medium grid place-items-center pr-2 pl-3 transition-all relative w-full h-full',
-                    view === 'list' ? 'text-background' : 'text-primary'
+                    view === 'list' ? 'text-background' : 'text-primary',
                 )}
                 onClick={() => setView('list')}
             >
@@ -849,13 +850,13 @@ const MonthView = ({
 
     const getShowsForDay = (day: Date) => {
         return shows.filter((show) => {
-            const start = new Date(show.startDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(show.endDate);
-            end.setHours(0, 0, 0, 0);
+            const start = parseUTCToLocal(show.startDate);
+            if (start) start.setHours(0, 0, 0, 0);
+            const end = parseUTCToLocal(show.endDate);
+            if (end) end.setHours(0, 0, 0, 0);
             const current = new Date(day);
             current.setHours(0, 0, 0, 0);
-            return current >= start && current <= end;
+            return start && end && current >= start && current <= end;
         });
     };
 
@@ -889,7 +890,7 @@ const MonthView = ({
                                         }}
                                         className={cn(
                                             'text-sm cursor-pointer relative left-[50%] translate-x-[-50%] font-medium w-7 h-7 flex items-center justify-center rounded-full mb-1',
-                                            isToday(day) ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'
+                                            isToday(day) ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100',
                                         )}
                                     >
                                         {format(day, 'd')}
@@ -926,7 +927,7 @@ const MonthView = ({
                                                     show.inviteStatus === 'pending' ? 'text-primary border-[#dae3de] bg-background opacity-80' : '',
                                                     show.jobData && (show.jobData.status === 'completed' || show.jobData.status === 'denied' || show.jobData.status === 'canceled')
                                                         ? 'opacity-50'
-                                                        : ''
+                                                        : '',
                                                 )}
                                             >
                                                 {show.name}
@@ -1032,7 +1033,7 @@ const WeekView = ({
                                     <div
                                         className={cn(
                                             'text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mx-auto cursor-pointer transition-colors',
-                                            isToday(day) ? 'bg-primary text-white' : 'text-gray-900'
+                                            isToday(day) ? 'bg-primary text-white' : 'text-gray-900',
                                         )}
                                         onClick={() => setSelectedDay(day)}
                                     >
@@ -1063,7 +1064,7 @@ const WeekView = ({
                                                 show.inviteStatus === 'pending' ? 'opacity-80' : '',
                                                 show.jobData && (show.jobData.status === 'completed' || show.jobData.status === 'denied' || show.jobData.status === 'canceled')
                                                     ? 'opacity-50'
-                                                    : ''
+                                                    : '',
                                             )}
                                         >
                                             <p className={cn('font-bold text-sm truncate', show.type === 'job' ? 'text-blue-600' : 'text-gray-900 group-hover:text-primary')}>
@@ -1111,8 +1112,9 @@ const ListView = ({
     userEmail: string;
 }) => {
     const allOccurrences = shows.flatMap((show) => {
-        const start = new Date(show.startDate);
-        const end = new Date(show.endDate);
+        const start = parseUTCToLocal(show.startDate);
+        const end = parseUTCToLocal(show.endDate);
+        if (!start || !end) return [];
         const days = eachDayOfInterval({ start, end });
         return days.map((day) => ({
             ...show,
@@ -1175,7 +1177,7 @@ const ListView = ({
                                     <div
                                         className={cn(
                                             'flex flex-col items-center justify-center rounded-xl p-2 min-w-16 h-16 transition-all',
-                                            isToday(date) ? 'bg-primary text-white shadow-lg scale-105' : 'bg-gray-50 text-gray-900 border border-gray-100'
+                                            isToday(date) ? 'bg-primary text-white shadow-lg scale-105' : 'bg-gray-50 text-gray-900 border border-gray-100',
                                         )}
                                     >
                                         <span className={cn('text-[10px] font-bold uppercase tracking-wider', isToday(date) ? 'text-primary-extra-light' : 'text-gray-400')}>
@@ -1206,7 +1208,7 @@ const ListView = ({
                                                             occ.jobData.status === 'canceled' ||
                                                             occ.jobData.status === 'sub_declined')
                                                         ? 'opacity-50'
-                                                        : ''
+                                                        : '',
                                                 )}
                                             >
                                                 <div className='flex-1 min-w-0'>
@@ -1215,7 +1217,7 @@ const ListView = ({
                                                             <h3
                                                                 className={cn(
                                                                     'text-xl min-w-0 font-bold text-gray-900 font-lusitana group-hover:text-primary transition-colors truncate',
-                                                                    occ.type === 'job' ? 'group-hover:text-blue-500' : ''
+                                                                    occ.type === 'job' ? 'group-hover:text-blue-500' : '',
                                                                 )}
                                                             >
                                                                 {occ.name}
@@ -1249,7 +1251,7 @@ const ListView = ({
                                                     <div
                                                         className={cn(
                                                             'w-10 h-10 rounded-full bg-primary-extra-light flex items-center justify-center text-primary',
-                                                            occ.type === 'job' ? 'bg-blue-100 text-blue-400' : ''
+                                                            occ.type === 'job' ? 'bg-blue-100 text-blue-400' : '',
                                                         )}
                                                     >
                                                         <ChevronRight size={20} />

@@ -21,6 +21,7 @@ import { getTeamMembers } from '@/app/actions/team';
 import { getIDByEmail } from '@/app/actions/join';
 import { addShowToCalendar } from '@/app/actions/calendar';
 import { successToast, failToast } from '@/app/context';
+import { parseUTCToLocal } from '@/lib/date-utils';
 import Modal from '../../Modal';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import DatePicker from '../DatePicker';
@@ -364,8 +365,8 @@ export const JobDetailSubpage = ({
     useEffect(() => {
         setJob(initialJob);
 
-        if (initialJob.scheduledDate && (!date || new Date(initialJob.scheduledDate).getTime() !== date.getTime())) {
-            setDate(new Date(initialJob.scheduledDate));
+        if (initialJob.scheduledDate && (!date || parseUTCToLocal(initialJob.scheduledDate)?.getTime() !== date.getTime())) {
+            setDate(parseUTCToLocal(initialJob.scheduledDate));
         }
     }, [initialJob]);
 
@@ -432,7 +433,7 @@ export const JobDetailSubpage = ({
 
     const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
         e.stopPropagation();
-        const res = await toggleServiceCompletion(assignmentId, serviceId);
+        const res = await toggleServiceCompletion(assignmentId, serviceId, new Date().getTimezoneOffset());
         if (res.success) {
             setJob((prev) => {
                 if (!prev) return prev;
@@ -568,7 +569,7 @@ export const JobDetailSubpage = ({
                     <div className='flex flex-col @min-[450px]/job-detail:flex-row @min-[450px]/job-detail:items-center gap-2 w-full justify-between p-4 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px]'>
                         <div>
                             <p className='font-bold text-primary-dark'>Expected Completion Date</p>
-                            <h3 className='text-[13px] font-bold text-primary uppercase'>{format(new Date(job.scheduledDate), 'PPPP')}</h3>
+                            <h3 className='text-[13px] font-bold text-primary uppercase'>{format(parseUTCToLocal(job.scheduledDate) || new Date(), 'PPPP')}</h3>
                         </div>
                     </div>
                 )}

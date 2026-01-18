@@ -198,6 +198,7 @@ enum NotificationType {
   team_status_change
   new_message
   limit_approaching
+  limit_exceeded
 }
 
 model Show {

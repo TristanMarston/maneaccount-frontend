@@ -159,7 +159,15 @@ export async function deleteNotification(notificationId: string) {
     }
 }
 
-export async function createNotification(userId: string, type: NotificationType, message: string, targetId?: string | null, senderId?: string | null, image?: string | null) {
+export async function createNotification(
+    userId: string,
+    type: NotificationType,
+    message: string,
+    targetId?: string | null,
+    senderId?: string | null,
+    image?: string | null,
+    timezoneOffset: number = 0,
+) {
     try {
         await prisma.notification.create({
             data: {
@@ -416,15 +424,31 @@ export async function createNotification(userId: string, type: NotificationType,
                     showName: note?.job?.show.name || '',
                 });
             } else if (type === NotificationType.limit_approaching && user.allowedNotifications.includes('limit_approaching')) {
-                const { sendLimitApproachingEmail } = await import('@/lib/email');
+                const { sendLimitEmail } = await import('@/lib/email');
 
-                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier);
+                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date(), timezoneOffset);
 
-                await sendLimitApproachingEmail({
+                await sendLimitEmail({
                     to: user.email,
                     count: count,
                     limit: limit,
                     period: period,
+                    type: 'approaching',
+                });
+            } else if (type === NotificationType.limit_exceeded && user.allowedNotifications.includes('limit_exceeded')) {
+                const { sendLimitEmail } = await import('@/lib/email');
+
+                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date(), timezoneOffset);
+
+                const barn = await prisma.user.findUnique({ where: { id: senderId || '' } });
+
+                await sendLimitEmail({
+                    to: user.email,
+                    count: count,
+                    limit: limit,
+                    period: period,
+                    type: 'exceeded',
+                    barnName: barn?.name,
                 });
             }
         }

@@ -8,7 +8,7 @@ import ManeAccountJobRequestEmail from '@/app/emails/EmailJobRequestTemplate';
 import ManeAccountJobCompletedEmail from '@/app/emails/EmailJobCompletedTemplate';
 import ManeAccountJobPaidEmail from '@/app/emails/EmailJobPaidTemplate';
 import ManeAccountNewMessageEmail from '@/app/emails/EmailNewMessageTemplate';
-import ManeAccountLimitApproachingEmail from '@/app/emails/EmailLimitApproachingTemplate';
+import ManeAccountLimitApproachingEmail, { ManeAccountLimitEmail } from '@/app/emails/EmailLimitApproachingTemplate';
 
 const ses = new SESClient({
     region: process.env.AWS_REGION!,
@@ -300,11 +300,11 @@ export async function sendNewMessageEmail({
     }
 }
 
-export async function sendLimitApproachingEmail({ to, count, limit, period }: { to: string; count: number; limit: number; period: string }) {
+export async function sendLimitEmail({ to, count, limit, period, type, barnName }: { to: string; count: number; limit: number; period: string; type: 'approaching' | 'exceeded'; barnName?: string | null }) {
     if (!to) return { error: 'No email provided' };
 
     try {
-        const html = await render(ManeAccountLimitApproachingEmail({ count, limit, period }));
+        const html = await render(ManeAccountLimitEmail({ count, limit, period, type, barnName }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,

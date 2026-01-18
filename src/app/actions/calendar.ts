@@ -6,6 +6,7 @@ import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
+import { normalizeDateToUTC, getLocalTodayStart } from '@/lib/date-utils';
 
 type CreateShowInput = {
     name: string;
@@ -111,7 +112,6 @@ export async function createShow(data: CreateShowInput) {
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        // 2. Fetch all connected users (barns and subcontractors)
         const connections = await prisma.connection.findMany({
             where: {
                 OR: [{ sender: { email: session.user.email } }, { receiver: { email: session.user.email } }],
@@ -123,21 +123,23 @@ export async function createShow(data: CreateShowInput) {
             },
         });
 
+        const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+        if (!user) return { error: 'User not found' };
+
         const connectedUserIds = connections.map((c) => (c.sender.email === session.user.email ? c.receiverId : c.senderId));
 
-        // 3. Create Show in Database
         const newShow = await prisma.show.create({
             data: {
-                user: { connect: { email: session.user.email } },
+                user: { connect: { id: user.id } },
                 name: data.name,
                 country: data.country,
                 state: data.state,
                 city: data.city,
-                startDate: data.startDate,
-                endDate: data.endDate,
+                startDate: normalizeDateToUTC(data.startDate) || data.startDate,
+                endDate: normalizeDateToUTC(data.endDate) || data.endDate,
                 invites: {
                     create: connectedUserIds.map((inviteeId) => ({
-                        inviterId: session.user.id!,
+                        inviterId: user.id,
                         inviteeId: inviteeId,
                         status: 'pending',
                     })),
@@ -149,7 +151,7 @@ export async function createShow(data: CreateShowInput) {
         // Notify invitees
         if (connectedUserIds.length > 0) {
             for (const inviteeId of connectedUserIds) {
-                await createNotification(inviteeId, NotificationType.calendar_invite, `${session.user.name} invited you to ${newShow.name}`, newShow.id, session.user.id);
+                await createNotification(inviteeId, NotificationType.calendar_invite, `${session.user.name} invited you to ${newShow.name}`, newShow.id, user.id);
             }
         }
 
@@ -160,6 +162,51 @@ export async function createShow(data: CreateShowInput) {
     } catch (error) {
         console.error('Create show error:', error);
         return { error: 'Failed to create show' };
+    }
+}
+
+export async function syncCalendar(connectionId: string, timezoneOffset: number = 0) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const connection = await prisma.connection.findUnique({
+            where: { id: connectionId },
+            include: { receiver: true, sender: true },
+        });
+
+        if (!connection) return { error: 'Connection not found' };
+        if (connection.status !== 'accepted') return { error: 'Connection not accepted' };
+
+        const braiderId = connection.sender.role === 'braider' ? connection.senderId : connection.receiverId;
+        const receiverId = connection.sender.role === 'barn' || connection.sender.role === 'subcontractor' ? connection.senderId : connection.receiverId;
+
+        const shows = await prisma.show.findMany({
+            where: {
+                userId: braiderId,
+                startDate: {
+                    gte: getLocalTodayStart(timezoneOffset),
+                },
+            },
+            select: { id: true },
+        });
+
+        if (shows.length > 0) {
+            await prisma.showInvite.createMany({
+                data: shows.map((show) => ({
+                    showId: show.id,
+                    inviterId: braiderId,
+                    inviteeId: receiverId,
+                    status: 'accepted',
+                })),
+                skipDuplicates: true,
+            });
+        }
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        return { error: 'Failed to sync calendar' };
     }
 }
 
@@ -193,6 +240,35 @@ export async function addShowToCalendar(showId: string) {
     } catch (error) {
         console.error('Add show to calendar error:', error);
         return { error: 'Failed to add show to calendar' };
+    }
+}
+
+export async function acceptRelationRequest(connectionId: string, timezoneOffset: number = 0) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const connection = await prisma.connection.update({
+            where: { id: connectionId },
+            data: { status: 'accepted' },
+            include: { receiver: true, sender: true },
+        });
+
+        await syncCalendar(connectionId, timezoneOffset);
+
+        await createNotification(
+            connection.senderId,
+            NotificationType.barn_status_change,
+            `${connection.receiver.name} accepted your connection request`,
+            null,
+            connection.receiverId,
+            connection.receiver.image,
+            timezoneOffset,
+        );
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        return { error: 'Failed to accept request' };
     }
 }
 
@@ -322,8 +398,8 @@ export async function updateShow(id: string, data: CreateShowInput) {
                     country: data.country,
                     state: data.state,
                     city: data.city,
-                    startDate: data.startDate,
-                    endDate: data.endDate,
+                    startDate: normalizeDateToUTC(data.startDate)!,
+                    endDate: normalizeDateToUTC(data.endDate)!,
                 },
                 include: { invites: true },
             });

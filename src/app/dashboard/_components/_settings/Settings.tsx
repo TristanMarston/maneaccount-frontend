@@ -50,6 +50,7 @@ enum NotificationType {
     team_status_change = 'team_status_change',
     new_message = 'new_message',
     limit_approaching = 'limit_approaching',
+    limit_exceeded = 'limit_exceeded',
 }
 
 type NotificationMap = {
@@ -1581,8 +1582,13 @@ const notificationTypes: NotificationMap[] = [
         visibility: ['subcontractor', 'barn'],
     },
     {
-        text: 'Usage Limit Alerts',
+        text: 'Approaching Horse Limit',
         type: NotificationType.limit_approaching,
+        visibility: ['braider'],
+    },
+    {
+        text: 'Exceeded Horse Limit',
+        type: NotificationType.limit_exceeded,
         visibility: ['braider'],
     },
 ];

@@ -4,13 +4,15 @@ interface ManeAccountEmailProps {
     count: number;
     limit: number;
     period: string;
+    type: 'approaching' | 'exceeded';
+    barnName?: string | null;
 }
 
-export const ManeAccountLimitApproachingEmail = ({ count, limit, period }: ManeAccountEmailProps) => {
+export const ManeAccountLimitEmail = ({ count, limit, period, type, barnName }: ManeAccountEmailProps) => {
     return (
         <Html>
             <Head />
-            <Preview>Usage Information</Preview>
+            <Preview>{type === 'approaching' ? 'Approaching Horse Limit' : 'Horse Limit Exceeded'}</Preview>
             <Body style={main}>
                 <Container style={container}>
                     <Section style={header}>
@@ -18,18 +20,30 @@ export const ManeAccountLimitApproachingEmail = ({ count, limit, period }: ManeA
                     </Section>
 
                     <Section style={content}>
-                        <Heading style={h1}>Usage Limit Approaching</Heading>
+                        <Heading style={h1}>{type === 'approaching' ? 'Approaching Horse Limit' : 'Horse Limit Exceeded'}</Heading>
 
                         <Text style={textBlock}>
                             <Text style={bold}>Heads up!</Text>
-                            <Text style={normal}>&nbsp;You are approaching your service limit for this {period}</Text>
+                            <Text style={normal}>
+                                &nbsp;{type === 'approaching' ? `You are approaching your service limit for this ${period}` : `Your service limit has been reached for this ${period}`}
+                            </Text>
                         </Text>
 
                         <Section style={messageContainer}>
                             <Text style={messageText}>
-                                It looks like you're having a great week! You have serviced <span style={{ fontWeight: 'bold' }}>{count}</span> horses and are almost at your{' '}
-                                {period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit of <span style={{ fontWeight: 'bold' }}>{limit}</span> horses. To make sure
-                                you can continue accommodating your customers and the demands of your success, please upgrade your subscription to grow your account.
+                                {type === 'approaching' ? (
+                                    <span>
+                                        It looks like you're having a great week! You have serviced <span style={{ fontWeight: 'bold' }}>{count}</span> horses and are almost at your{' '}
+                                        {period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit of <span style={{ fontWeight: 'bold' }}>{limit}</span> horses. To
+                                        make sure you can continue accommodating your customers and the demands of your success, please upgrade your subscription to grow your account.
+                                    </span>
+                                ) : (
+                                    <span>
+                                        <span style={{ fontWeight: barnName ? 'bold' : 'normal' }}>{barnName ? barnName : 'One of your clients'}</span>&nbsp;has requested more horses
+                                        than the {limit}-horse limit allowed under your current package. Please upgrade your subscription so you can accommodate your client and maintain
+                                        a healthy business.
+                                    </span>
+                                )}
                             </Text>
                         </Section>
 
@@ -51,7 +65,7 @@ export const ManeAccountLimitApproachingEmail = ({ count, limit, period }: ManeA
     );
 };
 
-export default ManeAccountLimitApproachingEmail;
+export default ManeAccountLimitEmail;
 
 const main = {
     backgroundColor: '#ffffff',

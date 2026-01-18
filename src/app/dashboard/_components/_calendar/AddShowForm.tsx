@@ -150,6 +150,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                                             onDateSelect={(selectedDate: Date) => setFormData((prev) => ({ ...prev, startDate: selectedDate }))}
                                             selectedDate={formData.startDate}
                                             noDateBefore={new Date(new Date().setHours(0, 0, 0, 0))}
+                                            noDateAfter={formData.endDate}
                                             today={formData.startDate ? formData.startDate : new Date()}
                                             startDateEffect={false}
                                         />

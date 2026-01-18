@@ -13,6 +13,7 @@ import {
     getDay,
     getMonth,
     getYear,
+    isAfter,
     isBefore,
     isEqual,
     startOfMonth,
@@ -26,6 +27,7 @@ import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 const DatePicker = ({
     onDateSelect,
     noDateBefore,
+    noDateAfter,
     selectedDate,
     startDateEffect = false,
     today = new Date(),
@@ -36,6 +38,7 @@ const DatePicker = ({
 }: {
     onDateSelect: (selectedDate: Date) => void;
     noDateBefore: Date | null;
+    noDateAfter?: Date | null;
     selectedDate: Date | null;
     startDateEffect?: boolean;
     today?: Date;
@@ -89,7 +92,7 @@ const DatePicker = ({
                             onClick={() => setMonthSelectorOpen((prev) => !prev)}
                             className={cn(
                                 'w-18 h-auto border-[0.5px] select-none cursor-pointer border-gray-400 capitalize rounded-xl flex items-center justify-center gap-1 text-[15px]',
-                                size === 'big' ? 'w-fit px-2' : ''
+                                size === 'big' ? 'w-fit px-2' : '',
                             )}
                         >
                             <span className='hidden @min-[320px]/job-detail:block'>{size === 'small' ? months[selectedMonth].substring(0, 3) : months[selectedMonth]}</span>
@@ -195,6 +198,7 @@ const DatePicker = ({
                 <CalendarElement
                     currentDate={currentDate}
                     noDateBefore={noDateBefore || today}
+                    noDateAfter={noDateAfter}
                     handleDateSelect={handleDateSelect}
                     selectedDate={selectedDate}
                     startDateEffect={startDateEffect}
@@ -211,6 +215,7 @@ const CalendarElement = ({
     handleDateSelect,
     selectedDate,
     noDateBefore,
+    noDateAfter,
     startDateEffect,
     showStartDate,
     showEndDate,
@@ -220,6 +225,7 @@ const CalendarElement = ({
     handleDateSelect: (date: Date) => void;
     selectedDate: Date | null;
     noDateBefore: Date;
+    noDateAfter?: Date | null;
     startDateEffect: boolean;
     showStartDate?: Date;
     showEndDate?: Date;
@@ -310,20 +316,20 @@ const CalendarElement = ({
                                 'disabled:pointer-events-none disabled:cursor-not-allowed grid cursor-pointer place-items-center aspect-square select-none rounded-md hover:bg-gray-100 transition-colors',
                                 isEqual(noDateBefore, day) && startDateEffect
                                     ? 'text-primary border-b border-primary'
-                                    : isBefore(day, noDateBefore) || getMonth(currentDate) !== getMonth(day)
+                                    : isBefore(day, noDateBefore) || getMonth(currentDate) !== getMonth(day) || (noDateAfter ? isAfter(day, noDateAfter) : false)
                                       ? 'text-gray-300 pointer-events-none'
                                       : 'text-gray-600',
                                 selectedDate !== null && isEqual(selectedDate, day)
                                     ? 'bg-primary-extra-light border-b-4 border-primary hover:bg-primary-extra-light/80'
                                     : isShowDate
                                       ? 'border border-primary/10 border-b-4 text-primary border-b-primary'
-                                      : 'bg-white'
+                                      : 'bg-white',
                             )}
                         >
                             {getDate(day)}
                         </button>
                     );
-                })
+                }),
             )}
         </div>
     );

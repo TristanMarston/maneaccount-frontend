@@ -98,6 +98,7 @@ const SubscriptionSettings = ({
         trialEndsAt: Date | null;
         stripeCustomerId: string | null;
         hasPaymentMethod: boolean;
+        subscriptionInterval: string;
     } | null>(null);
 
     const [loading, setLoading] = useState(true);
@@ -107,20 +108,21 @@ const SubscriptionSettings = ({
     // For Setup Intent
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [processingPlan, setProcessingPlan] = useState<string | null>(null); // The price ID we are trying to subscribe to
+    const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
     useEffect(() => {
         const init = async () => {
             const [conf, sub] = await Promise.all([getPaymentConfig(), getSubscriptionDetails()]);
             setConfig(conf);
             setSubscription(sub as any);
-            // setSubscription({ ...sub, subscriptionTier: 'starter' } as any);
+
             if (conf?.publishableKey) {
                 setStripePromise(loadStripe(conf.publishableKey));
             }
-            // Set initial selected plan based on current subscription
+            
             if (sub) {
                 setSelectedPlan(sub.subscriptionTier);
+                setBillingCycle(sub.subscriptionInterval === 'month' ? 'monthly' : sub.subscriptionInterval === 'year' ? 'yearly' : 'monthly');
             }
             setLoading(false);
         };
@@ -179,7 +181,7 @@ const SubscriptionSettings = ({
     if (loading) {
         return (
             <div className='w-full h-64 flex items-center justify-center'>
-                <Loader2 className='w-8 h-8 animate-spin text-gray-400' />
+                <span className='loader'></span>
             </div>
         );
     }

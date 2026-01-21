@@ -237,11 +237,16 @@ export async function getSubscriptionDetails() {
     if (!user) return null;
 
     let hasPaymentMethod = false;
+    let subscriptionInterval = 'month';
     if (user.stripeCustomerId) {
         try {
             const customer = await stripe.customers.retrieve(user.stripeCustomerId);
             if (!customer.deleted) {
                 hasPaymentMethod = !!(customer as any).invoice_settings?.default_payment_method;
+                const subscriptions = await stripe.subscriptions.list({
+                    customer: user.stripeCustomerId,
+                });
+                subscriptionInterval = (subscriptions.data[0] as any)?.plan?.interval;
             }
         } catch (error) {
             console.error('Error fetching Stripe customer:', error);
@@ -251,5 +256,6 @@ export async function getSubscriptionDetails() {
     return {
         ...user,
         hasPaymentMethod,
+        subscriptionInterval,
     };
 }

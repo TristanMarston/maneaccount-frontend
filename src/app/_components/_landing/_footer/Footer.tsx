@@ -25,13 +25,13 @@ const Footer = () => {
 
             <div className='w-full relative flex justify-center bg-primary text-white pt-16 lg:pt-20 pb-10'>
                 <div className='w-full max-w-max-width flex flex-col px-8'>
-                    <div className='flex flex-col 4xl:flex-row justify-between items-start gap-12 4xl:gap-8 mb-16'>
+                    <div className='flex flex-col 4xl:flex-row justify-between items-start gap-12 4xl:gap-8 mb-12'>
                         <div className='flex flex-col gap-5 max-w-sm'>
                             <Logo color='background' position='footer' />
                             <p className='font-figtree text-white/80 text-[15px] leading-relaxed'>
                                 The all-in-one platform streamlining operations for horse braiders, subcontractors, and owners everywhere.
                             </p>
-                            <div className='flex gap-5'>
+                            {/* <div className='flex gap-5'>
                                 <svg
                                     className='w-6 h-6 fill-white hover:fill-background-secondary hover:scale-105 transition-all cursor-pointer'
                                     viewBox='0 0 24 24'
@@ -53,10 +53,10 @@ const Footer = () => {
                                 >
                                     <path d='M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z' />
                                 </svg>
-                            </div>
+                            </div> */}
                         </div>
 
-                        <div className='grid grid-cols-2 md:grid-cols-3 gap-x-12 gap-y-10 font-figtree w-full 4xl:w-auto'>
+                        <div className='grid grid-cols-2 gap-x-12 gap-y-10 font-figtree w-full 4xl:w-auto'>
                             <div className='flex flex-col gap-4'>
                                 <h4 className='font-semibold text-lg tracking-wide'>Product</h4>
                                 <Link
@@ -103,7 +103,7 @@ const Footer = () => {
                                 </Link>
                             </div>
 
-                            <div className='flex flex-col gap-4'>
+                            {/* <div className='flex flex-col gap-4'>
                                 <h4 className='font-semibold text-lg tracking-wide'>Company</h4>
                                 <Link href='#' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
                                     About Us
@@ -114,18 +114,18 @@ const Footer = () => {
                                 <Link href='#' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
                                     Blog
                                 </Link>
-                            </div>
+                            </div> */}
 
                             <div className='flex flex-col gap-4'>
                                 <h4 className='font-semibold text-lg tracking-wide'>Legal</h4>
-                                <Link href='#' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
+                                <Link href='/privacy' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
                                     Privacy Policy
                                 </Link>
-                                <Link href='#' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
+                                <Link href='/terms' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
                                     Terms of Service
                                 </Link>
-                                <Link href='#' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
-                                    Cookie Policy
+                                <Link href='/accessibility' className='text-sm text-white/70 hover:text-white transition-colors duration-200'>
+                                    Accessibility
                                 </Link>
                             </div>
                         </div>

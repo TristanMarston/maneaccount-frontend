@@ -204,7 +204,7 @@ const DashboardSidebar = ({
                                 className='fixed font-figtree bottom-6 left-4 right-4 bg-white rounded-3xl z-80 shadow-2xl border border-gray-100 overflow-hidden max-h-[75vh] flex flex-col'
                             >
                                 <div className='p-5 border-b border-gray-100 bg-gray-50/50'>
-                                    <div className='flex items-center gap-3'>
+                                    <div className='flex items-center flex-wrap gap-3'>
                                         {image && image.length > 0 ? (
                                             <Image className='w-12 h-12 rounded-full border border-white shadow-sm' src={image} alt='profile' width={50} height={50} />
                                         ) : (
@@ -229,11 +229,13 @@ const DashboardSidebar = ({
                                                 <p className='text-xs text-gray-500 truncate'>{dashboard}</p>
                                             </div>
                                         </div>
-                                        <div className='ml-auto'>
-                                            <span className='inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary'>
-                                                Pro
-                                            </span>
-                                        </div>
+                                        {dashboard === 'braider' && (
+                                            <div className=''>
+                                                <span className='inline-flex items-center text-nowrap px-1.5 py-0.5 rounded text-[12px] font-medium bg-primary/10 border-primary/20 text-primary capitalize'>
+                                                    {subscriptionTier} Plan
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -484,7 +486,7 @@ const DashboardSidebar = ({
                                                 {dashboard === 'braider' && (
                                                     <div className='mt-1'>
                                                         <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 border-primary/20 text-primary capitalize'>
-                                                            {subscriptionTier}
+                                                            {subscriptionTier} Plan
                                                         </span>
                                                     </div>
                                                 )}

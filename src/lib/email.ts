@@ -26,7 +26,7 @@ export async function sendVerificationCode({ to, code }: { to: string; code: str
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: 'Verify your email' },
                 Body: {
@@ -51,7 +51,7 @@ export async function sendConnectionRequestEmail({ to, message, image }: { to: s
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: 'Connection request' },
                 Body: {
@@ -90,7 +90,7 @@ export async function sendStatusChangeEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: connection ? 'Connection Response' : 'Job Response' },
                 Body: { Html: { Data: html } },
@@ -127,7 +127,7 @@ export async function sendCalendarInviteEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: `Invitation: ${eventName}` },
                 Body: { Html: { Data: html } },
@@ -172,7 +172,7 @@ export async function sendJobRequestEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: isSubcontractor ? `New Assignment: ${showName}` : `New Job Request: ${showName}` },
                 Body: { Html: { Data: html } },
@@ -213,7 +213,7 @@ export async function sendJobCompletedEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: `Services Completed: ${showName}` },
                 Body: { Html: { Data: html } },
@@ -250,7 +250,7 @@ export async function sendJobPaidEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: `Payment Received: ${showName}` },
                 Body: { Html: { Data: html } },
@@ -285,7 +285,7 @@ export async function sendNewMessageEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: `New Message from ${senderName}` },
                 Body: { Html: { Data: html } },
@@ -308,7 +308,7 @@ export async function sendLimitEmail({ to, count, limit, period, type, barnName 
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: [to] },
+            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
                 Subject: { Data: type === 'approaching' ? 'Approaching Horse Limit' : 'Horse Limit Exceeded' },
                 Body: { Html: { Data: html } },

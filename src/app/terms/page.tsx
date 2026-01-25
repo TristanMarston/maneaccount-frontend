@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { LegalPageLayout, Title, HeadingOne, HeadingTwo, Bold, BulletList, BulletItem, Paragraph } from '../_components/LegalHelper';
 
 const TermsPage = () => {
@@ -13,7 +14,7 @@ const TermsPage = () => {
             <Paragraph>
                 These Terms and Conditions (&quot;<Bold>Terms</Bold>&quot;) govern your access to and use of the Mane Account website application and related services (collectively, the
                 &quot;
-                <Bold>App</Bold>&quot;), operated by
+                <Bold>App</Bold>&quot;), operated by&nbsp;
                 <Bold>Counter Canter Collective LLC</Bold>, doing business as Mane Account (&quot;<Bold>Company</Bold>,&quot; &quot;<Bold>we</Bold>,&quot; &quot;<Bold>us</Bold>,&quot; or &quot;
                 <Bold>our</Bold>&quot;).
             </Paragraph>
@@ -149,7 +150,7 @@ const TermsPage = () => {
             <HeadingOne>17. Contact Information</HeadingOne>
             <Paragraph>
                 <Bold>Email:&nbsp;</Bold>
-                <a href='mailto:support@maneaccount.com'>support@maneaccount.com</a>
+                <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
             </Paragraph>
             <Paragraph>
                 <Bold>Company:&nbsp;</Bold>Counter Canter Collective LLC

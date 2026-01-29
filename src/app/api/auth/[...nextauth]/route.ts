@@ -156,7 +156,7 @@ export const authOptions: AuthOptions = {
                                     updateData.stripeCustomerId = customer.id;
                                     updateData.trialEndsAt = trialEndDate;
                                     updateData.subscriptionStatus = 'trialing';
-                                    updateData.subscriptionTier = 'enterprise';
+                                    updateData.subscriptionTier = 'starter';
                                 }
 
                                 await prisma.user.update({

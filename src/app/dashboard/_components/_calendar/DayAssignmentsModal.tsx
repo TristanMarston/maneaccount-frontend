@@ -67,9 +67,9 @@ export const DayAssignmentsModal = ({
                             <p>{job.show.name}</p>
                             <ArrowUpRight className='w-4 h-4' />
                         </span>
-                        
+
                         <span className='truncate flex items-center gap-1'>
-                        <MapPin size={14} className='text-gray-400' />
+                            <MapPin size={14} className='text-gray-400' />
                             {job.show.city}, {job.show.state}
                         </span>
                     </div>

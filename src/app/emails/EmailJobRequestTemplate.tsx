@@ -4,7 +4,6 @@ interface ManeAccountEmailProps {
     showName: string;
     barnName: string;
     braiderName: string;
-    date: string;
     horseCount: number;
     serviceCount: number;
     earnings: number;
@@ -12,7 +11,7 @@ interface ManeAccountEmailProps {
     isSubcontractor: boolean;
 }
 
-export const ManeAccountJobRequestEmail = ({ showName, barnName, braiderName, date, horseCount, serviceCount, earnings, assignedHorses, isSubcontractor }: ManeAccountEmailProps) => {
+export const ManeAccountJobRequestEmail = ({ showName, barnName, braiderName, horseCount, serviceCount, earnings, assignedHorses, isSubcontractor }: ManeAccountEmailProps) => {
     return (
         <Html>
             <Head />
@@ -34,11 +33,6 @@ export const ManeAccountJobRequestEmail = ({ showName, barnName, braiderName, da
 
                         <Section style={detailsParent}>
                             <Section style={detailsContainer}>
-                                {date !== 'TBD' && (
-                                    <Text style={detailRow}>
-                                        <Text style={label}>Completion Date:</Text> {date}
-                                    </Text>
-                                )}
                                 <Text style={detailRow}>
                                     <Text style={label}>Total Horses:</Text> {horseCount}
                                 </Text>

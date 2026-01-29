@@ -147,7 +147,6 @@ export async function sendJobRequestEmail({
     showName,
     barnName,
     braiderName,
-    date,
     horseCount,
     serviceCount,
     assignedHorses,
@@ -158,7 +157,6 @@ export async function sendJobRequestEmail({
     showName: string;
     barnName: string;
     braiderName: string;
-    date: string;
     horseCount: number;
     serviceCount: number;
     assignedHorses?: string[];
@@ -168,7 +166,7 @@ export async function sendJobRequestEmail({
     if (!to) return { error: 'No email provided' };
 
     try {
-        const html = await render(ManeAccountJobRequestEmail({ showName, barnName, braiderName, date, horseCount, serviceCount, assignedHorses, isSubcontractor, earnings }));
+        const html = await render(ManeAccountJobRequestEmail({ showName, barnName, braiderName, horseCount, serviceCount, assignedHorses, isSubcontractor, earnings }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
@@ -204,7 +202,22 @@ export async function sendJobCompletedEmail({
     isClient: boolean;
     image?: string;
     paymentInformation: { venmo?: string; zelle?: string };
-    serviceDetails: { horseName: { showName: string; barnName: string }; serviceCount: number; earnings: number }[];
+    serviceDetails: Record<
+        string,
+        {
+            horseName: {
+                showName: string;
+                barnName: string;
+            };
+            services: {
+                price: number;
+                name: string;
+                subCharge: boolean;
+            }[];
+            earnings: number;
+            client: any;
+        }[]
+    >[];
 }) {
     if (!to) return { error: 'No email provided' };
 
@@ -215,7 +228,7 @@ export async function sendJobCompletedEmail({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
             Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
-                Subject: { Data: `Services Completed: ${showName}` },
+                Subject: { Data: `${isClient ? 'PAYMENT REQUIRED - ' : ''}Services Completed: ${showName}` },
                 Body: { Html: { Data: html } },
             },
         });
@@ -300,7 +313,21 @@ export async function sendNewMessageEmail({
     }
 }
 
-export async function sendLimitEmail({ to, count, limit, period, type, barnName }: { to: string; count: number; limit: number; period: string; type: 'approaching' | 'exceeded'; barnName?: string | null }) {
+export async function sendLimitEmail({
+    to,
+    count,
+    limit,
+    period,
+    type,
+    barnName,
+}: {
+    to: string;
+    count: number;
+    limit: number;
+    period: string;
+    type: 'approaching' | 'exceeded';
+    barnName?: string | null;
+}) {
     if (!to) return { error: 'No email provided' };
 
     try {

@@ -46,14 +46,23 @@ export async function getDashboardData(role: string) {
             where: jobsWhereClause,
             include: {
                 barn: true,
-                braider: true,
+                braider: {
+                    include: {
+                        services: true,
+                    },
+                },
                 subcontractors: true,
                 show: true,
                 assignments: {
                     include: {
-                        horse: true,
+                        horse: {
+                            include: {
+                                client: true,
+                            },
+                        },
                         services: true,
                         subcontractor: true,
+                        customCharges: true,
                     },
                 },
                 notes: {

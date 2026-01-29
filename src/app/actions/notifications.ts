@@ -1,10 +1,12 @@
 'use server';
 
 import { auth } from '@/lib/auth';
+import { parseUTCToLocal } from '@/lib/date-utils';
 import { sendConnectionRequestEmail } from '@/lib/email';
 import { getBraiderUsage } from '@/lib/limits';
 import { prisma } from '@/lib/prisma';
 import { NotificationType } from '@prisma/client';
+import { format } from 'date-fns';
 import { revalidatePath } from 'next/cache';
 
 export async function getNotifications() {
@@ -183,7 +185,7 @@ export async function createNotification(
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user?.email) return { error: 'No email provided' };
 
-        if (user.emailVerified) {
+        if (user.emailVerified || type === NotificationType.job_completed) {
             if (
                 (type === NotificationType.team_invite && user.allowedNotifications.includes('team_invite')) ||
                 (type === NotificationType.barn_invite && user.allowedNotifications.includes('barn_invite'))
@@ -261,7 +263,6 @@ export async function createNotification(
                             showName: job.show.name,
                             barnName: job.barn.name || 'Barn',
                             braiderName: job.braider.name || 'Braider',
-                            date: job.scheduledDate ? job.scheduledDate.toLocaleDateString() : 'TBD',
                             horseCount: isSubcontractor ? assignedHorses.length : job.assignments.length,
                             serviceCount,
                             isSubcontractor,
@@ -283,11 +284,10 @@ export async function createNotification(
                             connection: false,
                             image,
                             link: 'https://maneaccount.com/dashboard',
-                            date: job.scheduledDate ? job.scheduledDate.toLocaleDateString() : 'TBD',
                         });
                     }
                 }
-            } else if (type === NotificationType.job_completed && user.allowedNotifications.includes('job_completed')) {
+            } else if (type === NotificationType.job_completed) {
                 if (targetId) {
                     const job = await prisma.job.findUnique({
                         where: { id: targetId },
@@ -302,6 +302,7 @@ export async function createNotification(
                                         },
                                     },
                                     services: true,
+                                    customCharges: true,
                                 },
                             },
                         },
@@ -310,14 +311,43 @@ export async function createNotification(
                     if (job) {
                         const { sendJobCompletedEmail } = await import('@/lib/email');
 
-                        const serviceDetails: { horseName: { showName: string; barnName: string }; serviceCount: number; earnings: number; client: any }[] = [];
-                        const horses = job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length);
+                        const mainServiceDetails: Record<
+                            string,
+                            {
+                                horseName: { showName: string; barnName: string };
+                                services: { price: number; name: string; subCharge: boolean }[];
+                                earnings: number;
+                                client: any;
+                            }[]
+                        > = {};
 
-                        for (const horse of horses) {
-                            serviceDetails.push({
+                        const validAssignments = job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length);
+
+                        for (const horse of validAssignments) {
+                            const dateKey = format(parseUTCToLocal(horse.assignmentDate) || horse.assignmentDate, 'yyyy-MM-dd');
+                            if (!mainServiceDetails[dateKey]) {
+                                mainServiceDetails[dateKey] = [];
+                            }
+
+                            mainServiceDetails[dateKey].push({
                                 horseName: { showName: horse.horse.showName, barnName: horse.horse.barnName },
-                                serviceCount: horse.services.filter((s) => !horse.canceledServiceIds.includes(s.id)).length,
-                                earnings: horse.services.reduce((acc, s) => (!horse.canceledServiceIds.includes(s.id) ? acc + s.priceUSD : acc), 0),
+                                services: [
+                                    ...horse.services
+                                        .filter((s: any) => !horse.canceledServiceIds.includes(s.id))
+                                        .map((s: any) => ({
+                                            price: s.priceUSD,
+                                            name: s.name,
+                                            subCharge: false,
+                                        })),
+                                    ...horse.customCharges.map((c: any) => ({
+                                        price: c.amount,
+                                        name: c.name,
+                                        subCharge: true,
+                                    })),
+                                ],
+                                earnings:
+                                    horse.services.reduce((acc: number, s: any) => (!horse.canceledServiceIds.includes(s.id) ? acc + s.priceUSD : acc), 0) +
+                                    horse.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0),
                                 client: horse.horse.client,
                             });
                         }
@@ -327,20 +357,18 @@ export async function createNotification(
                         if (job.braider.zelle && job.braider.zelle !== 'disabled')
                             paymentInformation.zelle = job.braider.zelle === 'email' ? job.braider.email || '' : job.braider.phoneNumber || '';
 
-                        await sendJobCompletedEmail({
-                            to: user.email,
-                            braiderName: job.braider.name || 'Braider',
-                            showName: job.show.name,
-                            horseName: 'your horses',
-                            isClient: false,
-                            image: image || '',
-                            paymentInformation,
-                            serviceDetails: serviceDetails.map((d) => ({
-                                horseName: d.horseName,
-                                serviceCount: d.serviceCount,
-                                earnings: d.earnings,
-                            })),
-                        });
+                        if (user.allowedNotifications.includes('job_completed')) {
+                            await sendJobCompletedEmail({
+                                to: user.email,
+                                braiderName: job.braider.name || 'Braider',
+                                showName: job.show.name,
+                                horseName: 'your horses',
+                                isClient: false,
+                                image: image || '',
+                                paymentInformation,
+                                serviceDetails: [mainServiceDetails],
+                            });
+                        }
 
                         const notifiedClientIds = new Set<string>();
                         for (const assignment of job.assignments) {
@@ -348,21 +376,26 @@ export async function createNotification(
 
                             const client = assignment.horse.client;
                             if (client && client.email && !notifiedClientIds.has(client.id)) {
-                                const clientServiceDetails = serviceDetails.filter((d) => d.client.id === client.id);
+                                const clientServiceDetails: Record<string, any[]> = {};
 
-                                await sendJobCompletedEmail({
-                                    to: client.email,
-                                    braiderName: job.braider.name || 'Braider',
-                                    showName: job.show.name,
-                                    horseName: assignment.horse.showName,
-                                    isClient: true,
-                                    paymentInformation,
-                                    serviceDetails: clientServiceDetails.map((d) => ({
-                                        horseName: d.horseName,
-                                        serviceCount: d.serviceCount,
-                                        earnings: d.earnings,
-                                    })),
-                                });
+                                for (const [date, horsesInDay] of Object.entries(mainServiceDetails)) {
+                                    const clientHorses = horsesInDay.filter((h) => h.client?.id === client.id);
+                                    if (clientHorses.length > 0) {
+                                        clientServiceDetails[date] = clientHorses;
+                                    }
+                                }
+
+                                if (Object.keys(clientServiceDetails).length > 0) {
+                                    await sendJobCompletedEmail({
+                                        to: client.email,
+                                        braiderName: job.braider.name || 'Braider',
+                                        showName: job.show.name,
+                                        horseName: assignment.horse.showName,
+                                        isClient: true,
+                                        paymentInformation,
+                                        serviceDetails: [clientServiceDetails],
+                                    });
+                                }
                                 notifiedClientIds.add(client.id);
                             }
                         }

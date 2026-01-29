@@ -1,4 +1,6 @@
+import { parseUTCToLocal } from '@/lib/date-utils';
 import { Body, Container, Head, Heading, Html, Preview, Section, Text, Button, Img, Hr, Link } from '@react-email/components';
+import { format } from 'date-fns';
 
 interface ManeAccountEmailProps {
     braiderName: string;
@@ -7,7 +9,22 @@ interface ManeAccountEmailProps {
     isClient: boolean;
     image?: string;
     paymentInformation: { venmo?: string; zelle?: string };
-    serviceDetails: { horseName: { showName: string; barnName: string }; serviceCount: number; earnings: number }[];
+    serviceDetails: Record<
+        string,
+        {
+            horseName: {
+                showName: string;
+                barnName: string;
+            };
+            services: {
+                price: number;
+                name: string;
+                subCharge: boolean;
+            }[];
+            earnings: number;
+            client: any;
+        }[]
+    >[];
 }
 
 const formatPhoneNumber = (value: string) => {
@@ -34,35 +51,65 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
 
                     <Section style={content}>
                         <Heading style={h1}>Services Completed</Heading>
-                        <Img style={{ ...profileImage, border: image ? 'none' : '2px solid #3f6559' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
+                        <Img style={{ ...profileImage, border: image ? '2px solid #3f6559' : 'none' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
 
                         <Text style={textBlock}>
                             <Text style={bold}>{braiderName}</Text>
-                            <Text style={normal}>&nbsp;has completed braiding services for&nbsp;</Text>
-                            <Text style={bold}>{horseName}</Text>
-                            <Text style={normal}>&nbsp;at&nbsp;</Text>
+                            <Text style={normal}>&nbsp;has completed braiding services for you at &nbsp;</Text>
                             <Text style={bold}>{showName}</Text>
                             <Text style={normal}>.</Text>
                         </Text>
 
                         <Section style={detailsParent}>
                             <Section style={detailsContainer}>
-                                <Text style={{ ...detailRow, fontSize: '20px', fontWeight: 'bold' }}>Overview of service(s) completed:</Text>
-                                {serviceDetails.map((service, i) => (
-                                    <Text key={i} style={{ ...detailRow, margin: '0 0 8px 12px' }}>
-                                        <Text style={{ ...label, margin: '4px 0', fontSize: '15px' }}>
-                                            {service.horseName.barnName} (Show Name: {service.horseName.showName})
-                                        </Text>
-                                        <ul>
-                                            <li style={{ fontSize: '14px' }}>
-                                                {service.serviceCount} Service{service.serviceCount === 1 ? '' : 's'}
-                                            </li>
-                                            <li style={{ fontSize: '14px' }}>${service.earnings}</li>
-                                        </ul>
-                                    </Text>
-                                ))}
-                                <Text style={{ ...detailRow, textDecoration: 'underline', fontSize: '15px' }}>
-                                    Amount Due: ${serviceDetails?.reduce((total, service) => total + service.earnings, 0)}
+                                <Text style={{ ...detailRow, fontSize: '20px', fontWeight: 'bold' }}>Day-by-day Breakdown of Completed Services:</Text>
+                                {serviceDetails.map((dayRecord, i) =>
+                                    Object.entries(dayRecord).map(([date, horses], j) => (
+                                        <div key={`${i}-${j}`}>
+                                            <Text
+                                                style={{
+                                                    ...detailRow,
+                                                    fontWeight: 'bold',
+                                                    fontSize: '16px',
+                                                    marginTop: '12px',
+                                                    borderBottom: '1px solid #ccc',
+                                                    paddingBottom: '4px',
+                                                }}
+                                            >
+                                                {format(parseUTCToLocal(new Date(date)) || new Date(date), 'PPPP')}
+                                            </Text>
+                                            {horses.map((horseData, k) => (
+                                                <div key={k} style={{ marginBottom: '12px', paddingLeft: '12px', marginTop: '8px' }}>
+                                                    <Text style={{ ...detailRow, fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                                                        {horseData.horseName.barnName}{' '}
+                                                        <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#666' }}>({horseData.horseName.showName})</span>
+                                                    </Text>
+                                                    <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                                                        {horseData.services.map((svc, l) => (
+                                                            <li key={l} style={{ fontSize: '14px', color: '#444', marginBottom: '2px' }}>
+                                                                {svc.name} {svc.subCharge && <span style={{ color: '#d97706', fontWeight: 'bold', fontSize: '12px' }}>(Expense)</span>} -{' '}
+                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(svc.price)}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )),
+                                )}
+                                <Hr style={hr} />
+                                <Text style={{ ...detailRow, fontSize: '18px', fontWeight: 'bold', textAlign: 'right' }}>
+                                    Total: $
+                                    {serviceDetails
+                                        .reduce((total, dayRecord) => {
+                                            return (
+                                                total +
+                                                Object.values(dayRecord).reduce((dayTotal, horses) => {
+                                                    return dayTotal + horses.reduce((horseTotal, horse) => horseTotal + horse.earnings, 0);
+                                                }, 0)
+                                            );
+                                        }, 0)
+                                        .toFixed(2)}
                                 </Text>
                             </Section>
                         </Section>
@@ -133,7 +180,7 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
                         <Text style={footer}>
                             ManeAccount does not process payments. Payments are processed through the payment processor of your choice.
                             <Link href='https://maneaccount.com' style={linkStyle}>
-                                maneaccount.com
+                                &nbsp;maneaccount.com
                             </Link>
                         </Text>
                     </Section>
@@ -212,7 +259,7 @@ const bold = {
     fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     display: 'inline-block',
     fontWeight: 'bold',
-    margin: '4px 0',
+    margin: '0',
 };
 
 const normal = {
@@ -222,7 +269,7 @@ const normal = {
     fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     display: 'inline-block',
     fontWeight: 'normal',
-    margin: '4px 0',
+    margin: '0',
 };
 
 const italic = {

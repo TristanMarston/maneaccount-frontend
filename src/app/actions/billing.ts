@@ -54,7 +54,7 @@ export async function startFreeTrial() {
         });
 
         const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 60);
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
 
         const updateData: any = {};
         updateData.stripeCustomerId = customer.id;

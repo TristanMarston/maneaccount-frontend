@@ -389,7 +389,7 @@ const Settings = ({
 
     return (
         <>
-            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 h-full @container/settings relative'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/settings relative'>
                 <div className='flex justify-between items-center'>
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
@@ -436,7 +436,7 @@ const Settings = ({
                         </motion.div>
                     </div>
 
-                    <div className={cn('flex-1 w-full relative pb-28 dashboard-sm:pb-8', isLoading ? 'min-h-[300px]' : '')}>
+                    <div className={cn('flex-1 w-full relative dashboard-sm:pb-8', isLoading ? 'min-h-[300px]' : '')}>
                         {isLoading ? (
                             <div className='absolute inset-0 flex items-center justify-center'>
                                 <span className='loader-primary'></span>

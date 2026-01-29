@@ -54,7 +54,7 @@ export async function getBraiderUsage(
 
     const count = assignments.filter(
         (assignment) =>
-            (assignment.job.status === 'accepted' || assignment.job.status === 'completed') &&
+            assignment.job.status !== 'editing' &&
             !assignment.canceledAt &&
             assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
                 [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&

@@ -130,7 +130,9 @@ const Invoices = ({
             acc +
             j.assignments.reduce(
                 (acc: number, a: any) =>
-                    acc + a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                    acc +
+                    a.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                    a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
                 0,
             ),
         0,
@@ -140,14 +142,16 @@ const Invoices = ({
             acc +
             j.assignments.reduce(
                 (acc: number, a: any) =>
-                    acc + a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                    acc +
+                    a.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                    a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
                 0,
             ),
         0,
     );
 
     return (
-        <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 h-full @container/invoices'>
+        <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/invoices'>
             <div
                 className={cn(
                     role === 'braider'
@@ -606,15 +610,21 @@ const InvoiceCard = ({ job, role, onAction, isHistory }: { job: any; role: strin
             <div className='flex items-center gap-4 w-full min-w-0'>
                 <div
                     className={cn(
-                        'w-16 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
+                        'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
                         isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light',
                     )}
                 >
-                    $
-                    {job.assignments.reduce(
-                        (acc: number, a: any) =>
-                            acc + a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
-                        0,
+                    {new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                    }).format(
+                        job.assignments.reduce(
+                            (acc: number, a: any) =>
+                                acc +
+                                a.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                                a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
+                            0,
+                        ),
                     )}
                 </div>
                 <div className='min-w-0'>

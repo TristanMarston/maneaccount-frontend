@@ -4,7 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe-init';
 
 export async function POST(req: NextRequest) {
-    const { email, password, name, role } = await req.json();
+    const body = await req.json();
+    const email = body.email?.trim().toLowerCase();
+    const { password, name, role } = body;
 
     if (!email) return NextResponse.json({ error: 'email_required' }, { status: 400 });
     if (!password) return NextResponse.json({ error: 'password_required' }, { status: 400 });
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
         });
 
         const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 60);
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
 
         const updateData: any = {};
         updateData.stripeCustomerId = customer.id;

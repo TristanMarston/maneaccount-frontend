@@ -37,8 +37,9 @@ export const authOptions: AuthOptions = {
                     throw new Error('missing_fields');
                 }
 
+                const email = credentials.email.trim().toLowerCase();
                 const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
+                    where: { email },
                 });
 
                 if (!user) {
@@ -135,7 +136,7 @@ export const authOptions: AuthOptions = {
                         const roleCookie = cookieStore.get('signup_role');
                         const role = roleCookie?.value;
 
-                        if (role && ['braider', 'subcontractor', 'barn', 'admin'].includes(role)) {
+                        if (role && ['braider', 'subcontractor', 'barn'].includes(role)) {
                             if (user.email) {
                                 const updateData: any = { role: role as any }
 
@@ -150,12 +151,12 @@ export const authOptions: AuthOptions = {
                                     });
 
                                     const trialEndDate = new Date();
-                                    trialEndDate.setDate(trialEndDate.getDate() + 60);
+                                    trialEndDate.setDate(trialEndDate.getDate() + 14);
 
                                     updateData.stripeCustomerId = customer.id;
                                     updateData.trialEndsAt = trialEndDate;
                                     updateData.subscriptionStatus = 'trialing';
-                                    updateData.subscriptionTier = 'enterprise'; 
+                                    updateData.subscriptionTier = 'enterprise';
                                 }
 
                                 await prisma.user.update({

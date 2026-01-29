@@ -1,6 +1,6 @@
 'use server';
 
-import { JobStatus, JobAssignment } from '@prisma/client';
+import { JobStatus, JobAssignment, AssignmentStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { subDays } from 'date-fns';
@@ -10,7 +10,7 @@ import { NotificationType } from '@prisma/client';
 import { getBraiderUsage } from '@/lib/limits';
 import { normalizeDateToUTC, getLocalTodayStart } from '@/lib/date-utils';
 
-export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[] }[] }, timezoneOffset: number = 0) {
+export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[]; date: Date }[] }, timezoneOffset: number = 0) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -18,28 +18,8 @@ export async function createJob(data: { braiderId: string; showId: string; assig
         const barn = await prisma.user.findUnique({ where: { email: session.user.email } });
         if (!barn) return { error: 'User not found' };
 
-        if (!data.braiderId || !data.showId || data.assignments.length === 0) {
+        if (!data.braiderId || !data.showId) {
             return { error: 'Missing required fields' };
-        }
-
-        const braider = await prisma.user.findUnique({ where: { id: data.braiderId } });
-        if (!braider) return { error: 'Braider not found' };
-
-        const show = await prisma.show.findUnique({ where: { id: data.showId } });
-        if (!show) return { error: 'Show not found' };
-
-        const { count, limit, period } = await getBraiderUsage(data.braiderId, braider.subscriptionTier, new Date(), timezoneOffset);
-        const newHorsesCount = data.assignments.length;
-
-        if (period !== 'unlimited' && count + newHorsesCount > limit) {
-            await createNotification(
-                data.braiderId,
-                NotificationType.limit_exceeded,
-                `${barn.name}'s service request was denied because it exceeds your ${period === 'week' ? 'weekly ' : period === 'day' ? 'daily ' : ''}limit`,
-                null,
-                barn.id
-            );
-            return { error: `Request exceeds braider's limit of ${limit} horses per ${period}. Sorry!` };
         }
 
         const job = await prisma.job.create({
@@ -47,26 +27,109 @@ export async function createJob(data: { braiderId: string; showId: string; assig
                 barnId: barn.id,
                 braiderId: data.braiderId,
                 showId: data.showId,
-                status: 'pending',
+                status: 'editing',
                 assignments: {
                     create: data.assignments.map((assignment) => ({
                         horse: { connect: { id: assignment.horseId } },
                         services: {
                             connect: assignment.serviceIds.map((id) => ({ id })),
                         },
+                        assignmentDate: assignment.date,
                     })),
                 },
             },
             include: { show: true },
         });
 
-        await createNotification(data.braiderId, NotificationType.job_request, `${barn.name} requested work for ${job.show.name}`, job.id, barn.id);
+        revalidatePath('/dashboard');
+        return { success: true, jobId: job.id };
+    } catch (error) {
+        console.error('Create job error:', error);
+        return { error: 'Failed to create job draft' };
+    }
+}
+
+export async function updateJobDraft(jobId: string, assignments: { horseId: string; serviceIds: string[]; date: Date }[]) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            include: { barn: true },
+        });
+
+        if (!job) return { error: 'Job not found' };
+        if (job.status !== 'editing') return { error: 'Cannot edit submitted job' };
+        if (job.barn.email !== session.user.email) return { error: 'Unauthorized' };
+
+        await prisma.job.update({
+            where: { id: jobId },
+            data: {
+                assignments: {
+                    deleteMany: {},
+                    create: assignments.map((assignment) => ({
+                        horse: { connect: { id: assignment.horseId } },
+                        services: {
+                            connect: assignment.serviceIds.map((id) => ({ id })),
+                        },
+                        assignmentDate: assignment.date,
+                    })),
+                },
+            },
+        });
 
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
-        console.error('Create job error:', error);
-        return { error: 'Failed to request work' };
+        console.error('Update job draft error:', error);
+        return { error: 'Failed to update job draft' };
+    }
+}
+
+export async function submitJob(jobId: string, timezoneOffset: number = 0) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            include: {
+                barn: true,
+                braider: true,
+                show: true,
+                assignments: true,
+            },
+        });
+
+        if (!job) return { error: 'Job not found' };
+
+        const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date(), timezoneOffset);
+        const newHorsesCount = job.assignments.length;
+
+        if (period !== 'unlimited' && count + newHorsesCount > limit) {
+            await createNotification(
+                job.braiderId,
+                NotificationType.limit_exceeded,
+                `${job.barn.name}'s service request was denied because it exceeds your ${period === 'week' ? 'weekly ' : period === 'day' ? 'daily ' : ''}limit`,
+                null,
+                job.barn.id,
+            );
+            return { error: `Request exceeds braider's limit of ${limit} horses per ${period}. Sorry!` };
+        }
+
+        await prisma.job.update({
+            where: { id: jobId },
+            data: { status: 'submitted' },
+        });
+
+        await createNotification(job.braiderId, NotificationType.job_request, `${job.barn.name} requested work for ${job.show.name}`, job.id, job.barn.id);
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Submit job error:', error);
+        return { error: 'Failed to submit job' };
     }
 }
 
@@ -79,15 +142,19 @@ export async function getJobs(email: string, role: string) {
 
         let whereClause: any = {};
         if (role === 'barn') whereClause = { barnId: user.id };
-        else if (role === 'braider') whereClause = { braiderId: user.id };
-        else if (role === 'subcontractor') whereClause = { subcontractors: { some: { id: user.id } } };
+        else if (role === 'braider') whereClause = { braiderId: user.id, status: { in: ['submitted', 'completed'] } };
+        else if (role === 'subcontractor') whereClause = { subcontractors: { some: { id: user.id } }, status: { in: ['submitted', 'completed'] } };
         else return [];
 
         const jobs = await prisma.job.findMany({
             where: whereClause,
             include: {
                 barn: true,
-                braider: true,
+                braider: {
+                    include: {
+                        services: true,
+                    },
+                },
                 subcontractors: true,
                 show: {
                     include: {
@@ -103,6 +170,7 @@ export async function getJobs(email: string, role: string) {
                         },
                         services: true,
                         subcontractor: true,
+                        customCharges: true,
                     },
                 },
                 notes: {
@@ -119,48 +187,40 @@ export async function getJobs(email: string, role: string) {
     }
 }
 
-export async function updateJobStatus(
-    jobId: string,
-    status: JobStatus,
-    data?: {
-        scheduledDate?: Date;
-        subcontractorIds?: string[];
-    },
-) {
+export async function updateAssignmentStatus(assignmentId: string, status: AssignmentStatus) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        const updateData: any = { status };
-        if (data?.scheduledDate) updateData.scheduledDate = normalizeDateToUTC(data.scheduledDate);
-        if (data?.subcontractorIds) {
-            updateData.subcontractors = {
-                set: data.subcontractorIds.map((id) => ({ id })),
-            };
-        }
-
-        const updatedJob = await prisma.job.update({
-            where: { id: jobId },
-            data: updateData,
-            include: { braider: true, subcontractors: true, barn: true, show: true },
+        await prisma.jobAssignment.update({
+            where: { id: assignmentId },
+            data: { status },
+            include: { job: { include: { braider: true, barn: true, show: true } } },
         });
-
-        if (status === 'accepted' || status === 'denied') {
-            await createNotification(
-                updatedJob.barnId,
-                NotificationType.job_status_change,
-                `${updatedJob.braider.name} ${status} your job request for ${updatedJob.show.name}`,
-                jobId,
-                updatedJob.braiderId,
-                updatedJob.braider.image,
-            );
-        }
 
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
-        console.error('Update job error:', error);
-        return { error: 'Failed to update job' };
+        console.error('Update assignment error:', error);
+        return { error: 'Failed to update assignment' };
+    }
+}
+
+export async function acceptAllPendingAssignments(assignmentIds: string[]) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        await prisma.jobAssignment.updateMany({
+            where: { id: { in: assignmentIds } },
+            data: { status: 'accepted' },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Update assignment error:', error);
+        return { error: 'Failed to update assignment' };
     }
 }
 
@@ -198,9 +258,7 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
             const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date(), timezoneOffset);
 
             if (period !== 'unlimited') {
-                console.log(count, limit, period);
                 if (count === 48) {
-                    // ...
                     await createNotification(
                         assignment.job.braiderId,
                         NotificationType.limit_approaching,
@@ -257,15 +315,15 @@ export async function markJobCompleted(jobId: string) {
     try {
         const job = await prisma.job.update({
             where: { id: jobId },
-            data: { status: 'completed' },
+            data: { status: 'completed', invoiceSentAt: new Date() },
             include: { braider: true, subcontractors: true },
         });
 
         await createNotification(
             job.barnId,
             NotificationType.job_completed,
-            `Job completed by ${job.subcontractors.length > 0 ? job.subcontractors.map((s) => s.name).join(', ') : job.braider.name}. Please pay the invoice.`,
-            jobId,
+            `Job completed by ${job.braider.name}. Clients have received the invoice.`,
+            job.id,
             job.braiderId,
             job.braider.image,
         );
@@ -275,6 +333,89 @@ export async function markJobCompleted(jobId: string) {
     } catch (error) {
         console.error('Mark completed error:', error);
         return { error: 'Failed to mark job as completed' };
+    }
+}
+
+export async function addCustomCharge(assignmentId: string, name: string, amount: number) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        await prisma.customCharge.create({
+            data: {
+                assignmentId,
+                name,
+                amount,
+            },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Add custom charge error:', error);
+        return { error: 'Failed to add custom charge' };
+    }
+}
+
+export async function removeCustomCharge(chargeId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        await prisma.customCharge.delete({
+            where: { id: chargeId },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Remove custom charge error:', error);
+        return { error: 'Failed to remove custom charge' };
+    }
+}
+
+export async function addAssignmentsToJob(jobId: string, assignments: { horseId: string; serviceIds: string[]; date: Date }[]) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            include: { barn: true, braider: true, show: true },
+        });
+
+        if (!job) return { error: 'Job not found' };
+        if (job.status === 'completed') return { error: 'Cannot add to completed job' };
+
+        // We use a loop to create assignments with their service connections
+        for (const a of assignments) {
+            await prisma.jobAssignment.create({
+                data: {
+                    jobId,
+                    horseId: a.horseId,
+                    assignmentDate: a.date,
+                    status: 'pending',
+                    services: {
+                        connect: a.serviceIds.map((id) => ({ id })),
+                    },
+                },
+            });
+        }
+
+        await createNotification(
+            job.braiderId,
+            NotificationType.job_status_change,
+            `${job.barn.name} added ${assignments.length} horse(s) to ${job.show.name}`,
+            job.id,
+            job.barn.id,
+            job.barn.image,
+        );
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Add assignments error:', error);
+        return { error: 'Failed to add assignments' };
     }
 }
 export async function markJobPaid(jobId: string, paymentPlatform: string) {
@@ -330,9 +471,8 @@ export async function cancelJob(jobId: string) {
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        await prisma.job.update({
+        await prisma.job.delete({
             where: { id: jobId },
-            data: { status: 'canceled' },
         });
 
         revalidatePath('/dashboard');
@@ -342,23 +482,7 @@ export async function cancelJob(jobId: string) {
         return { error: 'Failed to cancel job' };
     }
 }
-export async function reRequestJob(jobId: string) {
-    const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
 
-    try {
-        await prisma.job.update({
-            where: { id: jobId },
-            data: { status: 'pending' },
-        });
-
-        revalidatePath('/dashboard');
-        return { success: true };
-    } catch (error) {
-        console.error('Re-request job error:', error);
-        return { error: 'Failed to re-request job' };
-    }
-}
 export async function deleteJob(jobId: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
@@ -433,10 +557,20 @@ export async function cancelAssignment(assignmentId: string) {
         const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId }, include: { services: true } });
         if (!assignment) return { error: 'Assignment not found' };
 
+        const isSoftDeleted = assignment.status === 'denied' || assignment.status === 'canceled' || !!assignment.canceledAt;
+
         const data: any = {};
-        if (assignment.canceledServiceIds.length === assignment.services.length) data.canceledServiceIds = [];
-        data.canceledAt = assignment.canceledAt || (data.canceledServicesIds && data.canceledServiceIds.length === 0) ? null : new Date();
-        if (data.canceledAt) data.completedServiceIds = [];
+        if (isSoftDeleted) {
+            // Restore
+            data.status = 'accepted';
+            data.canceledAt = null;
+            data.canceledServiceIds = [];
+        } else {
+            // Cancel
+            data.status = 'canceled';
+            data.canceledAt = new Date();
+            data.completedServiceIds = [];
+        }
 
         await prisma.jobAssignment.update({
             where: { id: assignmentId },
@@ -444,7 +578,7 @@ export async function cancelAssignment(assignmentId: string) {
         });
 
         revalidatePath('/dashboard');
-        return { success: true, message: data.canceledAt ? 'Removed horse from job' : 'Restored horse to job' };
+        return { success: true, message: isSoftDeleted ? 'Restored horse to job' : 'Removed horse from job' };
     } catch (error) {
         console.error('Cancel assignment error:', error);
         return { error: 'Failed to update assignment' };
@@ -500,7 +634,6 @@ export async function getBraiderUsageAction(email: string, timezoneOffset: numbe
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
 
-        // For "Tasks" bar, we usually want usage relative to "today" or "this week".
         const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date(), timezoneOffset);
         return { count, limit, period };
     } catch (error) {

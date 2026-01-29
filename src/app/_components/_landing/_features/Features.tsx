@@ -66,7 +66,7 @@ const features = [
     },
     {
         title: 'Barn & Horse Registry',
-        description: 'Keep detailed records of trainers, owners, and their horses with easy search and filtering.',
+        description: 'Keep detailed records of trainers, barns, and their horses with easy search and filtering.',
         icon: () => <Users className='text-background w-7 h-7' />,
     },
     {

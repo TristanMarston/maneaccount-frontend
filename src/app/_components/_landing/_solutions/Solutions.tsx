@@ -5,7 +5,7 @@ import { AnimatePresence, motion, Variants } from 'motion/react';
 import Image from 'next/image';
 import { useState } from 'react';
 
-type ViewOption = 'braiders' | 'subcontractors' | 'owners';
+type ViewOption = 'braiders' | 'subcontractors' | 'barns';
 
 const Solutions = () => {
     const [selectedView, setSelectedView] = useState<ViewOption>('braiders');
@@ -19,15 +19,15 @@ const Solutions = () => {
             alt: 'Mobile view for Subcontractors showing assigned horses',
             src: 'https://placehold.co/1200x675/png?text=Subcontractor+Mobile+List',
         },
-        owners: {
-            alt: 'Desktop view for Horse Owners showing horse lists',
-            src: 'https://placehold.co/1200x675/png?text=Owner+Dashboard+View',
+        barns: {
+            alt: 'Desktop view for Horse Barns showing horse lists',
+            src: 'https://placehold.co/1200x675/png?text=Barn+Dashboard+View',
         },
     };
 
     return (
         <div className='relative w-full'>
-            <div className='absolute -top-30' id='solutions'></div>
+            <div className='absolute -top-20' id='solutions'></div>
             <div className='w-full relative bg-white flex flex-col items-center'>
                 <div className='w-full absolute -top-14 lg:-top-24 overflow-hidden rotate-180 leading-none z-10'>
                     <svg
@@ -58,7 +58,7 @@ const Solutions = () => {
                         <div className='max-w-3xl grid grid-cols-1 xl:grid-cols-3 w-full gap-4 xl:gap-3 3xl:gap-6 mb-10 xl:mb-16'>
                             <ShiftButton type='braiders' selectedView={selectedView} setSelectedView={setSelectedView} />
                             <ShiftButton type='subcontractors' selectedView={selectedView} setSelectedView={setSelectedView} />
-                            <ShiftButton type='owners' selectedView={selectedView} setSelectedView={setSelectedView} />
+                            <ShiftButton type='barns' selectedView={selectedView} setSelectedView={setSelectedView} />
                         </div>
 
                         <div className='w-full max-w-4xl mx-auto perspective-[1000px]'>

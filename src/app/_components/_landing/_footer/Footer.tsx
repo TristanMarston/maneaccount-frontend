@@ -29,7 +29,7 @@ const Footer = () => {
                         <div className='flex flex-col gap-5 max-w-sm'>
                             <Logo color='background' position='footer' />
                             <p className='font-figtree text-white/80 text-[15px] leading-relaxed'>
-                                The all-in-one platform streamlining operations for horse braiders, subcontractors, and owners everywhere.
+                                The all-in-one platform streamlining operations for horse braiders, subcontractors, and barns everywhere.
                             </p>
                             {/* <div className='flex gap-5'>
                                 <svg

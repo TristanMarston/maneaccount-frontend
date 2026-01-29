@@ -49,12 +49,13 @@ import { failToast, successToast, usaStates } from '@/app/context';
 import AddShowForm from './AddShowForm';
 import { getJobs } from '@/app/actions/jobs';
 import { HorseDetailView, Job } from '../_tasks/Tasks';
-import { JobDetailReadOnly } from '../_tasks/JobDetailReadOnly';
 import Image from 'next/image';
 import { markAllTypeAsRead } from '@/app/actions/notifications';
 import { NotificationType } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { DayAssignmentsModal } from './DayAssignmentsModal';
+import { getDashboardData } from '@/app/actions/dashboard';
 
 type CalendarViewType = 'month' | 'week' | 'list';
 
@@ -113,7 +114,7 @@ const ShowDetailsModal = ({
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
                         ref={modalRef}
-                        className='bg-white w-full font-figtree max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[90dvh] overflow-y-auto @container/show-details'
+                        className='bg-white w-full font-figtree max-w-sm overflow-hidden rounded-[18px] primary-border-bold max-h-[90dvh] overflow-y-auto @container/show-details'
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-start bg-gray-50/50'>
                             <div className='min-w-0 w-full'>
@@ -309,17 +310,17 @@ const DayDetailsModal = ({
     );
 };
 
-import { getDashboardData } from '@/app/actions/dashboard';
-
 const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const [view, setView] = useState<CalendarViewType>('list');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [shows, setShows] = useState<Show[]>([]);
+    const [mappedJobShows, setMappedJobShows] = useState<Show[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [isDeleting, setIsDeleting] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
     const [editingShow, setEditingShow] = useState<Show | null>(null);
     const [selectedJob, setSelectedJob] = useState<any | null>(null);
+    const [viewingJobDate, setViewingJobDate] = useState<Date | null>(null);
     const [viewingShow, setViewingShow] = useState<Show | null>(null);
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
     const showDetailsRef = useRef<HTMLDivElement>(null);
@@ -344,25 +345,29 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
 
         const { shows: showsData, jobs: jobsData } = result;
 
-        const mappedJobs: Show[] = (jobsData as any[])
-            .map((job) => {
-                return {
-                    id: job.id,
-                    name: job.show?.name || 'Job',
-                    city: job.show?.city || '',
-                    state: job.show?.state || '',
-                    country: 'USA',
-                    startDate: job.scheduledDate,
-                    endDate: job.scheduledDate,
-                    type: 'job' as 'show' | 'job',
-                    jobData: job,
-                    isOwner: true,
-                };
-            })
-            .filter((item) => item !== null);
+        const mappedJobs: Show[] = (jobsData as any[]).flatMap((job) => {
+            const assignmentDates = [...new Set(job.assignments.map((a: any) => format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd')))];
+
+            if (assignmentDates.length === 0) return [];
+
+            return assignmentDates.map((dateKey) => ({
+                id: `${job.show.id}`,
+                jobId: job.id,
+                name: job.show?.name || 'Job',
+                city: job.show?.city || '',
+                state: job.show?.state || '',
+                country: 'USA',
+                startDate: new Date(dateKey + 'T12:00:00'),
+                endDate: new Date(dateKey + 'T12:00:00'),
+                type: 'job' as 'show' | 'job',
+                jobData: job,
+                isOwner: true,
+            }));
+        });
 
         // @ts-ignore
-        setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
+        setShows([...showsData].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
+        setMappedJobShows([...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
         setLoading(false);
     }, [role]);
 
@@ -376,9 +381,20 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
         }
     };
 
-    const handleShowClick = (show: Show) => {
-        if (show.type === 'job') {
-            setSelectedJob(show.jobData);
+    const handleShowClick = (show: Show, date?: Date) => {
+        const jobForDate = date
+            ? mappedJobShows.find(
+                  (s) => s.type === 'job' && s.jobData.showId === show.id && isSameDay(parseUTCToLocal(new Date(s.startDate)) || new Date(s.startDate), parseUTCToLocal(date) || date),
+              )
+            : null;
+
+        console.log(jobForDate);
+        console.log(show.id);
+        console.log(mappedJobShows);
+
+        if (jobForDate) {
+            setSelectedJob(jobForDate.jobData);
+            setViewingJobDate(date!);
         } else {
             setViewingShow(show);
         }
@@ -551,7 +567,8 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                 <div>
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
                     <p className='text-gray-800 text-[17px] font-figtree mt-2'>
-                        This will delete <span className='font-bold'>{isDeleting.name}</span> from your calendar.
+                        This will delete <span className='font-bold'>{isDeleting.name}</span> from your calendar.{' '}
+                        <span className='font-bold text-red-600 mt-2'>Any associated job records will also be deleted</span>.
                     </p>
                     <div className='grid @min-[300px]/check-team:grid-cols-2 gap-3 mt-4'>
                         <button
@@ -569,6 +586,29 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     </div>
                 </div>
             </Modal>
+            <Modal
+                isOpen={!!selectedJob}
+                setIsOpen={() => {
+                    setSelectedJob(null);
+                    setViewingJobDate(null);
+                }}
+                className='max-w-2xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'
+            >
+                {selectedJob && (
+                    <DayAssignmentsModal
+                        job={selectedJob}
+                        date={viewingJobDate || new Date(selectedJob.assignments[0]?.assignmentDate || selectedJob.createdAt)}
+                        role={role}
+                        userEmail={userEmail}
+                        setViewingShow={setViewingShow}
+                        onClose={() => {
+                            setSelectedJob(null);
+                            setViewingJobDate(null);
+                        }}
+                        refresh={loadShows}
+                    />
+                )}
+            </Modal>
             <ShowDetailsModal
                 show={viewingShow!}
                 onClose={() => setViewingShow(null)}
@@ -585,20 +625,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                 showDetailsRef={showDetailsRef}
                 role={role}
             />
-            <Modal isOpen={!!selectedJob} setIsOpen={() => setSelectedJob(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
-                {selectedJob && (
-                    <JobDetailReadOnly
-                        job={selectedJob}
-                        role={role}
-                        onClose={() => setSelectedJob(null)}
-                        goToTasks={() => {
-                            setSelectedJob(null);
-                            setSelectedPage(role === 'barn' ? 'Services' : 'Tasks');
-                        }}
-                        userEmail={userEmail}
-                    />
-                )}
-            </Modal>
+
             <Modal isOpen={!!selectedHorse} setIsOpen={() => setSelectedHorse(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {selectedHorse && <HorseDetailView horse={selectedHorse} onClose={() => setSelectedHorse(null)} />}
             </Modal>
@@ -821,7 +848,7 @@ const MonthView = ({
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
-    onShowClick: (show: Show) => void;
+    onShowClick: (show: Show, date?: Date) => void;
     userEmail: string;
     role: string;
 }) => {
@@ -917,7 +944,7 @@ const MonthView = ({
                                                 key={show.id}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    onShowClick(show);
+                                                    onShowClick(show, day);
                                                 }}
                                                 className={cn(
                                                     'text-[10px] w-full text-left cursor-pointer hover:bg-[#dae3de] transition-colors font-figtree px-1.5 py-0.5 rounded border truncate font-medium',
@@ -956,8 +983,8 @@ const MonthView = ({
                 day={selectedDay}
                 onClose={() => setSelectedDay(null)}
                 onEventClick={(show) => {
+                    onShowClick(show, selectedDay || undefined);
                     setSelectedDay(null);
-                    onShowClick(show);
                 }}
                 getShowsForDay={getShowsForDay}
             />
@@ -977,7 +1004,7 @@ const WeekView = ({
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
-    onShowClick: (show: Show) => void;
+    onShowClick: (show: Show, date?: Date) => void;
     role: string;
 }) => {
     const startDate = startOfWeek(currentDate);
@@ -989,9 +1016,9 @@ const WeekView = ({
 
     const getShowsForDay = (day: Date) => {
         return shows.filter((show) => {
-            const start = new Date(show.startDate);
+            const start = parseUTCToLocal(new Date(show.startDate)) || new Date(show.startDate);
             start.setHours(0, 0, 0, 0);
-            const end = new Date(show.endDate);
+            const end = parseUTCToLocal(new Date(show.endDate)) || new Date(show.endDate);
             end.setHours(0, 0, 0, 0);
             const current = new Date(day);
             current.setHours(0, 0, 0, 0);
@@ -1057,7 +1084,7 @@ const WeekView = ({
                                     {dayShows.map((show) => (
                                         <button
                                             key={show.id}
-                                            onClick={() => onShowClick(show)}
+                                            onClick={() => onShowClick(show, day)}
                                             className={cn(
                                                 'w-full text-left p-3 rounded-xl border border-gray-100 shadow-sm transition-all hover:shadow-md cursor-pointer group',
                                                 show.type === 'job' ? 'bg-blue-50 border-blue-200' : 'bg-white hover:border-primary/30',
@@ -1087,8 +1114,8 @@ const WeekView = ({
                 day={selectedDay}
                 onClose={() => setSelectedDay(null)}
                 onEventClick={(show) => {
+                    onShowClick(show, selectedDay || undefined);
                     setSelectedDay(null);
-                    onShowClick(show);
                 }}
                 getShowsForDay={getShowsForDay}
             />
@@ -1107,7 +1134,7 @@ const ListView = ({
     shows: Show[];
     onEdit: (show: Show) => void;
     onDelete: (id: string, name: string) => void;
-    onShowClick: (show: Show) => void;
+    onShowClick: (show: Show, date?: Date) => void;
     role: string;
     userEmail: string;
 }) => {
@@ -1196,7 +1223,7 @@ const ListView = ({
                                         dayOccurrences.map((occ, idx) => (
                                             <button
                                                 key={`${occ.id}-${idx}`}
-                                                onClick={() => onShowClick(occ)}
+                                                onClick={() => onShowClick(occ, (occ as any).occurrenceDate)}
                                                 className={cn(
                                                     'w-full cursor-pointer overflow-hidden text-left flex flex-col @min-[600px]/list-calendar:flex-row @min-[600px]/list-calendar:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-primary/30 hover:shadow-md transition-all group',
                                                     index === sortedDates.length - 1 && idx === dayOccurrences.length - 1 ? 'mb-7 @min-[350px]/list-calendar:mb-8' : '',

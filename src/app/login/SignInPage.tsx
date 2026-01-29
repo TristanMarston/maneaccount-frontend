@@ -4,7 +4,7 @@ import { getProviders, signIn, useSession } from 'next-auth/react';
 import React, { Fragment, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Toaster } from 'react-hot-toast';
-import { Eye, EyeOff, Scissors, Users, Building2, LucideProps, Warehouse } from 'lucide-react'; // Added icons
+import { Eye, EyeOff, Scissors, Users, Building2, LucideProps, Warehouse, Check } from 'lucide-react'; // Added icons
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import { GradientBackground } from '../_components/GradientBackground';
@@ -15,6 +15,7 @@ import Modal from '../dashboard/Modal';
 import { requestPasswordReset, verifyResetCode, resetPassword } from '../actions/verification';
 import toast from 'react-hot-toast';
 import { Mail, Lock, Key, CheckCircle2, ArrowRight, Loader2, KeyRound } from 'lucide-react';
+import Link from 'next/link';
 
 type UserRole = 'braider' | 'subcontractor' | 'barn';
 
@@ -31,6 +32,7 @@ const SignInPage = () => {
     const [loading, setLoading] = useState(false);
     const [passwordShown, setPasswordShown] = useState(false);
     const [resetModalOpen, setResetModalOpen] = useState(false);
+    const [agreed, setAgreed] = useState(false);
     const { data: session, status } = useSession();
 
     const router = useRouter();
@@ -88,8 +90,10 @@ const SignInPage = () => {
         setLoading(true);
 
         try {
-            const { email, password, firstName, lastName, role } = formData;
-            const name = `${firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()} ${lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase()}`.trim();
+            const { email: rawEmail, password, firstName, lastName, role } = formData;
+            const email = rawEmail.trim().toLowerCase();
+            const name =
+                `${firstName.trim().charAt(0).toUpperCase() + firstName.trim().slice(1).toLowerCase()} ${lastName.trim().charAt(0).toUpperCase() + lastName.trim().slice(1).toLowerCase()}`.trim();
 
             if (mode === 'signup' && role === undefined) {
                 return failToast('Please select a role to sign up.');
@@ -99,7 +103,7 @@ const SignInPage = () => {
                 const res = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: email.toLowerCase(), password, name, role }),
+                    body: JSON.stringify({ email, password, name, role }),
                 });
 
                 if (!res.ok) {
@@ -131,6 +135,7 @@ const SignInPage = () => {
                 return;
             }
 
+            toast.dismiss();
             router.push('/dashboard');
         } catch (err: any) {
             console.error(err);
@@ -211,6 +216,7 @@ const SignInPage = () => {
                                             value={formData.firstName}
                                             onChange={handleChange}
                                             placeholder='First Name'
+                                            autoComplete='given-name'
                                             required
                                         />
                                         <input
@@ -219,6 +225,7 @@ const SignInPage = () => {
                                             value={formData.lastName}
                                             onChange={handleChange}
                                             placeholder='Last Name'
+                                            autoComplete='family-name'
                                             required
                                         />
                                     </div>
@@ -227,9 +234,14 @@ const SignInPage = () => {
                                 <input
                                     className='w-full outline-none shadow-sm border border-gray-200 px-4 py-1.5 lg:py-2 rounded-xl focus:border-primary transition-colors'
                                     name='email'
+                                    type='email'
                                     value={formData.email}
                                     onChange={handleChange}
                                     placeholder='Email Address'
+                                    autoCapitalize='none'
+                                    autoCorrect='off'
+                                    spellCheck={false}
+                                    autoComplete='email'
                                     required
                                 />
 
@@ -241,6 +253,7 @@ const SignInPage = () => {
                                         value={formData.password}
                                         onChange={handleChange}
                                         placeholder='Password'
+                                        autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                                         required
                                     />
                                     <button
@@ -252,18 +265,47 @@ const SignInPage = () => {
                                     </button>
                                 </div>
 
-                                <button
-                                    type='submit'
-                                    disabled={loading}
-                                    className='w-full cursor-pointer bg-primary text-white font-bold py-2 lg:py-2.5 rounded-xl shadow-md hover:brightness-110 active:scale-[0.98] transition-all mt-2 disabled:opacity-70 disabled:cursor-not-allowed'
-                                >
-                                    {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
-                                </button>
+                                {mode === 'signup' && (
+                                    <span className='flex items-center gap-2 mt-2'>
+                                        <button
+                                            type='button'
+                                            onClick={() => setAgreed((prev) => !prev)}
+                                            className={cn(
+                                                'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm',
+                                                agreed ? 'bg-primary text-background border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
+                                            )}
+                                        >
+                                            <Check className={cn('transition-all w-4 h-4', agreed ? 'opacity-100' : 'opacity-0')} strokeWidth={2.5} />
+                                        </button>
+                                        <span className='text-gray-600 text-sm'>
+                                            I confirm that I am over 18 years old and agree to the{' '}
+                                            <Link href='/terms' className='text-primary hover:underline'>
+                                                Terms of Service
+                                            </Link>
+                                            .
+                                        </span>
+                                    </span>
+                                )}
+                                <span className={cn(loading || (mode === 'signup' && !agreed) ? 'cursor-not-allowed' : '')}>
+                                    <button
+                                        type='submit'
+                                        disabled={loading || (mode === 'signup' && !agreed)}
+                                        className='w-full disabled:pointer-events-none cursor-pointer bg-primary text-white font-bold py-2 lg:py-2.5 rounded-xl shadow-md hover:brightness-110 active:scale-[0.98] transition-all mt-2 disabled:opacity-70 disabled:cursor-not-allowed'
+                                    >
+                                        {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+                                    </button>
+                                </span>
                             </form>
 
                             <p className='text-gray-500 mt-4 lg:mt-6 text-center text-sm'>
                                 {mode === 'signup' ? 'Already have an account?' : 'Need an account?'}
-                                <span className='cursor-pointer text-primary font-bold ml-1 hover:underline' onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
+                                <span
+                                    className='cursor-pointer text-primary font-bold ml-1 hover:underline'
+                                    onClick={() => {
+                                        toast.dismiss();
+                                        setMode(mode === 'signin' ? 'signup' : 'signin');
+                                    }}
+                                >
                                     {mode === 'signin' ? 'Sign up' : 'Sign in'}
                                 </span>
                             </p>
@@ -374,6 +416,7 @@ const ResetPasswordModal = ({ isOpen, setIsOpen, initialEmail }: { isOpen: boole
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder='Email Address'
+                                        autoCapitalize='none'
                                         autoCorrect='off'
                                         autoComplete='off'
                                         spellCheck={false}

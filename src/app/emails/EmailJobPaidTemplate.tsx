@@ -21,7 +21,7 @@ export const ManeAccountJobPaidEmail = ({ barnName, amount, paymentMethod, showN
 
                     <Section style={content}>
                         <Heading style={h1}>Payment Received</Heading>
-                        <Img style={{ ...profileImage, border: image ? 'none' : '2px solid #3f6559' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
+                        <Img style={{ ...profileImage, border: image ? '2px solid #3f6559' : 'none' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
 
                         <Text style={textBlock}>
                             <Text style={bold}>{barnName}</Text>

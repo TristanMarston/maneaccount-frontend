@@ -345,7 +345,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                                 const result = await deleteHorse(checkModal.id);
                                 if (result.success) {
                                     successToast('Horse deleted');
-                                    setClients((prev) => prev.filter((c) => c.horses?.filter((h) => h.id !== checkModal.id)));
+                                    setClients((prev) => prev.map((c) => ({ ...c, horses: c.horses?.filter((h) => h.id !== checkModal.id) })));
                                 } else {
                                     failToast('Failed to delete');
                                 }

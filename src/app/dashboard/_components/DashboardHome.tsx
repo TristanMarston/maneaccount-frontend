@@ -117,7 +117,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
 
     return (
         <>
-            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 h-full @container/home'>
+            <div className='w-full pt-8 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-4 @container/home'>
                 <header className='flex flex-row justify-between gap-x-4 flex-wrap'>
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>
@@ -595,7 +595,10 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
         (acc, j) =>
             acc +
             j.assignments.reduce(
-                (sAcc: number, s: any) => sAcc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+                (sAcc: number, s: any) =>
+                    sAcc +
+                    s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                    (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
                 0,
             ),
         0,
@@ -725,7 +728,10 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
         (acc, j) =>
             acc +
             j.assignments.reduce(
-                (sAcc: number, s: any) => sAcc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+                (sAcc: number, s: any) =>
+                    sAcc +
+                    s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                    (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
                 0,
             ),
         0,
@@ -892,7 +898,10 @@ const ShowCard = ({ show }: { show: Show }) => {
 
 const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; color: 'amber' | 'purple' }) => {
     const total = job.assignments.reduce(
-        (acc: any, s: any) => acc + (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+        (acc: any, s: any) =>
+            acc +
+            s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+            (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
         0,
     );
 

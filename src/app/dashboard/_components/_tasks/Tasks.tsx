@@ -33,17 +33,16 @@ import {
 import { toast } from 'react-hot-toast';
 import {
     getJobs,
-    reRequestJob,
     createJob,
-    cancelJob,
-    markJobCompleted,
     addNote,
+    cancelJob,
     markJobPaid,
     getBraiderUsageAction,
     deleteJob,
-    updateJobStatus,
     getBraiderData,
     toggleServiceCompletion,
+    submitJob,
+    markJobCompleted,
 } from '@/app/actions/jobs';
 import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
@@ -51,7 +50,7 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay, addHours } from 'date-fns';
 import { JobDetailSubpage } from './JobDetailSubpage';
-import { ViewShowDetailsModal, RequestWorkModal } from './RequestWorkModals';
+import { ViewShowDetailsModal } from './RequestWorkModals';
 import { createPortal } from 'react-dom';
 import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, scrollVariants } from '@/app/context';
@@ -64,15 +63,17 @@ import DatePicker from '../DatePicker';
 import { getIDByEmail } from '@/app/actions/join';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { formatPhoneNumber } from '../_settings/Settings';
+import RequestWorkSubpage from './RequestWorkSubpage';
+import { parseUTCToLocal } from '@/lib/date-utils';
 
 export type Job = {
     id: string;
-    status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'completed';
-    braider: { name: string; image?: string; email: string };
-    barn: { name: string; image?: string; email: string };
+    status: 'editing' | 'submitted';
+    braider: { name: string; image?: string; email: string; id: string; services: { id: string; name: string; priceUSD: number; duration: number }[] };
+    barn: { name: string; image?: string; email: string; id: string };
     paidAt?: Date;
     subcontractors: { name: string; image?: string; email: string; id: string }[];
-    show: { id: string; name: string; city: string; state: string; startDate: Date; endDate: Date; invites: any[] };
+    show: { id: string; name: string; city: string; state: string; country: string; startDate: Date; endDate: Date; invites: any[] };
     assignments: {
         id: string;
         horse: {
@@ -83,26 +84,31 @@ export type Job = {
             gender: string;
             notes: string;
             color: string;
-            client: { name: string; email: string; phone?: string };
+            client: { name: string; email: string; phoneNumber?: string };
         };
+        client: { name: string; email: string; phoneNumber?: string };
         services: { id: string; name: string; priceUSD: number }[];
         completedServiceIds: string[];
         canceledServiceIds: string[];
         canceledAt?: Date;
         subcontractor: { name: string; image?: string; email: string; id: string } | null;
+        status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'completed';
+        assignmentDate: Date;
     }[];
     notes: { id: string; content: string; createdAt: Date; author: { name: string; image?: string } }[];
-    scheduledDate?: Date;
+    invoiceSentAt?: Date;
+    assignedAt: Date;
     createdAt: Date;
 };
 
 export const statusColors = {
-    pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    editing: 'bg-gray-100 text-gray-700 border-gray-200',
+    submitted: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     accepted: 'bg-blue-100 text-blue-700 border-blue-200',
     denied: 'bg-red-100 text-red-700 border-red-200',
-    canceled: 'bg-orange-100 text-orange-700 border-orange-200',
+    canceled: 'bg-gray-100 text-gray-700 border-gray-200',
     completed: 'bg-green-100 text-green-700 border-green-200',
-    paid: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    paid: 'bg-green-100 text-green-700 border-green-200',
 };
 
 const Tasks = ({
@@ -129,6 +135,7 @@ const Tasks = ({
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
     const [exactTime, setExactTime] = useState(new Date());
     const [braiderUsage, setBraiderUsage] = useState<{ count: number; limit: number; period: string } | null>(null);
+    const [requestingJob, setRequestingJob] = useState<Job | null | 'creating'>(null);
 
     useEffect(() => {
         const getUsages = async () => {
@@ -160,15 +167,10 @@ const Tasks = ({
     useAutoRefresh(loadJobs);
 
     const handleCreateJob = async (data: any) => {
-        const res = await createJob(data, new Date().getTimezoneOffset());
-        if (res.success) {
-            successToast('Request sent!');
-            setRequestModalOpen(false);
-            const updated = await getJobs(userEmail, role);
-            setJobs(updated as any);
-        } else {
-            failToast(res.error || 'Failed to send request');
-        }
+        // Deprecated: createJob now returns a draft ID. Subpage handles submission.
+        // This function might be removed or updated if used elsewhere.
+        setRequestModalOpen(false);
+        refreshJobs();
     };
 
     const handleCancelJob = async (id: string) => {
@@ -239,7 +241,7 @@ const Tasks = ({
     const handleMarkJobCompleted = async (jobID: string) => {
         const res = await markJobCompleted(jobID);
         if (res.success) {
-            successToast('Job marked as completed');
+            successToast('Invoice sent!');
             setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
             setSelectedJob(null);
             refreshJobs();
@@ -252,7 +254,7 @@ const Tasks = ({
         <>
             <div className='w-full font-figtree'>
                 <AnimatePresence mode='wait'>
-                    {!selectedJob ? (
+                    {!selectedJob && !requestingJob ? (
                         <motion.div
                             key='list'
                             initial={{ x: 100, opacity: 0 }}
@@ -268,7 +270,7 @@ const Tasks = ({
                                 </div>
                                 {role === 'barn' && (
                                     <button
-                                        onClick={() => setRequestModalOpen(true)}
+                                        onClick={() => setRequestingJob('creating')}
                                         className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
                                     >
                                         <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
@@ -277,7 +279,7 @@ const Tasks = ({
                                 )}
                             </header>
                             {braiderUsage && braiderUsage.period !== 'unlimited' && (
-                                <div className='w-full bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mb-2'>
+                                <div className='w-full bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mb-4'>
                                     <div className='flex justify-between items-end mb-2'>
                                         <div>
                                             <h3 className='font-bold text-gray-900'>Service Limit</h3>
@@ -308,7 +310,7 @@ const Tasks = ({
                                 <div className='grid grid-cols-1'>
                                     {role === 'barn' ? (
                                         <div
-                                            onClick={() => setRequestModalOpen(true)}
+                                            onClick={() => setRequestingJob('creating')}
                                             className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                                         >
                                             <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
@@ -330,10 +332,11 @@ const Tasks = ({
                                 </div>
                             ) : (
                                 <div className='grid grid-cols-1 gap-4'>
-                                    {jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && j.status !== 'completed').length === 0 &&
+                                    {jobs.filter((j) => j.assignments.length > 0 && !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied') && !j.paidAt)
+                                        .length === 0 &&
                                         (role === 'barn' ? (
                                             <div
-                                                onClick={() => setRequestModalOpen(true)}
+                                                onClick={() => setRequestingJob('creating')}
                                                 className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                                             >
                                                 <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
@@ -353,7 +356,7 @@ const Tasks = ({
                                             </div>
                                         ))}
                                     {jobs
-                                        .filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt))
+                                        .filter((j) => !j.paidAt && (j.assignments.length === 0 || !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied')))
                                         .map((job) => (
                                             <JobCard
                                                 key={job.id}
@@ -363,16 +366,14 @@ const Tasks = ({
                                                 setSelectedJob={setSelectedJob}
                                                 setNotesJob={setNotesJob}
                                                 refresh={refreshJobs}
-                                                setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                 setSelectedPage={setSelectedPage}
+                                                setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                 unreadCount={unreadCounts.byType.new_message}
+                                                setRequestingJob={setRequestingJob}
                                             />
                                         ))}
-                                    {jobs.filter((j) => (j.status === 'completed' && j.paidAt) || j.status === 'canceled' || j.status === 'denied').length > 0 &&
-                                        jobs.filter((j) => j.status !== 'canceled' && j.status !== 'denied' && (j.status !== 'completed' || !j.paidAt)).length > 0 && (
-                                            <div className='h-[0.5px] bg-gray-200 rounded-full' />
-                                        )}
-                                    {jobs.filter((j) => j.status === 'completed' && j.paidAt).length > 0 && (
+                                    {jobs.filter((j) => j.paidAt).length > 0 && jobs.filter((j) => !j.paidAt).length > 0 && <div className='h-[0.5px] bg-gray-200 rounded-full' />}
+                                    {jobs.filter((j) => j.paidAt).length > 0 && (
                                         <>
                                             <span
                                                 onClick={() => setShowCompletedEvents((prev) => !prev)}
@@ -406,7 +407,7 @@ const Tasks = ({
                                                         exit='hidden'
                                                     >
                                                         {jobs
-                                                            .filter((j) => j.status === 'completed' && j.paidAt)
+                                                            .filter((j) => j.paidAt)
                                                             .map((job) => (
                                                                 <JobCard
                                                                     key={job.id}
@@ -417,8 +418,8 @@ const Tasks = ({
                                                                     setSelectedJob={setSelectedJob}
                                                                     setNotesJob={setNotesJob}
                                                                     refresh={refreshJobs}
-                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     setSelectedPage={setSelectedPage}
+                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     unreadCount={unreadCounts.byType.new_message}
                                                                 />
                                                             ))}
@@ -427,7 +428,7 @@ const Tasks = ({
                                             </AnimatePresence>
                                         </>
                                     )}
-                                    {jobs.filter((j) => j.status === 'canceled' || j.status === 'denied').length > 0 && (
+                                    {jobs.filter((j) => j.assignments.length > 0 && j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied')).length > 0 && (
                                         <>
                                             <span
                                                 onClick={() => setShowCanceledEvents((prev) => !prev)}
@@ -461,7 +462,7 @@ const Tasks = ({
                                                         exit='hidden'
                                                     >
                                                         {jobs
-                                                            .filter((j) => j.status === 'canceled' || j.status === 'denied')
+                                                            .filter((j) => j.assignments.length > 0 && j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied'))
                                                             .map((job) => (
                                                                 <JobCard
                                                                     key={job.id}
@@ -472,8 +473,8 @@ const Tasks = ({
                                                                     setSelectedJob={setSelectedJob}
                                                                     setNotesJob={setNotesJob}
                                                                     refresh={refreshJobs}
-                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     setSelectedPage={setSelectedPage}
+                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     unreadCount={unreadCounts.byType.new_message}
                                                                 />
                                                             ))}
@@ -485,40 +486,51 @@ const Tasks = ({
                                 </div>
                             )}
                         </motion.div>
-                    ) : (
+                    ) : requestingJob !== null && role === 'barn' ? (
                         <motion.div
-                            key='details'
+                            key='requesting'
                             initial={{ x: 100, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: -100, opacity: 0 }}
                             transition={{ type: 'spring', bounce: 0.4, duration: 0.5 }}
                             className='w-full h-full'
                         >
-                            <JobDetailSubpage
-                                job={selectedJob}
+                            <RequestWorkSubpage
+                                job={requestingJob}
+                                setSelectedHorse={setSelectedHorse}
                                 role={role}
                                 userEmail={userEmail}
-                                onBack={() => setSelectedJob(null)}
+                                onBack={() => setRequestingJob(null)}
                                 refresh={refreshJobs}
-                                handleCancelJobModal={handleCancelJobModal}
-                                setSelectedHorse={setSelectedHorse}
-                                setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                subscriptionTier={subscriptionTier}
                             />
                         </motion.div>
+                    ) : (
+                        selectedJob && (
+                            <motion.div
+                                key='details'
+                                initial={{ x: 100, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                exit={{ x: -100, opacity: 0 }}
+                                transition={{ type: 'spring', bounce: 0.4, duration: 0.5 }}
+                                className='w-full h-full'
+                            >
+                                <JobDetailSubpage
+                                    job={selectedJob}
+                                    role={role}
+                                    userEmail={userEmail}
+                                    onBack={() => setSelectedJob(null)}
+                                    refresh={refreshJobs}
+                                    handleCancelJobModal={handleCancelJobModal}
+                                    setSelectedHorse={setSelectedHorse}
+                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
+                                    subscriptionTier={subscriptionTier}
+                                />
+                            </motion.div>
+                        )
                     )}
                 </AnimatePresence>
             </div>
-            <Modal isOpen={requestModalOpen} setIsOpen={setRequestModalOpen} className='max-w-2xl p-7 rounded-[18px] primary-border-bold relative overflow-y-auto'>
-                <RequestWorkModal
-                    userEmail={userEmail}
-                    onClose={() => setRequestModalOpen(false)}
-                    setSelectedHorse={setSelectedHorse}
-                    setShowDetailsModal={setShowDetailsModal}
-                    onSubmit={handleCreateJob}
-                    setSelectedPage={setSelectedPage}
-                />
-            </Modal>
+            {/* RequestWorkModal removed */}
 
             <Modal
                 isOpen={showDetailsModal.open}
@@ -638,9 +650,10 @@ const JobCard = ({
     canceled = false,
     completed = false,
     refresh,
-    setCheckMarkedCompleted,
     setSelectedPage,
+    setCheckMarkedCompleted,
     unreadCount,
+    setRequestingJob,
 }: {
     job: Job;
     role: string;
@@ -650,21 +663,30 @@ const JobCard = ({
     canceled?: boolean;
     completed?: boolean;
     refresh: () => void;
-    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
     unreadCount: number;
+    setRequestingJob?: (j: Job | 'creating' | null) => void;
 }) => {
-    const completedNotPaid = job.status === 'completed' && !job.paidAt;
+    const completedNotPaid = !!job.invoiceSentAt;
+
+    const isJobPending = job.assignments.some((a) => a.status === 'pending');
+    const isJobAccepted = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'accepted' || a.status === 'completed');
+    const isJobDenied = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'denied');
+    const isJobCanceled = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'canceled');
+    const isJobCompleted =
+        job.assignments.length > 0 && job.assignments.every((a) => a.status === 'completed' || (a.status === 'accepted' && a.completedServiceIds.length === a.services.length));
 
     const handleMarkCompleted = (e: React.MouseEvent) => {
         e.stopPropagation();
         setCheckMarkedCompleted({
             open: true,
             id: job.id,
-            earnings: job.assignments.reduce(
-                (acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0),
-                0,
-            ),
+            earnings: job.assignments.reduce((acc: number, a: any) => {
+                const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
+                const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
+                return a.canceledAt ? acc : acc + servicesTotal + customTotal;
+            }, 0),
             horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
             services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
         });
@@ -672,10 +694,16 @@ const JobCard = ({
 
     return (
         <div
-            onClick={() => setSelectedJob(job)}
+            onClick={() => {
+                if (job.status === 'editing' && setRequestingJob) {
+                    setRequestingJob(job);
+                } else {
+                    setSelectedJob(job);
+                }
+            }}
             className={cn(
                 'bg-white p-5 @min-[450px]/tasks:p-6 relative rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col @min-[600px]/tasks:flex-row gap-4 justify-between items-start @min-[600px]/tasks:items-center @container/job-card',
-                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : '',
+                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : job.status === 'editing' ? 'opacity-80' : '',
             )}
         >
             <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>
@@ -698,43 +726,73 @@ const JobCard = ({
                     <div className='flex items-center gap-x-2 flex-wrap min-w-0'>
                         <h3 className='font-bold text-lg text-gray-900 truncate min-w-0'>{job.show.name}</h3>
                         <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1', statusColors[job.paidAt ? 'paid' : job.status])}>
-                            {job.paidAt ? 'paid' : job.status}
+                            {job.paidAt
+                                ? 'paid'
+                                : job.status === 'editing'
+                                  ? 'drafting'
+                                  : isJobPending
+                                    ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.length} horses pending`
+                                    : isJobAccepted
+                                      ? 'all accepted'
+                                      : isJobDenied
+                                        ? 'denied'
+                                        : isJobCanceled
+                                          ? 'canceled'
+                                          : job.status === 'submitted'
+                                            ? 'all completed'
+                                            : job.status}
                         </span>
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>
 
-                    {job.scheduledDate && (
-                        <div className='flex items-center gap-1 flex-wrap'>
-                            <div className='flex mr-1 items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
-                                <span className='flex items-center gap-1'>
-                                    <Calendar className='w-4 h-4' />
-                                    {format(new Date(job.scheduledDate), 'MMM d, yyyy')}
-                                </span>
-                            </div>
-                            <div
-                                className={cn(
-                                    'flex items-center gap-x-2 gap-y-0.5 text-sm font-medium flex-wrap',
+                    <div className='flex items-center gap-1 flex-wrap'>
+                        <div className='flex mr-1 items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 font-medium flex-wrap'>
+                            <span className='flex items-center gap-1'>
+                                <Calendar className='w-4 h-4' />
+                                {job.assignments.length > 0 ? (
+                                    <>
+                                        {(() => {
+                                            const dates = job.assignments.map((a) => parseUTCToLocal(a.assignmentDate)?.getTime() || new Date(a.assignmentDate).getTime());
+                                            const min = Math.min(...dates);
+                                            const max = Math.max(...dates);
+                                            return (
+                                                <>
+                                                    {format(new Date(min), 'MMM d')}
+                                                    {min !== max && ` - ${format(new Date(max), 'MMM d')}`}
+                                                    {', '}
+                                                    {format(new Date(min), 'yyyy')}
+                                                </>
+                                            );
+                                        })()}
+                                    </>
+                                ) : (
+                                    'No dates selected'
+                                )}
+                            </span>
+                        </div>
+                        <div
+                            className={cn(
+                                'flex items-center gap-x-2 gap-y-0.5 text-sm font-medium flex-wrap',
+                                job.assignments
+                                    .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                    .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
                                     job.assignments
                                         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                        .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
-                                        job.assignments
-                                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
-                                        ? 'text-primary-light'
-                                        : 'text-gray-500',
-                                )}
-                            >
-                                <span className='flex items-center gap-1'>
-                                    <CircleCheck className='w-4 h-4' />
-                                    {`${job.assignments
-                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                        .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0)}/${job.assignments
-                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                        .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)} Completed`}
-                                </span>
-                            </div>
+                                        .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
+                                    ? 'text-primary-light'
+                                    : 'text-gray-500',
+                            )}
+                        >
+                            <span className='flex items-center gap-1'>
+                                <CircleCheck className='w-4 h-4' />
+                                {`${job.assignments
+                                    .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                    .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0)}/${job.assignments
+                                    .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                    .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)} Completed`}
+                            </span>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
 
@@ -746,7 +804,7 @@ const JobCard = ({
             >
                 <div className='flex items-center gap-2'>
                     {role === 'braider' &&
-                        job.status === 'accepted' &&
+                        job.status === 'submitted' &&
                         job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
                             job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) && (
                             <button
@@ -757,7 +815,7 @@ const JobCard = ({
                                 <CheckCircle2 size={28} />
                             </button>
                         )}
-                    {!completed && !canceled && (
+                    {!completed && !canceled && job.status !== 'editing' && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -773,10 +831,20 @@ const JobCard = ({
                 </div>
                 <div className='flex flex-col items-center gap-0.5'>
                     <span className='text-2xl font-bold font-lusitana text-primary'>
-                        $
-                        {job.assignments
-                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                            .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc, s) => sAcc + s.priceUSD, 0), 0)}
+                        {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                        }).format(
+                            job.assignments
+                                .filter((a: any) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                .reduce((acc: number, a: any) => {
+                                    const servicesTotal = a.services
+                                        .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
+                                        .reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
+                                    const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
+                                    return a.canceledAt ? acc : acc + servicesTotal + customTotal;
+                                }, 0),
+                        )}
                     </span>
                     <span className='text-xs text-gray-400 font-figtree whitespace-nowrap'>
                         {job.assignments
@@ -978,17 +1046,20 @@ export const HorseDetailView = ({ horse, onClose }: { horse: any; onClose: () =>
                     <div className='p-3 rounded-2xl mb-2 @min-[425px]/horse-detail:mb-4 border flex justify-between items-center transition-all bg-primary-light/10 text-primary border-primary-light/20'>
                         <div className='flex flex-col min-w-0'>
                             <span className='text-[13px] uppercase font-bold tracking-wide opacity-60'>Owner</span>
-                            <span className='text-lg font-bold font-figtree capitalize truncate'>{horse.client.name}</span>
+                            <span className='text-lg font-bold font-figtree capitalize truncate'>{horse.client?.name || 'Unknown Owner'}</span>
                         </div>
                         <div className='flex gap-3 items-center pr-1'>
                             <div
                                 onClick={() => setEmailVisible((prev) => !prev)}
                                 ref={emailRef}
-                                className='bg-primary-light/15 relative p-2 rounded-full cursor-pointer transition-all hover:bg-primary-light/10'
+                                className={cn(
+                                    'bg-primary-light/15 relative p-2 rounded-full cursor-pointer transition-all hover:bg-primary-light/10',
+                                    !horse.client?.email && 'opacity-20 pointer-events-none',
+                                )}
                             >
                                 <Mail className='w-5 h-5' strokeWidth={2.5} />
                                 <AnimatePresence>
-                                    {emailVisible && (
+                                    {emailVisible && horse.client?.email && (
                                         <motion.div
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
@@ -1008,7 +1079,7 @@ export const HorseDetailView = ({ horse, onClose }: { horse: any; onClose: () =>
                                     )}
                                 </AnimatePresence>
                             </div>
-                            {horse.client.phoneNumber && (
+                            {horse.client?.phoneNumber && (
                                 <div
                                     onClick={() => setPhoneNumberVisible((prev) => !prev)}
                                     ref={phoneNumberRef}

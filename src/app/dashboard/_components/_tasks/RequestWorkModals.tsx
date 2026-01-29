@@ -159,7 +159,6 @@ export const RequestWorkModal = ({
         });
     };
 
-    // Helper to get horse/service details for display
     const getHorseDetails = (id: string) => horses.find((h) => h.id === id);
     const getServiceDetails = (id: string) => services.find((s) => s.id === id);
 

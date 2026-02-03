@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         updateData.stripeCustomerId = customer.id;
         updateData.trialEndsAt = trialEndDate;
         updateData.subscriptionStatus = 'trialing';
-        updateData.subscriptionTier = 'enterprise';
+        updateData.subscriptionTier = 'starter';
 
         await prisma.user.update({
             where: { id: user.id },

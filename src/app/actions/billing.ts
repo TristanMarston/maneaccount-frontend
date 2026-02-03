@@ -60,7 +60,7 @@ export async function startFreeTrial() {
         updateData.stripeCustomerId = customer.id;
         updateData.trialEndsAt = trialEndDate;
         updateData.subscriptionStatus = 'trialing';
-        updateData.subscriptionTier = 'enterprise';
+        updateData.subscriptionTier = 'starter';
 
         await prisma.user.update({
             where: { id: user.id },
@@ -102,7 +102,6 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
             });
         }
 
-        // Determine subscription tier from priceId
         let tier: SubscriptionTier = 'starter';
         if (priceId === process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || priceId === process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY) {
             tier = 'professional';

@@ -140,13 +140,8 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
                         price: priceId,
                     },
                 ],
+                trial_end: 'now', // End trial immediately on upgrade
             };
-
-            if (trialEndTimestamp) {
-                updateParams.trial_end = trialEndTimestamp;
-            } else {
-                updateParams.trial_end = 'now'; // End trial if expired or not applicable
-            }
 
             subscription = await stripe.subscriptions.update(currentSub.id, updateParams);
         } else {
@@ -154,11 +149,8 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
             const createParams: any = {
                 customer: user.stripeCustomerId,
                 items: [{ price: priceId }],
+                trial_end: 'now', // End trial immediately on upgrade
             };
-
-            if (trialEndTimestamp) {
-                createParams.trial_end = trialEndTimestamp;
-            }
 
             subscription = await stripe.subscriptions.create(createParams);
         }
@@ -257,5 +249,13 @@ export async function getSubscriptionDetails() {
         ...user,
         hasPaymentMethod,
         subscriptionInterval,
+        currentPeriodEnd: user.stripeCustomerId
+            ? await stripe.subscriptions
+                  .list({
+                      customer: user.stripeCustomerId,
+                      limit: 1,
+                  })
+                  .then((subs) => ((subs.data[0] as any)?.current_period_end ? new Date((subs.data[0] as any).current_period_end * 1000) : null))
+            : null,
     };
 }

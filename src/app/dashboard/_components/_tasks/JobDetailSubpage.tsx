@@ -494,6 +494,10 @@ export const JobDetailSubpage = ({
         jobAssignments.length > 0 &&
         jobAssignments.every((a) => a.status === 'completed' || (a.status === 'accepted' && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length));
 
+    const horsesCompleted = job.assignments
+        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+        .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length).length;
+
     const assignmentDates = job.assignments.map((a) => parseUTCToLocal(a.assignmentDate)?.getTime() || new Date(a.assignmentDate).getTime());
     const minDate = assignmentDates.length > 0 ? new Date(Math.min(...assignmentDates)) : null;
     const maxDate = assignmentDates.length > 0 ? new Date(Math.max(...assignmentDates)) : null;
@@ -636,24 +640,26 @@ export const JobDetailSubpage = ({
                     <span
                         className={cn(
                             'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
-                            statusColors[job.paidAt ? 'paid' : job.status],
+                            statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 ? 'accepted' : job.status],
                         )}
                     >
-                        {job.paidAt
+                        {job.assignments.every((a) => a.paidAt)
                             ? 'paid'
                             : job.status === 'editing'
                               ? 'drafting'
                               : isJobPending
-                                ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.length} horses pending`
-                                : isJobAccepted
+                                ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
+                                : isJobAccepted && horsesCompleted === 0
                                   ? 'all accepted'
-                                  : isJobDenied
-                                    ? 'denied'
-                                    : isJobCanceled
-                                      ? 'canceled'
-                                      : job.status === 'submitted'
-                                        ? 'all completed'
-                                        : job.status}
+                                  : horsesCompleted > 0
+                                    ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                    : isJobDenied
+                                      ? 'denied'
+                                      : isJobCanceled
+                                        ? 'canceled'
+                                        : job.status === 'submitted'
+                                          ? 'all completed'
+                                          : job.status}
                     </span>
                 </div>
 
@@ -711,7 +717,7 @@ export const JobDetailSubpage = ({
                     </div>
                 )}
 
-                <div>
+                <div className={cn(job.invoiceSentAt ? 'pointer-events-none opacity-70' : '')}>
                     <div className='flex justify-between items-center mb-3 mt-4'>
                         <h3 className='text-sm font-bold text-gray-500 uppercase'>Assignments</h3>
                         {role === 'barn' && !isJobCompleted && !isJobCanceled && !isJobDenied && (
@@ -860,7 +866,7 @@ export const JobDetailSubpage = ({
                                                                             </div>
                                                                             <div className='flex items-center gap-2'>
                                                                                 {(role === 'braider' || role === 'subcontractor') &&
-                                                                                    !job.paidAt &&
+                                                                                    !job.assignments.every((a) => a.paidAt) &&
                                                                                     (activeServices.length === 0 ||
                                                                                         activeServices.length !==
                                                                                             [
@@ -1060,7 +1066,7 @@ export const JobDetailSubpage = ({
                                                                                                         (role === 'subcontractor' && assignment.subcontractor?.id === userId)) &&
                                                                                                         !assignment.completedServiceIds.includes(service.id) &&
                                                                                                         !assignment.canceledAt &&
-                                                                                                        !job.paidAt && (
+                                                                                                        !job.assignments.every((a) => a.paidAt) && (
                                                                                                             <button
                                                                                                                 onClick={() => handleCancelService(assignment.id, service.id)}
                                                                                                                 className={cn(
@@ -1167,7 +1173,7 @@ export const JobDetailSubpage = ({
                     </div>
                 </div>
 
-                <div className='py-2 px-1'>
+                <div className={cn('py-2 px-1', job.invoiceSentAt ? 'opacity-70 pointer-events-none' : '')}>
                     <div className='bg-white rounded-[14px] border border-gray-200 px-5 py-4 shadow-sm space-y-4'>
                         <div className='flex justify-between items-center'>
                             <div className='flex items-center gap-2'>
@@ -1196,7 +1202,7 @@ export const JobDetailSubpage = ({
                     </div>
                 </div>
 
-                <div className='grid w-full'>
+                <div className={cn('grid w-full', job.invoiceSentAt ? 'opacity-70 pointer-events-none' : '')}>
                     <div
                         onClick={() => setNotesModalOpen(true)}
                         className='p-4 w-full rounded-[14px] bg-white border border-[#dae3de] shadow-sm cursor-pointer hover:border-primary-light transition-all group min-h-[100px]'
@@ -1226,8 +1232,8 @@ export const JobDetailSubpage = ({
                     </div>
                 </div>
 
-                <div className='flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row mt-4 mb-8'>
-                    {role !== 'subcontractor' && !isJobCanceled && !isJobDenied && !isJobCompleted && ((role === 'barn' && isJobPending) || !isJobPending) && (
+                <div className={cn('flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row mt-4 mb-8', job.invoiceSentAt ? 'opacity-70 pointer-events-none' : '')}>
+                    {role !== 'subcontractor' && !job.invoiceSentAt && !isJobCanceled && !isJobDenied && !isJobCompleted && ((role === 'barn' && isJobPending) || !isJobPending) && (
                         <div
                             onClick={handleCancelJobModal}
                             className='w-full grid place-items-center font-figtree font-bold text-red-500 rounded-[10px] py-2 text-lg cursor-pointer red-border-hover transition-all'
@@ -1454,7 +1460,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                     <label className='text-xs font-bold text-gray-400 uppercase flex items-center gap-2'>
                         <Calendar size={14} /> Select Date
                     </label>
-                    <div className='flex gap-2 overflow-x-auto pb-2 scrollbar-hide'>
+                    <div className='flex gap-2 overflow-x-auto pb-2 hide-scrollbar'>
                         {showDates.map((date) => {
                             const isSelected = selectedDate && isSameDay(date, selectedDate);
                             return (

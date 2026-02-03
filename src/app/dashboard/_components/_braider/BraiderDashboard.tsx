@@ -42,7 +42,9 @@ const BraiderDashboard = ({
         subscriptionTier: SubscriptionTier;
         subscriptionStatus: SubscriptionStatus;
         trialEndsAt: Date | null;
+        currentPeriodEnd: Date | null;
         stripeCustomerId: string | null;
+        subscriptionInterval: string;
     } | null>(null);
 
     useEffect(() => {
@@ -106,7 +108,17 @@ const BraiderDashboard = ({
             case 'Barns':
                 return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Invoices':
-                return <Invoices role='braider' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={(open) => setSelectedPage('Settings')} />;
+                return (
+                    <Invoices
+                        role='braider'
+                        userEmail={email}
+                        setView={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
             case 'Pricing':
                 return <Services userEmail={email} />;
             case 'Team':
@@ -120,7 +132,9 @@ const BraiderDashboard = ({
                                 subscriptionTier: SubscriptionTier;
                                 subscriptionStatus: SubscriptionStatus;
                                 trialEndsAt: Date | null;
+                                currentPeriodEnd: Date | null;
                                 stripeCustomerId: string | null;
+                                subscriptionInterval: string;
                             } | null,
                         ) => {
                             setSubscription(sub);

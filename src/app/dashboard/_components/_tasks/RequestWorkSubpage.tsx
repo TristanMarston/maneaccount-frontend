@@ -60,35 +60,29 @@ const RequestWorkSubpage = ({
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedHorseId, setSelectedHorseId] = useState<string>('');
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+    const [braiderJobs, setBraiderJobs] = useState<any[]>([]);
 
-    // UI State
     const [loading, setLoading] = useState(false);
     const [initializing, setInitializing] = useState(true);
     const [checkDelete, setCheckDelete] = useState(false);
 
-    // Fetch Initial Data
     useEffect(() => {
         const init = async () => {
             setInitializing(true);
 
-            // Fetch Horses (always needed)
             const horsesData = await getHorses(userEmail);
             if (horsesData) setHorses(horsesData);
 
             if (!isEditing) {
-                // Fetch Braiders for selection
                 const rels = await getRelations(userEmail);
                 setBraiders(rels.filter((r) => r.role === 'braider'));
             } else {
-                // Fetch Braider Data (services, shows) for the existing job's braider
                 const job = initialJob as Job;
                 const data = await getBraiderData(job.braider.id);
                 if (data) {
+                    setBraiderJobs(data.braiderJobs);
                     setShows(data.shows);
                     setBraiderServices(data.services);
-
-                    // Pre-select show if still available, or keep existing object
-                    // We keep current show/braider fixed in editing mode usually
                 }
             }
             setInitializing(false);
@@ -96,12 +90,12 @@ const RequestWorkSubpage = ({
         init();
     }, [userEmail, isEditing, initialJob]);
 
-    // Fetch Braider Details when selected (Creating mode)
     useEffect(() => {
         const fetchBraiderData = async () => {
             if (selectedBraider && !isEditing) {
                 const data = await getBraiderData(selectedBraider.id);
                 if (data) {
+                    setBraiderJobs(data.braiderJobs);
                     setShows(data.shows);
                     setBraiderServices(data.services);
                 }
@@ -114,9 +108,8 @@ const RequestWorkSubpage = ({
         const determineCheck = (e: BeforeUnloadEvent) => {
             let changesMade = false;
 
-            if (initialJob === 'creating') {
-                changesMade = assignments.length > 0 || selectedBraider !== null || selectedShow !== null;
-            } else {
+            if (initialJob === 'creating') changesMade = assignments.length > 0;
+            else {
                 const job = initialJob as Job;
                 const previousAssignments = [...job.assignments].sort((a, b) => a.id.localeCompare(b.id));
                 const currentAssignments = [...assignments].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
@@ -159,7 +152,6 @@ const RequestWorkSubpage = ({
         });
     }, [selectedShow]);
 
-    // Add Assignment Handler
     const handleAddAssignment = () => {
         if (!selectedDate || !selectedHorseId || selectedServiceIds.length === 0) return;
 
@@ -347,8 +339,8 @@ const RequestWorkSubpage = ({
                     <div className='flex items-center gap-4'>
                         <button
                             onClick={() => {
-                                if (initialJob === 'creating') setCheckDelete(true);
-                                else {
+                                if (initialJob === 'creating' && assignments.length > 0) setCheckDelete(true);
+                                else if (initialJob !== 'creating') {
                                     const previousAssignments = (initialJob as Job).assignments.sort((a, b) => a.horse.id.localeCompare(b.horse.id));
                                     const currentAssignments = assignments.sort((a, b) => a.horseId.localeCompare(b.horseId));
                                     let checking = false;
@@ -367,7 +359,7 @@ const RequestWorkSubpage = ({
                                     }
 
                                     if (!checking) onBack();
-                                }
+                                } else onBack();
                             }}
                             className='p-2 cursor-pointer rounded-xl border border-gray-200 text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-all'
                         >
@@ -397,28 +389,31 @@ const RequestWorkSubpage = ({
                 </div>
 
                 {selectedBraider && selectedShow && (
-                    <div className='flex flex-wrap items-center shadow-sm gap-2 mb-4 p-3 bg-primary-extra-light/30 rounded-xl border border-primary/10 animate-in fade-in zoom-in-95 duration-300'>
+                    <div className='flex flex-wrap-reverse items-center shadow-sm gap-2 mb-4 p-3 bg-primary-extra-light/30 rounded-xl border border-primary/10 animate-in fade-in zoom-in-95 duration-300'>
                         {!isEditing && (
                             <button
                                 onClick={() => {
                                     setSelectedShow(null);
                                     setAssignments([]);
                                 }}
-                                className='text-primary px-2 hover:text-primary-light transition-all cursor-pointer'
+                                className='text-primary px-2 hover:text-primary-light transition-all cursor-pointer flex items-center gap-2 w-full justify-center bg-primary/10 rounded-[10px] py-1.5 @min-[475px]/request-page:bg-transparent @min-[475px]/request-page:rounded-none @min-[475px]/request-page:w-auto @min-[475px]/request-page:justify-start'
                             >
-                                <Pencil />
+                                <Pencil className='w-5 h-5 @min-[475px]/request-page:w-6 @min-[475px]/request-page:h-6' strokeWidth={2.25} />
+                                <span className='@min-[475px]/request-page:hidden block font-bold'>Edit</span>
                             </button>
                         )}
-                        <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100'>
-                            <div className='w-5 h-5 rounded-full bg-gray-100 overflow-hidden relative shrink-0'>
-                                <Image src={selectedBraider.image || ''} alt={selectedBraider.name} fill className='object-cover' />
+                        <div className='flex items-center gap-2 w-full @min-[475px]/request-page:w-auto'>
+                            <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
+                                <div className='w-5 h-5 rounded-full bg-gray-100 overflow-hidden relative shrink-0'>
+                                    <Image src={selectedBraider.image || ''} alt={selectedBraider.name} fill className='object-cover' />
+                                </div>
+                                <span className='font-bold text-sm text-gray-900'>{selectedBraider.name}</span>
                             </div>
-                            <span className='font-bold text-sm text-gray-900'>{selectedBraider.name}</span>
-                        </div>
-                        <span className='text-gray-300'>•</span>
-                        <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100'>
-                            <MapPin size={14} className='text-primary' />
-                            <span className='font-bold text-sm text-gray-900'>{selectedShow.name}</span>
+                            <span className='text-gray-300 hidden @min-[475px]/request-page:block'>•</span>
+                            <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
+                                <MapPin size={14} className='text-primary' />
+                                <span className='font-bold text-sm text-gray-900'>{selectedShow.name}</span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -430,16 +425,16 @@ const RequestWorkSubpage = ({
                                 <AnimatePresence mode='wait'>
                                     {!selectedBraider && (
                                         <motion.h3
-                                            initial={{ opacity: 1, y: 0, height: 28 }}
+                                            initial={{ opacity: 1, y: 0, height: 'auto' }}
                                             exit={{ opacity: 0, y: -10, height: 0 }}
                                             transition={{ duration: 0.4, ease: 'easeInOut' }}
-                                            className='font-bold text-gray-500 mb-2 text-lg uppercase'
+                                            className='font-bold text-gray-500 text-lg uppercase'
                                         >
                                             Which Braider?
                                         </motion.h3>
                                     )}
                                 </AnimatePresence>
-                                <div className='grid grid-cols-1 overflow-x-hidden @min-[480px]/request-page:grid-cols-2 @min-[840px]/request-page:grid-cols-3 gap-3 pb-1'>
+                                <div className='grid grid-cols-1 pt-2 overflow-x-hidden @min-[480px]/request-page:grid-cols-2 @min-[840px]/request-page:grid-cols-3 gap-3 pb-1'>
                                     {braiders.length > 0 ? (
                                         <AnimatePresence key='animate-presence-braiders'>
                                             {braiders.map((b) =>
@@ -496,12 +491,14 @@ const RequestWorkSubpage = ({
                                     <div className='grid grid-cols-1 @min-[480px]/request-page:grid-cols-2 @min-[800px]/request-page:grid-cols-3 gap-3'>
                                         {shows.length > 0 ? (
                                             shows.map((s) => (
-                                                <div
+                                                <button
+                                                    type='button'
+                                                    disabled={braiderJobs.some((j) => j.showId === s.id)}
                                                     key={s.id}
                                                     onClick={() => setSelectedShow(s)}
-                                                    className='p-4 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-primary/50 hover:shadow-md cursor-pointer transition-all'
+                                                    className='p-4 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-primary/50 hover:shadow-md cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none'
                                                 >
-                                                    <h4 className='font-bold text-gray-900 truncate pr-2 text-[17px]'>{s.name}</h4>
+                                                    <h4 className='font-bold text-gray-900 truncate pr-2 text-[17px] text-left'>{s.name}</h4>
                                                     <div className='flex items-center gap-1.5 text-sm text-gray-500'>
                                                         <MapPin size={14} />
                                                         {s.city}, {s.state}
@@ -511,7 +508,7 @@ const RequestWorkSubpage = ({
                                                         {format(parseUTCToLocal(new Date(s.startDate)) || new Date(s.startDate), 'MMM d')} -{' '}
                                                         {format(parseUTCToLocal(new Date(s.endDate)) || s.endDate, 'MMM d')}
                                                     </div>
-                                                </div>
+                                                </button>
                                             ))
                                         ) : (
                                             <div className='col-span-3 text-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl'>
@@ -532,21 +529,26 @@ const RequestWorkSubpage = ({
 
                             <div className='mb-6'>
                                 <label className='block text-xs font-bold text-gray-500 uppercase mb-2'>1. Select Date</label>
-                                <div className='flex flex-wrap gap-2'>
+                                <div className='flex gap-2 overflow-x-auto hide-scrollbar pb-1'>
                                     {showDates.map((date) => {
                                         const isSelected = selectedDate && isSameDay(date, selectedDate);
                                         return (
                                             <button
-                                                key={date.toString()}
-                                                onClick={() => handleDateSelect(date)}
+                                                key={date.toISOString()}
+                                                onClick={() => {
+                                                    const d = new Date(date);
+                                                    d.setHours(12, 0, 0, 0);
+                                                    setSelectedDate(d);
+                                                }}
                                                 className={cn(
-                                                    'px-4 py-2 rounded-lg text-sm font-medium shadow-sm border transition-all cursor-pointer',
+                                                    'shrink-0 w-20 py-3 rounded-2xl flex flex-col items-center border transition-all cursor-pointer',
                                                     isSelected
-                                                        ? 'bg-primary-extra-light text-primary border-primary'
-                                                        : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:shadow-md',
+                                                        ? 'border-primary bg-primary-extra-light text-primary shadow-md '
+                                                        : 'border-gray-200 shadow-sm text-gray-600 hover:border-primary-light',
                                                 )}
                                             >
-                                                {format(date, 'EEE, MMM d')}
+                                                <span className='text-[10px] uppercase font-bold opacity-60'>{format(parseUTCToLocal(date) || date, 'eee')}</span>
+                                                <span className='text-[22px] leading-1.4 font-bold font-lusitana'>{format(parseUTCToLocal(date) || date, 'd')}</span>
                                             </button>
                                         );
                                     })}
@@ -568,6 +570,9 @@ const RequestWorkSubpage = ({
                                                     selectedHorseId === h.id
                                                         ? 'bg-primary-extra-light border-primary'
                                                         : 'bg-white border-gray-200 hover:shadow-md hover:border-primary/50',
+                                                    assignments.some((a) => isSameDay(selectedDate || new Date(), a.date) && h.id === a.horseId)
+                                                        ? 'opacity-30 pointer-events-none'
+                                                        : 'opacity-100',
                                                 )}
                                             >
                                                 <div className='w-12 h-12 rounded-full bg-gray-100 overflow-hidden relative shadow-sm shrink-0'>
@@ -583,7 +588,7 @@ const RequestWorkSubpage = ({
                                                         e.stopPropagation();
                                                         setSelectedHorse(h);
                                                     }}
-                                                    className='absolute cursor-pointer top-1 w-4 h-4 right-5 p-1 rounded-full text-gray-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity'
+                                                    className='absolute cursor-pointer -top-2 -right-2 bg-gray-50 flex items-center justify-center w-6.5 h-6.5 p-0.5 rounded-full text-gray-400 hover:text-primary transition-opacity'
                                                 >
                                                     <Info />
                                                 </button>

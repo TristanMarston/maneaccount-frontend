@@ -86,7 +86,9 @@ const SubscriptionSettings = ({
             subscriptionTier: SubscriptionTier;
             subscriptionStatus: SubscriptionStatus;
             trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
             stripeCustomerId: string | null;
+            subscriptionInterval: string;
         } | null,
     ) => void;
 }) => {
@@ -96,6 +98,7 @@ const SubscriptionSettings = ({
         subscriptionTier: SubscriptionTier;
         subscriptionStatus: SubscriptionStatus;
         trialEndsAt: Date | null;
+        currentPeriodEnd: Date | null;
         stripeCustomerId: string | null;
         hasPaymentMethod: boolean;
         subscriptionInterval: string;
@@ -119,7 +122,7 @@ const SubscriptionSettings = ({
             if (conf?.publishableKey) {
                 setStripePromise(loadStripe(conf.publishableKey));
             }
-            
+
             if (sub) {
                 setSelectedPlan(sub.subscriptionTier);
                 setBillingCycle(sub.subscriptionInterval === 'month' ? 'monthly' : sub.subscriptionInterval === 'year' ? 'yearly' : 'monthly');
@@ -186,9 +189,12 @@ const SubscriptionSettings = ({
         );
     }
 
-    const daysLeft = subscription?.trialEndsAt ? Math.ceil((new Date(subscription.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
-
+    const now = new Date();
+    const daysLeft = subscription?.trialEndsAt ? Math.ceil((new Date(subscription.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
     const isTrial = subscription?.subscriptionStatus === 'trialing' && daysLeft > 0;
+
+    const periodDaysLeft = subscription?.currentPeriodEnd ? Math.ceil((new Date(subscription.currentPeriodEnd).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    const isActive = subscription?.subscriptionStatus === 'active' && periodDaysLeft > 0;
 
     return (
         <div className='space-y-8 max-w-4xl animate-in fade-in duration-500'>
@@ -259,7 +265,26 @@ const SubscriptionSettings = ({
                                 <span className='text-sm font-bold'>{daysLeft} days remaining in free trial</span>
                             </div>
                         )}
-                        {!isTrial && subscription?.subscriptionStatus === 'active' && (
+                        {isActive && (
+                            <div
+                                className={cn(
+                                    'flex items-center gap-2 px-3 py-1 rounded-full w-fit',
+                                    subscription?.subscriptionTier === 'enterprise'
+                                        ? 'text-amber-600 bg-amber-500/10'
+                                        : subscription?.subscriptionTier === 'professional'
+                                          ? 'text-violet-600 bg-violet-500/10'
+                                          : subscription?.subscriptionTier === 'starter'
+                                            ? 'text-sky-600 bg-sky-500/10'
+                                            : '',
+                                )}
+                            >
+                                <Calendar size={16} />
+                                <span className='text-sm font-bold'>
+                                    {periodDaysLeft} days remaining this {subscription?.subscriptionInterval === 'year' ? 'year' : 'month'}
+                                </span>
+                            </div>
+                        )}
+                        {!isTrial && !isActive && subscription?.subscriptionStatus === 'active' && (
                             <div
                                 className={cn(
                                     'flex items-center gap-2 text-amber-600 bg-amber-500/10 px-3 py-1 rounded-full w-fit',
@@ -328,11 +353,11 @@ const SubscriptionSettings = ({
                                 className={cn(
                                     'rounded-[14px] p-6 space-y-3 group transition-all cursor-pointer',
                                     plan.name === 'starter'
-                                        ? `sky-border-hover ${selectedPlan === plan.name ? 'bg-linear-to-br from-sky-500/5 to-sky-500/15' : 'bg-background'}`
+                                        ? `sky-border-hover ${subscription?.subscriptionTier === plan.name && billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly') ? 'bg-linear-to-br from-sky-500/5 to-sky-500/15' : 'bg-background'}`
                                         : plan.name === 'professional'
-                                          ? `violet-border-hover ${selectedPlan === plan.name ? 'bg-linear-to-br from-violet-500/5 to-violet-500/15' : 'bg-background'}`
+                                          ? `violet-border-hover ${subscription?.subscriptionTier === plan.name && billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly') ? 'bg-linear-to-br from-violet-500/5 to-violet-500/15' : 'bg-background'}`
                                           : plan.name === 'enterprise'
-                                            ? `amber-border-hover ${selectedPlan === plan.name ? 'bg-linear-to-br from-amber-500/5 to-amber-500/15' : 'bg-background'}`
+                                            ? `amber-border-hover ${subscription?.subscriptionTier === plan.name && billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly') ? 'bg-linear-to-br from-amber-500/5 to-amber-500/15' : 'bg-background'}`
                                             : '',
                                 )}
                                 onClick={() => handleSelectPlan(plan.name as SubscriptionTier)}
@@ -363,7 +388,8 @@ const SubscriptionSettings = ({
                                                 className={cn(
                                                     'shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5',
                                                     included ? 'bg-gray-100 text-gray-600' : 'bg-gray-300 text-gray-600',
-                                                    selectedPlan === plan.name
+                                                    subscription?.subscriptionTier === plan.name &&
+                                                        billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly')
                                                         ? plan.name === 'starter'
                                                             ? 'text-sky-600 bg-sky-50'
                                                             : plan.name === 'professional'
@@ -382,7 +408,7 @@ const SubscriptionSettings = ({
                                     type='button'
                                     className={cn(
                                         'w-full rounded-xl px-8 py-2.5 font-figtree font-bold text-lg cursor-pointer group-hover:translate-[2.5px_2.5px_0] group-hover:shadow-none! duration-300 ease-in-out',
-                                        selectedPlan === plan.name
+                                        subscription?.subscriptionTier === plan.name && billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly')
                                             ? plan.name === 'starter'
                                                 ? 'bg-sky-500 text-white sky-border'
                                                 : plan.name === 'professional'
@@ -393,10 +419,14 @@ const SubscriptionSettings = ({
                                               : plan.name === 'professional'
                                                 ? 'bg-background text-violet-600 violet-border'
                                                 : 'bg-background text-amber-600 amber-border',
-                                        selectedPlan === plan.name && 'translate-[2.5px_2.5px_0] shadow-none!',
+                                        subscription?.subscriptionTier === plan.name &&
+                                            billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly') &&
+                                            'translate-[2.5px_2.5px_0] shadow-none!',
                                     )}
                                 >
-                                    {selectedPlan === plan.name ? 'Current Plan' : 'Select Plan'}
+                                    {subscription?.subscriptionTier === plan.name && billingCycle === (subscription?.subscriptionInterval === 'year' ? 'yearly' : 'monthly')
+                                        ? 'Current Plan'
+                                        : 'Select Plan'}
                                 </button>
                             </div>
                         );
@@ -538,7 +568,7 @@ const SubscriptionSettings = ({
                     <div className='bg-white rounded-2xl primary-border-bold w-full max-w-md p-6 animate-in zoom-in-95 duration-200'>
                         <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Payment Details</h3>
                         <p className='text-sm text-gray-500 mt-1 mb-4'>
-                            {isTrial ? 'Your card will not be charged until your trial ends.' : 'Securely enter your payment information.'}
+                            {isTrial ? 'Your card will be charged immediately, and your trial will be over.' : 'Securely enter your payment information.'}
                         </p>
 
                         <Elements

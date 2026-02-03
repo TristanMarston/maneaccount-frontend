@@ -498,17 +498,15 @@ const Notification = ({
                         setSelectedPage(
                             notification.type === 'calendar_invite'
                                 ? 'Calendar'
-                                : notification.type === 'job_completed'
-                                  ? 'Invoices'
-                                  : notification.type.startsWith('job')
-                                    ? 'Services'
-                                    : notification.type.startsWith('barn')
-                                      ? 'Braiders'
-                                      : notification.type.startsWith('team')
-                                        ? 'Team'
-                                        : notification.type === 'new_message'
-                                          ? 'Messages'
-                                          : '',
+                                : notification.type.startsWith('job')
+                                  ? 'Services'
+                                  : notification.type.startsWith('barn')
+                                    ? 'Braiders'
+                                    : notification.type.startsWith('team')
+                                      ? 'Team'
+                                      : notification.type === 'new_message'
+                                        ? 'Messages'
+                                        : '',
                         );
                     }
                     setNotificationsOpen(false);
@@ -590,7 +588,7 @@ const Notification = ({
 };
 
 const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
-    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
+    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.assignments.every((a: any) => a.paidAt));
     const pendingAmount = unpaidJobs.reduce(
         (acc, j) =>
             acc +
@@ -723,7 +721,7 @@ const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingS
 };
 
 const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
-    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
+    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.assignments.every((a: any) => a.paidAt));
     const pendingAmount = unpaidJobs.reduce(
         (acc, j) =>
             acc +

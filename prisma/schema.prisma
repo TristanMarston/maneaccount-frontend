@@ -264,7 +264,6 @@ model Job {
   assignedAt      DateTime  @default(now())
   invoiceSentAt   DateTime?
 
-  paidAt             DateTime?
   paymentPlatform    String?
   
   assignments     JobAssignment[]
@@ -325,6 +324,7 @@ model JobAssignment {
   canceledAt          DateTime?
   customCharges       CustomCharge[]
 
+  paidAt              DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

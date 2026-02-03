@@ -103,7 +103,9 @@ const Settings = ({
             subscriptionTier: SubscriptionTier;
             subscriptionStatus: SubscriptionStatus;
             trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
             stripeCustomerId: string | null;
+            subscriptionInterval: string;
         } | null,
     ) => void;
 }) => {
@@ -389,7 +391,7 @@ const Settings = ({
 
     return (
         <>
-            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/settings relative'>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 @min-[745px]/content:space-y-8 @container/settings relative'>
                 <div className='flex justify-between items-center'>
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
@@ -401,8 +403,8 @@ const Settings = ({
                     <div className='w-full @min-[650px]/settings:w-64 bg-gray-50 border rounded-[18px] border-gray-100 p-4 flex flex-col gap-2 shrink-0 sticky top-0'>
                         <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
                         <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
-                        {role === 'braider' && <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />}
-                        {role === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payout Methods' />}
+                        {propRole === 'braider' && <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />}
+                        {propRole === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payout Methods' />}
                         <NavTab active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={Bell} label='Notifications' />
                         <motion.div className={cn('flex flex-col gap-3', isDirty ? '' : 'pointer-events-none')} initial={{ opacity: 0.3 }} animate={{ opacity: isDirty ? 1 : 0.3 }}>
                             <button

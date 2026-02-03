@@ -55,7 +55,7 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
 
                         <Text style={textBlock}>
                             <Text style={bold}>{braiderName}</Text>
-                            <Text style={normal}>&nbsp;has completed braiding services for you at &nbsp;</Text>
+                            <Text style={normal}>&nbsp;{isClient ? 'has completed braiding services for you at' : 'has completed braiding services for your clients at'} &nbsp;</Text>
                             <Text style={bold}>{showName}</Text>
                             <Text style={normal}>.</Text>
                         </Text>
@@ -167,7 +167,7 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
                                     </Section>
                                 )}
                             </Section>
-                        ) : (
+                        ) : isClient && (
                             <Text style={italic}>No payment information provided for {braiderName}. Please contact your barn to complete payment.</Text>
                         )}
 

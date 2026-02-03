@@ -1,71 +1,58 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
-    User as UserIcon,
     Calendar,
-    Clock,
     CheckCircle2,
-    DollarSign,
-    ExternalLink,
-    RefreshCw,
-    ChevronRight,
-    ChevronDown,
-    QrCode,
     RefreshCcw,
-    Copy,
-    Share2,
-    Check,
-    Smartphone,
-    Link as LinkIcon,
-    Mail,
+    TrendingUp,
+    ChevronDown,
+    ChevronUp,
+    ListFilter,
     X,
-    CircleQuestionMark,
-    HandCoins,
+    Check,
+    QrCode,
+    User as UserIcon,
+    Share2,
+    Copy,
+    Smartphone,
+    ExternalLink,
+    CheckSquare,
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
-import { motion, AnimatePresence } from 'motion/react';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { getJobs, markJobPaid } from '@/app/actions/jobs';
-import { Job } from '@prisma/client';
-import toast from 'react-hot-toast';
-import Modal from '../../Modal';
-import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import { markAllTypeAsRead } from '@/app/actions/notifications';
-import { NotificationType } from '@prisma/client';
+import { getJobs, markClientPaid, getEarningsHistory } from '@/app/actions/jobs';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { getUserSettings } from '@/app/actions/settings';
-import { failToast, successToast } from '@/app/context';
 import { format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import Modal from '../../Modal';
+import { motion, AnimatePresence } from 'motion/react';
+import toast from 'react-hot-toast';
+import { getUserSettings } from '@/app/actions/settings';
 import { formatPhoneNumber } from '../_settings/Settings';
+import { failToast, successToast } from '@/app/context';
+import { Tab } from '../_braider/BraiderDashboard';
 
-const Invoices = ({
-    role,
-    userEmail,
-    setView,
-    setSettingsModalOpen,
-}: {
-    role: string;
-    userEmail: string;
-    setView: (view: string) => void;
-    setSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}) => {
+const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string; userEmail: string; setView: (view: string) => void; setSettingsOpen: (page: Tab) => void }) => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedJob, setSelectedJob] = useState<any | null>(null);
-    const [payModal, setPayModal] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash/check' | ''>('');
+
+    // Modals
+    const [pendingModalOpen, setPendingModalOpen] = useState(false);
+    const [earningsModalOpen, setEarningsModalOpen] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
+
+    // Earnings Data
+    const [earningsData, setEarningsData] = useState<any[]>([]);
+    const [earningsPeriod, setEarningsPeriod] = useState<'day' | 'week' | 'month' | 'year'>('day');
+    const [earningsLoading, setEarningsLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
 
+    // Filter
     const [showHistory, setShowHistory] = useState(false);
-
-    useEffect(() => {
-        if (!payModal) setPaymentMethod('');
-    }, [payModal]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -76,231 +63,171 @@ const Invoices = ({
         };
 
         fetchSettings();
-    }, [role, showQRModal, payModal]);
+    }, [role, showQRModal]);
 
-    const refreshJobsFn = useCallback(async () => {
-        setLoading(true);
-        const data = await getJobs(userEmail, role);
-        setJobs(data);
-        setLoading(false);
-    }, [userEmail, role]);
+    const refreshJobsFn = useCallback(
+        async (load: boolean) => {
+            if (load) setLoading(true);
+            const data = await getJobs(userEmail, role);
+            setJobs(data);
+            setLoading(false);
+        },
+        [userEmail, role],
+    );
 
-    useAutoRefresh(refreshJobsFn);
+    const fetchEarnings = useCallback(async () => {
+        setEarningsLoading(true);
+        const data = await getEarningsHistory(earningsPeriod);
+        setEarningsData(data);
+        setEarningsLoading(false);
+    }, [earningsPeriod]);
 
-    const { refreshCounts } = useNotifications();
+    useAutoRefresh(() => refreshJobsFn(false));
 
     useEffect(() => {
-        if (role === 'barn') {
-            markAllTypeAsRead(NotificationType.job_completed).then(() => {
-                refreshCounts();
-            });
+        if (earningsModalOpen) {
+            fetchEarnings();
         }
-    }, [userEmail, role, refreshCounts]);
+    }, [earningsModalOpen, earningsPeriod, fetchEarnings]);
 
-    const handlePay = async () => {
-        if (!selectedJob || !paymentMethod) return;
-
-        const res = await markJobPaid(selectedJob.id, paymentMethod);
-
-        if (res.success) {
-            successToast('Payment recorded');
-            setPayModal(false);
-            setPaymentMethod('');
-            setSelectedJob(null);
-            refreshJobsFn();
-        } else {
-            failToast('Failed to record payment');
-        }
-    };
-
-    if (role === 'subcontractor') {
+    if (role !== 'braider') {
         return (
             <div className='flex flex-col items-center justify-center h-full text-gray-400'>
-                <DollarSign size={48} className='mb-4 opacity-50' />
-                <p>Invoices are not available for subcontractors.</p>
+                <p>This page is only available for braiders.</p>
             </div>
         );
     }
 
-    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.paidAt);
-    const paidJobs = jobs.filter((j) => j.paidAt);
+    const allAssignments = jobs.flatMap((j) => j.assignments.map((a: any) => ({ ...a, job: j })));
 
-    const totalEarned = paidJobs.reduce(
-        (acc, j) =>
-            acc +
-            j.assignments.reduce(
-                (acc: number, a: any) =>
-                    acc +
-                    a.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                    a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
-                0,
-            ),
-        0,
-    );
-    const pendingAmount = unpaidJobs.reduce(
-        (acc, j) =>
-            acc +
-            j.assignments.reduce(
-                (acc: number, a: any) =>
-                    acc +
-                    a.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                    a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
-                0,
-            ),
-        0,
-    );
+    const getAssignmentCost = (a: any) => {
+        const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+        return servicesTotal + customTotal;
+    };
+
+    const paidAssignments = allAssignments.filter((a: any) => a.paidAt);
+    const unpaidAssignments = allAssignments.filter((a: any) => !a.paidAt);
+
+    const totalEarned = paidAssignments.reduce((acc, a) => acc + getAssignmentCost(a), 0);
+    const pendingAmount = unpaidAssignments.reduce((acc, a) => acc + getAssignmentCost(a), 0);
+
+    const jobsWithPending = jobs.filter((j) => j.status === 'completed' && j.assignments.some((a: any) => !a.paidAt && !a.canceledAt));
+
+    const fullyPaidJobs = jobs.filter((j) => j.status === 'completed' && j.assignments.length > 0 && j.assignments.every((a: any) => a.paidAt || a.canceledAt));
 
     return (
         <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/invoices'>
-            <div
-                className={cn(
-                    role === 'braider'
-                        ? 'flex justify-between @min-[490px]/invoices:items-center flex-col @min-[490px]/invoices:flex-row mb-6 gap-4'
-                        : 'flex justify-between @min-[380px]/invoices:items-center flex-col @min-[380px]/invoices:flex-row mb-6 gap-4',
-                )}
-            >
+            <div className='flex justify-between @min-[490px]/invoices:items-center flex-col @min-[490px]/invoices:flex-row mb-6 gap-4'>
                 <div>
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Invoices</h1>
-                    <p className='text-gray-500 font-figtree mt-1'>{role === 'barn' ? 'Manage your payments to braiders.' : 'Track your earnings and pending payments.'}</p>
+                    <p className='text-gray-500 font-figtree mt-1'>Track your earnings and manage payments.</p>
                 </div>
                 <div className='flex flex-col gap-3 @min-[380px]/invoices:flex-row @min-[380px]/invoices:items-center @min-[380px]/invoices:gap-4 w-auto'>
                     <button
-                        onClick={refreshJobsFn}
-                        className={cn(
-                            'font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-primary primary-border-hover bg-background',
-                            role === 'braider'
-                                ? 'text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[735px]/invoices:py-2 @min-[735px]/invoices:px-6'
-                                : 'text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[380px]/invoices:rounded-[20px] @min-[440px]/invoices:rounded-[10px] @min-[380px]/invoices:p-3 @min-[440px]/invoices:py-2 @min-[440px]/invoices:px-6 py-2 px-6',
-                        )}
+                        onClick={() => refreshJobsFn(true)}
+                        className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-primary primary-border-hover bg-background text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[735px]/invoices:py-2 @min-[735px]/invoices:px-6'
                     >
                         <RefreshCcw className={cn('w-6 h-6', loading ? 'animate-spin' : '')} strokeWidth={2.5} />
-                        <span
-                            className={cn(
-                                role === 'braider' ? 'block @min-[490px]/invoices:hidden @min-[735px]/invoices:block' : 'block @min-[380px]/invoices:hidden @min-[440px]/invoices:block',
-                            )}
-                        >
-                            Refresh
-                        </span>
+                        <span className='block @min-[490px]/invoices:hidden @min-[735px]/invoices:block'>Refresh</span>
                     </button>
-                    {role === 'braider' && (
-                        <button
-                            onClick={() => setShowQRModal(true)}
-                            className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/invoices:text-lg @min-[650px]/invoices:text-[19px] @min-[735px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[650px]/invoices:rounded-[14px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[650px]/invoices:py-2 @min-[650px]/invoices:px-6 bg-primary-light text-background primary-border-hover'
-                        >
-                            <QrCode className='w-6 h-6' strokeWidth={2.5} />
-                            <span className='block @min-[490px]/invoices:hidden @min-[650px]/invoices:block'>Show QR Codes</span>
-                        </button>
-                    )}
+                    <button
+                        onClick={() => setShowQRModal(true)}
+                        className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/invoices:text-lg @min-[650px]/invoices:text-[19px] @min-[735px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[650px]/invoices:rounded-[14px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[650px]/invoices:py-2 @min-[650px]/invoices:px-6 bg-primary-light text-background primary-border-hover'
+                    >
+                        <QrCode className='w-6 h-6' strokeWidth={2.5} />
+                        <span className='block @min-[490px]/invoices:hidden @min-[650px]/invoices:block'>Show QR Codes</span>
+                    </button>
                 </div>
             </div>
 
-            {role === 'braider' && (
-                <div className='grid grid-cols-1 @min-[490px]/invoices:grid-cols-2 gap-4 mb-8 font-figtree'>
-                    <div className='bg-emerald-50 primary-border rounded-[14px] p-6 flex flex-col gap-2'>
-                        <span className='text-emerald-600 font-bold uppercase text-xs tracking-wider'>Total Earnings</span>
-                        <span
-                            className='text-4xl font-lusitana font-bold text-primary truncate'
-                            title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)}
-                        >
-                            {loading ? (
-                                <span>
-                                    $<span className='text-4xl'>--.--</span>
-                                </span>
-                            ) : (
-                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)
-                            )}
-                        </span>
-                    </div>
-                    <div className='bg-amber-50 amber-border p-6 rounded-[14px] flex flex-col gap-2'>
-                        <span className='text-amber-600 font-bold uppercase text-xs tracking-wider'>Pending Payments</span>
-                        <span
-                            className='text-4xl font-lusitana font-bold text-amber-700 truncate'
-                            title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
-                        >
-                            {loading ? (
-                                <span>
-                                    $<span className='text-4xl'>--.--</span>
-                                </span>
-                            ) : (
-                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)
-                            )}
-                        </span>
-                    </div>
+            <div className='grid grid-cols-1 @min-[490px]/invoices:grid-cols-2 gap-4 mb-8 font-figtree'>
+                <div className='bg-emerald-50 primary-border rounded-[14px] p-6 flex flex-col gap-2'>
+                    <span className='text-emerald-600 font-bold uppercase text-xs tracking-wider flex items-center gap-2'>
+                        Total Earnings <TrendingUp size={16} />
+                    </span>
+                    <span
+                        className='text-4xl font-lusitana font-bold text-primary truncate'
+                        title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)}
+                    >
+                        {loading ? (
+                            <span>
+                                $<span className='text-4xl'>--.--</span>
+                            </span>
+                        ) : (
+                            new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)
+                        )}
+                    </span>
                 </div>
-            )}
+                <div className='bg-amber-50 amber-border p-6 rounded-[14px] flex flex-col gap-2'>
+                    <span className='text-amber-600 font-bold uppercase text-xs tracking-wider flex items-center gap-2'>
+                        Pending Payments <ListFilter size={16} />
+                    </span>
+                    <span
+                        className='text-4xl font-lusitana font-bold text-amber-700 truncate'
+                        title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
+                    >
+                        {loading ? (
+                            <span>
+                                $<span className='text-4xl'>--.--</span>
+                            </span>
+                        ) : (
+                            new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)
+                        )}
+                    </span>
+                </div>
+            </div>
 
             <div className='space-y-8 font-figtree'>
                 <section>
                     <h2 className='text-lg font-bold font-figtree mb-4 flex items-center gap-2'>
-                        {role === 'barn' ? 'To Pay' : 'Pending Payment'}
-                        {unpaidJobs.length > 0 && (
+                        Pending Payment
+                        {jobsWithPending.length > 0 && (
                             <span className='bg-primary text-white text-xs w-5.5 h-5.5 rounded-full aspect-square flex justify-center items-center text-center'>
-                                {unpaidJobs.length}
+                                {jobsWithPending.length}
                             </span>
                         )}
                     </h2>
 
                     {loading ? (
-                        <div className='flex flex-col items-center gap-3 animate-pulse'>
-                            <div className='w-full h-[140px] @min-[490px]/invoices:h-[82px] bg-gray-100 rounded-2xl'></div>
-                            <div className='w-full h-[140px] @min-[490px]/invoices:h-[82px] bg-gray-100 rounded-2xl'></div>
-                            <div className='w-full h-[140px] @min-[490px]/invoices:h-[82px] bg-gray-100 rounded-2xl'></div>
+                        <div className='flex flex-col gap-3 animate-pulse'>
+                            <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
+                            <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
                         </div>
-                    ) : unpaidJobs.length === 0 ? (
+                    ) : jobsWithPending.length === 0 ? (
                         <div className='flex flex-col items-center justify-center text-center py-12 bg-gray-50/50 rounded-2xl px-4 border border-dashed border-gray-200'>
-                            <div className='w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4'>
-                                <HandCoins className='text-gray-400' size={40} />
-                            </div>
                             <span className='text-gray-500 text-lg font-semibold'>No pending invoices.</span>
                         </div>
                     ) : (
                         <div className='space-y-3'>
-                            {unpaidJobs.map((job) => (
-                                <InvoiceCard
-                                    key={job.id}
-                                    job={job}
-                                    role={role}
-                                    onAction={() => {
-                                        setSelectedJob(job);
-                                        setPayModal(true);
-                                    }}
-                                />
+                            {jobsWithPending.map((job) => (
+                                <InvoiceCard key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
                             ))}
                         </div>
                     )}
                 </section>
 
-                {paidJobs.length > 0 && (
+                {fullyPaidJobs.length > 0 && (
                     <section>
                         <span
                             onClick={() => setShowHistory((prev) => !prev)}
                             className='text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-1.5 text-lg mb-2'
                         >
                             <h2 className=''>History</h2>
-                            <motion.div initial={{ rotate: 0 }} animate={showHistory ? { rotate: 180 } : { rotate: 0 }} transition={{ duration: 0.5, type: 'spring', bounce: 0.5 }}>
+                            <motion.div animate={{ rotate: showHistory ? 180 : 0 }}>
                                 <ChevronDown />
                             </motion.div>
                         </span>
                         <AnimatePresence>
                             {showHistory && (
                                 <motion.div
-                                    variants={{
-                                        hidden: {
-                                            opacity: 0,
-                                            y: 10,
-                                        },
-                                        visible: {
-                                            opacity: 1,
-                                            y: 0,
-                                        },
-                                    }}
-                                    initial='hidden'
-                                    animate={showHistory ? 'visible' : 'hidden'}
-                                    exit='hidden'
-                                    className='space-y-3'
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className='space-y-3 overflow-hidden pb-0.5 px-0.5'
                                 >
-                                    {paidJobs.map((job) => (
-                                        <InvoiceCard key={job.id} job={job} role={role} isHistory />
+                                    {fullyPaidJobs.map((job) => (
+                                        <InvoiceCard key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
                                     ))}
                                 </motion.div>
                             )}
@@ -309,134 +236,112 @@ const Invoices = ({
                 )}
             </div>
 
-            <Modal isOpen={payModal} setIsOpen={setPayModal} className='max-w-md w-full p-7 rounded-[18px] primary-border-bold overflow-y-auto'>
-                {selectedJob && (
-                    <div className='font-figtree @container/send-payment'>
-                        <h2 className='text-4xl font-lusitana font-bold mb-1'>Send Payment</h2>
-                        <p className='text-gray-500 text-sm mb-6'>
-                            Pay <span className='font-bold text-gray-900'>{selectedJob.braider.name}</span> for{' '}
-                            {selectedJob.assignments.reduce((acc: any, s: any) => acc + s.services.length, 0)} services across {selectedJob.assignments.length} horses. The appropriate
-                            horse owners have been emailed the invoice. You may choose to pay it for them now.
-                            <span className='text-sm text-gray-400 text-left block mt-0.5'>Completed On: {format(selectedJob.updatedAt, 'MMM d, yyyy')}</span>
-                            <span className='mt-0.5 block'>When you know the braider has been paid for all services, come here and mark this job as paid.</span>
-                        </p>
-
-                        <div className='bg-emerald-50 p-4 rounded-xl mb-6 border border-emerald-200 shadow-sm'>
-                            <div className='flex justify-between items-center'>
-                                <span className='text-emerald-600 font-semibold text-lg'>Total Amount</span>
-                                <span className='text-3xl font-bold font-lusitana text-emerald-600'>
-                                    $
-                                    {selectedJob.assignments.reduce(
-                                        (acc: number, a: any) =>
-                                            acc +
-                                            a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
-                                        0,
-                                    )}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className='space-y-3 mb-6'>
-                            <p className='text-xs font-bold text-gray-400 uppercase ml-1 tracking-wider'>Select Payment Method</p>
-
-                            {selectedJob.braider.venmo && selectedJob.braider.venmoEnabled && (
-                                <div
-                                    onClick={() => setPaymentMethod('venmo')}
-                                    className={cn(
-                                        'flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm',
-                                        paymentMethod === 'venmo'
-                                            ? 'border-[#008CFF] bg-[#008CFF]/5 ring-1 ring-[#008CFF]'
-                                            : 'border-gray-200 hover:border-[#008CFF]/30 hover:bg-[#008CFF]/5',
-                                    )}
-                                >
-                                    <div className='w-12 h-12 rounded-full relative overflow-hidden bg-[#008CFF]/10 flex items-center justify-center shrink-0'>
-                                        <Image src='/venmo-logo.png' alt='Venmo' width={48} height={48} className='object-cover' />
-                                    </div>
-                                    <div className='flex-1'>
-                                        <div className='font-bold text-gray-900 text-lg'>Venmo</div>
-                                        <div className='text-sm text-gray-500'>Tap icon to open</div>
-                                    </div>
-                                    <Link href={selectedJob.braider.venmo} target='_blank' rel='noreferrer'>
-                                        <ExternalLink
-                                            size={40}
-                                            className='text-gray-300 mr-1 hover:bg-[#008CFF]/10 cursor-pointer hover:text-[#008CFF] transition-all p-2 rounded-2xl'
-                                        />
-                                    </Link>
-                                </div>
-                            )}
-
-                            {selectedJob.braider.zelle !== 'disabled' &&
-                                (selectedJob.braider.zelle === 'phone'
-                                    ? selectedJob.braider.phoneNumber && selectedJob.braider.phoneNumber.length > 0
-                                    : selectedJob.braider.zelle === 'email'
-                                      ? selectedJob.braider.email && selectedJob.braider.email.length > 0
-                                      : false) && (
-                                    <div
-                                        onClick={() => {
-                                            setPaymentMethod('zelle');
-                                        }}
-                                        className={cn(
-                                            'flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm',
-                                            paymentMethod === 'zelle'
-                                                ? 'border-[#6D1ED4] bg-[#6D1ED4]/5 ring-1 ring-[#6D1ED4]'
-                                                : 'border-gray-200 hover:border-[#6D1ED4]/30 hover:bg-[#6D1ED4]/5',
-                                        )}
-                                    >
-                                        <div className='w-12 h-12 rounded-full relative overflow-hidden bg-[#6D1ED4]/10 flex items-center justify-center shrink-0'>
-                                            <Image src='/zelle-logo.png' alt='Zelle' width={48} height={48} className='object-cover' />
-                                        </div>
-                                        <div className='flex-1 min-w-0'>
-                                            <div className='font-bold text-gray-900 text-lg'>Zelle</div>
-                                            <div className='text-sm text-gray-500 flex items-center gap-1 min-w-0'>
-                                                <span className='truncate'>
-                                                    {selectedJob.braider.zelle === 'email' ? selectedJob.braider.email : formatPhoneNumber(selectedJob.braider.phoneNumber)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                            <div
-                                onClick={() => setPaymentMethod('cash/check')}
-                                className={cn(
-                                    'flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm',
-                                    paymentMethod === 'cash/check'
-                                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
-                                        : 'border-gray-200 hover:border-emerald-200 hover:bg-emerald-50',
-                                )}
-                            >
-                                <div className='w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-2xl shrink-0'>$</div>
-                                <div className='flex-1'>
-                                    <div className='font-bold text-gray-900 text-lg'>Cash / Check</div>
-                                    <div className='text-sm text-gray-500'>Mark as paid manually</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='grid grid-cols-1 gap-2 @min-[330px]/send-payment:grid-cols-2 @min-[330px]/send-payment:gap-3'>
-                            <button onClick={() => setPayModal(false)} className='p-1.5 cursor-pointer primary-border-hover text-primary font-bold rounded-[10px] text-lg'>
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handlePay}
-                                disabled={paymentMethod.length === 0}
-                                className='p-1.5 cursor-pointer primary-border-hover bg-primary-light text-background font-bold rounded-[10px] text-lg disabled:opacity-50 disabled:pointer-events-none'
-                            >
-                                I sent payment
-                            </button>
-                        </div>
+            {/* Pending Payments Modal */}
+            <Modal isOpen={pendingModalOpen} setIsOpen={setPendingModalOpen} className='max-w-2xl w-full p-6 rounded-[18px] primary-border-bold'>
+                <div className='font-figtree'>
+                    <div className='flex justify-between items-center mb-6'>
+                        <h2 className='text-3xl font-lusitana font-bold'>Pending Payments</h2>
+                        <button onClick={() => setPendingModalOpen(false)} className='p-2 hover:bg-gray-100 rounded-full'>
+                            <X className='w-6 h-6 text-gray-500' />
+                        </button>
                     </div>
-                )}
+                    <div className='max-h-[60vh] overflow-y-auto space-y-4 pr-2'>
+                        {unpaidAssignments.length === 0 && <p className='text-gray-500 text-center py-8'>No pending payments.</p>}
+                        {unpaidAssignments.map((a: any) => (
+                            <div key={a.id} className='bg-background border border-gray-200 p-4 rounded-xl flex justify-between items-center'>
+                                <div>
+                                    <div className='font-bold text-gray-900'>{a.job.show.name}</div>
+                                    <div className='text-sm text-gray-500'>
+                                        {a.horse.client?.name || 'Barn/No Client'} • {a.horse.showName}
+                                    </div>
+                                    <div className='text-xs text-gray-400 mt-1'>Invoiced: {format(new Date(a.job.createdAt), 'MMM d, yyyy')}</div>
+                                </div>
+                                <div className='text-right'>
+                                    <div className='font-bold text-amber-600'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(getAssignmentCost(a))}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </Modal>
 
+            {/* Earnings Modal */}
+            {/* <Modal isOpen={earningsModalOpen} setIsOpen={setEarningsModalOpen} className='max-w-4xl w-full p-6 rounded-[18px] primary-border-bold'>
+                <div className='font-figtree'>
+                    <div className='flex justify-between items-center mb-6'>
+                        <div>
+                            <h2 className='text-3xl font-lusitana font-bold'>Earnings History</h2>
+                            <p className='text-gray-500'>Track your income over time</p>
+                        </div>
+                        <button onClick={() => setEarningsModalOpen(false)} className='p-2 hover:bg-gray-100 rounded-full'>
+                            <X className='w-6 h-6 text-gray-500' />
+                        </button>
+                    </div>
+
+                    <div className='flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg w-fit'>
+                        {(['day', 'week', 'month', 'year'] as const).map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => setEarningsPeriod(p)}
+                                className={cn(
+                                    'px-4 py-1.5 rounded-md text-sm font-bold transition-all capitalize',
+                                    earningsPeriod === p ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-900',
+                                )}
+                            >
+                                {p === 'day' ? 'Daily' : p + 'ly'}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className='h-[400px] w-full'>
+                        {earningsLoading ? (
+                            <div className='h-full flex items-center justify-center'>
+                                <RefreshCcw className='w-8 h-8 animate-spin text-gray-300' />
+                            </div>
+                        ) : earningsData.length === 0 ? (
+                            <div className='h-full flex items-center justify-center text-gray-400'>No earnings data for this period</div>
+                        ) : (
+                            <ResponsiveContainer width='100%' height='100%'>
+                                <BarChart data={earningsData}>
+                                    <CartesianGrid strokeDasharray='3 3' vertical={false} stroke='#E5E7EB' />
+                                    <XAxis
+                                        dataKey='date'
+                                        tickFormatter={(val) => {
+                                            const d = new Date(val);
+                                            if (earningsPeriod === 'day') return format(d, 'MMM d');
+                                            if (earningsPeriod === 'week') return format(d, 'MMM d');
+                                            if (earningsPeriod === 'month') return format(d, 'MMM yyyy');
+                                            return format(d, 'yyyy');
+                                        }}
+                                        stroke='#9CA3AF'
+                                        tick={{ fontSize: 12 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        dy={10}
+                                    />
+                                    <YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
+                                    <Tooltip
+                                        cursor={{ fill: '#F3F4F6' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        formatter={(val: number) => [new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0), 'Earnings']}
+                                        labelFormatter={(label) => format(new Date(label), earningsPeriod === 'year' ? 'yyyy' : 'PPP')}
+                                    />
+                                    <Bar dataKey='amount' fill='#047857' radius={[4, 4, 0, 0]} maxBarSize={60} animationDuration={1500} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                </div>
+            </Modal> */}
+
             <Modal isOpen={showQRModal} setIsOpen={setShowQRModal} className='max-w-md w-full p-6 rounded-[18px] primary-border-bold overflow-hidden'>
-                {currentUser && <QRCodeModal user={currentUser} onClose={() => setShowQRModal(false)} setSettingsModalOpen={setSettingsModalOpen} />}
+                {currentUser && <QRCodeModal user={currentUser} onClose={() => setShowQRModal(false)} setSettingsOpen={setSettingsOpen} />}
             </Modal>
         </div>
     );
 };
 
-const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClose: () => void; setSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>> }) => {
+const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: () => void; setSettingsOpen: (page: Tab) => void }) => {
     const [view, setView] = useState<'venmo' | 'zelle'>(user.venmo && user.venmo.length > 0 && user.venmoEnabled ? 'venmo' : user.zelle !== 'disabled' ? 'zelle' : 'venmo');
 
     return (
@@ -491,7 +396,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                     <button
                                         onClick={() => {
                                             onClose();
-                                            setSettingsModalOpen(true);
+                                            setSettingsOpen('payments');
                                         }}
                                         className='text-primary font-bold text-sm mt-2 hover:text-primary-light transition-all cursor-pointer'
                                     >
@@ -513,7 +418,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                             type='button'
                                             onClick={() => {
                                                 navigator.clipboard.writeText(user.venmo);
-                                                toast.success('Venmo link copied');
+                                                successToast('Venmo link copied');
                                             }}
                                             className='font-figtree w-full @min-[315px]/payment-qr-codes:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-1.5 px-6 bg-background text-primary primary-border-hover'
                                         >
@@ -541,7 +446,7 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
                                     <button
                                         onClick={() => {
                                             onClose();
-                                            setSettingsModalOpen(true);
+                                            setSettingsOpen('payments');
                                         }}
                                         className='text-primary font-bold text-sm mt-2 hover:text-primary-light transition-all cursor-pointer'
                                     >
@@ -574,13 +479,13 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
 
                                         <div className='text-center text-gray-400 text-xs max-w-xs'>
                                             <p>
-                                                Ask the barn to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like to
-                                                switch to {user.zelle === 'email' ? 'a phone number' : 'your email'},{' '}
+                                                Ask the client to open their banking app and pay using Zelle with this {user.zelle === 'email' ? 'email' : 'number'}. If you would like
+                                                to switch to {user.zelle === 'email' ? 'a phone number' : 'your email'},{' '}
                                                 <span
                                                     className='text-primary hover:text-primary-light underline cursor-pointer transition-all'
                                                     onClick={() => {
                                                         onClose();
-                                                        setSettingsModalOpen(true);
+                                                        setSettingsOpen('payments');
                                                     }}
                                                 >
                                                     go to settings
@@ -599,74 +504,132 @@ const QRCodeModal = ({ user, onClose, setSettingsModalOpen }: { user: any; onClo
     );
 };
 
-const InvoiceCard = ({ job, role, onAction, isHistory }: { job: any; role: string; onAction?: () => void; isHistory?: boolean }) => {
+const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistory?: boolean; onRefresh: () => void }) => {
+    const [assignmentsByClient, setAssignmentsByClient] = useState(
+        job.assignments.reduce((acc: any, a: any) => {
+            const clientId = a.horse.clientId || 'barn';
+            const clientName = a.horse.client?.name || 'Barn / No Client';
+
+            if (!acc[clientId]) {
+                acc[clientId] = {
+                    id: clientId,
+                    name: clientName,
+                    assignments: [],
+                    isPaid: true,
+                };
+            }
+            acc[clientId].assignments.push(a);
+            if (!a.paidAt) acc[clientId].isPaid = false;
+            return acc;
+        }, {}),
+    );
+
+    const [expanded, setExpanded] = useState(!isHistory);
+    const [loadingClient, setLoadingClient] = useState<string | null>(null);
+
+    const handleClientToggle = async (clientId: string, currentStatus: boolean, realClientId: string | null) => {
+        setLoadingClient(clientId);
+        const res = await markClientPaid(job.id, realClientId === 'barn' ? null : realClientId, !currentStatus);
+
+        if (res.success) {
+            setAssignmentsByClient({ ...assignmentsByClient, [clientId]: { ...assignmentsByClient[clientId], isPaid: !currentStatus } });
+            onRefresh();
+        } else {
+            failToast('Error updating payment status');
+        }
+
+        setLoadingClient(null);
+    };
+
+    const totalRevenue = job.assignments.reduce((acc: number, a: any) => {
+        const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+        return acc + servicesTotal + customTotal;
+    }, 0);
+
     return (
-        <div
-            className={cn(
-                'bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col @min-[490px]/invoices:flex-row gap-4 justify-between items-center',
-                isHistory ? 'opacity-60' : '',
-            )}
-        >
-            <div className='flex items-center gap-4 w-full min-w-0'>
-                <div
-                    className={cn(
-                        'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
-                        isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light',
-                    )}
+        <div className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all', isHistory ? 'opacity-70 hover:opacity-100' : '')}>
+            <div className='p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 bg-gray-50/50' onClick={() => setExpanded(!expanded)}>
+                <div className='flex items-center gap-4'>
+                    <div
+                        className={cn(
+                            'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
+                            isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light',
+                        )}
+                    >
+                        {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                        }).format(totalRevenue)}
+                    </div>
+                    <div>
+                        <h3 className='font-bold text-gray-900'>{job.show.name}</h3>
+                        <p className='text-xs text-gray-500'>
+                            {format(new Date(job.invoiceSentAt), 'MMM d, yyyy')} • {job.assignments.length} Horses
+                        </p>
+                    </div>
+                </div>
+                <motion.div
+                    className='text-gray-400 mr-2 bg-gray-100 p-1 rounded-full'
+                    initial={{ rotate: 0 }}
+                    animate={{ rotate: expanded ? 180 : 0 }}
+                    transition={{ type: 'spring', stiffness: 150 }}
                 >
-                    {new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: 'USD',
-                    }).format(
-                        job.assignments.reduce(
-                            (acc: number, a: any) =>
-                                acc +
-                                a.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                                a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0),
-                            0,
-                        ),
-                    )}
-                </div>
-                <div className='min-w-0'>
-                    <h3 className='font-bold font-figtree text-gray-900 truncate'>{role === 'barn' ? job.braider.name : job.barn.name}</h3>
-                    <p className='text-xs text-gray-500 flex items-center gap-2'>
-                        <span className='flex items-center gap-1'>
-                            <Calendar size={10} /> {new Date(job.createdAt).toLocaleDateString()}
-                        </span>
-                        <span>•</span>
-                        <span>{job.assignments.reduce((acc: any, s: any) => acc + s.services.length, 0)} Services</span>
-                    </p>
-                </div>
+                    <ChevronUp />
+                </motion.div>
             </div>
 
-            {((isHistory && job.paidAt) || (!isHistory && role === 'barn')) && (
-                <div className='flex items-center gap-6 w-full @min-[490px]/invoices:w-auto justify-between @min-[490px]/invoices:justify-end'>
-                    {isHistory && job.paidAt && (
-                        <div className='text-left @min-[490px]/invoices:text-right w-full text-xs text-green-600 font-bold uppercase text-nowrap'>
-                            <p>
-                                Paid with{' '}
-                                {job.paymentPlatform === 'venmo'
-                                    ? 'Venmo'
-                                    : job.paymentPlatform === 'zelle'
-                                      ? 'Zelle'
-                                      : job.paymentPlatform === 'cash/check'
-                                        ? 'Cash / Check'
-                                        : 'Other Method'}
-                            </p>
-                            <p>{new Date(job.paidAt).toLocaleDateString()}</p>
-                        </div>
-                    )}
+            <AnimatePresence>
+                {expanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ ease: 'easeOut', duration: 0.3 }}
+                        className='border-t border-gray-100'
+                    >
+                        <div className='p-4 space-y-3'>
+                            <p className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>Client Payments</p>
 
-                    {!isHistory && role === 'barn' && (
-                        <button
-                            onClick={onAction}
-                            className='bg-primary-light w-full text-nowrap text-background primary-border-hover mr-2 px-4 py-2 rounded-[10px] font-bold text-base shadow-sm cursor-pointer'
-                        >
-                            Pay Now
-                        </button>
-                    )}
-                </div>
-            )}
+                            {Object.values(assignmentsByClient).map((group: any) => {
+                                const groupTotal = group.assignments.reduce((acc: number, a: any) => {
+                                    const servicesTotal = a.services
+                                        .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
+                                        .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+                                    const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+                                    return acc + servicesTotal + customTotal;
+                                }, 0);
+
+                                if (groupTotal === 0) return null;
+
+                                return (
+                                    <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100'>
+                                        <div className='flex items-center gap-3'>
+                                            <button
+                                                type='button'
+                                                disabled={loadingClient === group.id}
+                                                onClick={() => handleClientToggle(group.id, group.isPaid, group.id === 'barn' ? null : group.id)}
+                                                className={cn(
+                                                    'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer hover:border-primary disabled:cursor-not-allowed',
+                                                    group.isPaid ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300 text-white',
+                                                    loadingClient && !group.isPaid ? 'text-primary' : '',
+                                                )}
+                                            >
+                                                {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin' /> : <CheckSquare size={14} strokeWidth={3} />}
+                                            </button>
+                                            <div>
+                                                <p className='font-bold text-sm text-gray-900'>{group.name}</p>
+                                                <p className='text-xs text-gray-500'>{group.assignments.length} horses</p>
+                                            </div>
+                                        </div>
+                                        <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

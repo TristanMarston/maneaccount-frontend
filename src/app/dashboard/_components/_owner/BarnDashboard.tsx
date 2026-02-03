@@ -48,8 +48,6 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
                 return <Calendar role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Services':
                 return <Tasks role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
-            case 'Invoices':
-                return <Invoices role='barn' userEmail={email} setView={setSelectedPage} setSettingsModalOpen={(open) => setSelectedPage('Settings')} />;
             case 'Settings':
                 return <Settings update={update} role='barn' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:

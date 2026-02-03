@@ -55,7 +55,7 @@ import { NotificationType } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { DayAssignmentsModal } from './DayAssignmentsModal';
-import { getDashboardData } from '@/app/actions/dashboard';
+import { getFullDashboardData } from '@/app/actions/dashboard';
 
 type CalendarViewType = 'month' | 'week' | 'list';
 
@@ -335,7 +335,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
 
     const loadShows = useCallback(async () => {
         setLoading(true);
-        const result = await getDashboardData(role);
+        const result = await getFullDashboardData(role);
 
         if (result.error) {
             console.error(result.error);

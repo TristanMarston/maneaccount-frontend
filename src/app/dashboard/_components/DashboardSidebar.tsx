@@ -52,7 +52,7 @@ const pages: Page[] = [
     { title: 'Calendar', path: '/dashboard/calendar', icon: Calendar, accountTypes: ['braider', 'subcontractor', 'barn'] },
     { title: 'Tasks', path: '/dashboard/tasks', icon: ClipboardCheck, accountTypes: ['braider', 'subcontractor'] },
     { title: 'Services', path: '/dashboard/services', icon: Briefcase, accountTypes: ['barn'] },
-    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider', 'barn'] },
+    { title: 'Invoices', path: '/dashboard/invoices', icon: Banknote, accountTypes: ['braider'] },
     { title: 'Braiders', path: '/dashboard/braiders', icon: Scissors, accountTypes: ['barn'] },
     { title: 'Horses', path: '/dashboard/horses', icon: HorseIcon, accountTypes: ['barn'] },
     { title: 'Barns', path: '/dashboard/barns', icon: Warehouse, accountTypes: ['braider'] },

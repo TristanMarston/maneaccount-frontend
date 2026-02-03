@@ -31,19 +31,7 @@ import {
     Copy,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import {
-    getJobs,
-    createJob,
-    addNote,
-    cancelJob,
-    markJobPaid,
-    getBraiderUsageAction,
-    deleteJob,
-    getBraiderData,
-    toggleServiceCompletion,
-    submitJob,
-    markJobCompleted,
-} from '@/app/actions/jobs';
+import { getJobs, createJob, addNote, cancelJob, getBraiderUsageAction, deleteJob, getBraiderData, toggleServiceCompletion, submitJob, markJobCompleted } from '@/app/actions/jobs';
 import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
@@ -71,7 +59,6 @@ export type Job = {
     status: 'editing' | 'submitted';
     braider: { name: string; image?: string; email: string; id: string; services: { id: string; name: string; priceUSD: number; duration: number }[] };
     barn: { name: string; image?: string; email: string; id: string };
-    paidAt?: Date;
     subcontractors: { name: string; image?: string; email: string; id: string }[];
     show: { id: string; name: string; city: string; state: string; country: string; startDate: Date; endDate: Date; invites: any[] };
     assignments: {
@@ -93,6 +80,7 @@ export type Job = {
         canceledAt?: Date;
         subcontractor: { name: string; image?: string; email: string; id: string } | null;
         status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'completed';
+        paidAt: Date;
         assignmentDate: Date;
     }[];
     notes: { id: string; content: string; createdAt: Date; author: { name: string; image?: string } }[];
@@ -165,13 +153,6 @@ const Tasks = ({
     }, [userEmail, role]);
 
     useAutoRefresh(loadJobs);
-
-    const handleCreateJob = async (data: any) => {
-        // Deprecated: createJob now returns a draft ID. Subpage handles submission.
-        // This function might be removed or updated if used elsewhere.
-        setRequestModalOpen(false);
-        refreshJobs();
-    };
 
     const handleCancelJob = async (id: string) => {
         const res = await cancelJob(id);
@@ -332,8 +313,12 @@ const Tasks = ({
                                 </div>
                             ) : (
                                 <div className='grid grid-cols-1 gap-4'>
-                                    {jobs.filter((j) => j.assignments.length > 0 && !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied') && !j.paidAt)
-                                        .length === 0 &&
+                                    {jobs.filter(
+                                        (j) =>
+                                            j.assignments.length > 0 &&
+                                            !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied') &&
+                                            !j.assignments.every((a) => a.paidAt),
+                                    ).length === 0 &&
                                         (role === 'barn' ? (
                                             <div
                                                 onClick={() => setRequestingJob('creating')}
@@ -356,7 +341,11 @@ const Tasks = ({
                                             </div>
                                         ))}
                                     {jobs
-                                        .filter((j) => !j.paidAt && (j.assignments.length === 0 || !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied')))
+                                        .filter(
+                                            (j) =>
+                                                !j.assignments.every((a) => a.paidAt) &&
+                                                (j.assignments.length === 0 || !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied')),
+                                        )
                                         .map((job) => (
                                             <JobCard
                                                 key={job.id}
@@ -372,8 +361,10 @@ const Tasks = ({
                                                 setRequestingJob={setRequestingJob}
                                             />
                                         ))}
-                                    {jobs.filter((j) => j.paidAt).length > 0 && jobs.filter((j) => !j.paidAt).length > 0 && <div className='h-[0.5px] bg-gray-200 rounded-full' />}
-                                    {jobs.filter((j) => j.paidAt).length > 0 && (
+                                    {jobs.filter((j) => j.assignments.every((a) => a.paidAt)).length > 0 && jobs.filter((j) => !j.assignments.every((a) => a.paidAt)).length > 0 && (
+                                        <div className='h-[0.5px] bg-gray-200 rounded-full' />
+                                    )}
+                                    {jobs.filter((j) => j.assignments.every((a) => a.paidAt)).length > 0 && (
                                         <>
                                             <span
                                                 onClick={() => setShowCompletedEvents((prev) => !prev)}
@@ -407,7 +398,7 @@ const Tasks = ({
                                                         exit='hidden'
                                                     >
                                                         {jobs
-                                                            .filter((j) => j.paidAt)
+                                                            .filter((j) => j.assignments.every((a) => a.paidAt))
                                                             .map((job) => (
                                                                 <JobCard
                                                                     key={job.id}
@@ -530,7 +521,6 @@ const Tasks = ({
                     )}
                 </AnimatePresence>
             </div>
-            {/* RequestWorkModal removed */}
 
             <Modal
                 isOpen={showDetailsModal.open}
@@ -668,12 +658,15 @@ const JobCard = ({
     unreadCount: number;
     setRequestingJob?: (j: Job | 'creating' | null) => void;
 }) => {
-    const completedNotPaid = !!job.invoiceSentAt;
+    const completedNotPaid = !!job.invoiceSentAt && !job.assignments.every((a) => a.paidAt);
 
     const isJobPending = job.assignments.some((a) => a.status === 'pending');
     const isJobAccepted = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'accepted' || a.status === 'completed');
     const isJobDenied = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'denied');
     const isJobCanceled = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'canceled');
+    const horsesCompleted = job.assignments
+        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+        .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length).length;
     const isJobCompleted =
         job.assignments.length > 0 && job.assignments.every((a) => a.status === 'completed' || (a.status === 'accepted' && a.completedServiceIds.length === a.services.length));
 
@@ -725,22 +718,29 @@ const JobCard = ({
                 <div className='flex flex-col gap-1 min-w-0 flex-1 font-figtree'>
                     <div className='flex items-center gap-x-2 flex-wrap min-w-0'>
                         <h3 className='font-bold text-lg text-gray-900 truncate min-w-0'>{job.show.name}</h3>
-                        <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1', statusColors[job.paidAt ? 'paid' : job.status])}>
-                            {job.paidAt
+                        <span
+                            className={cn(
+                                'text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1',
+                                statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 ? 'accepted' : job.status],
+                            )}
+                        >
+                            {job.assignments.every((a) => a.paidAt)
                                 ? 'paid'
                                 : job.status === 'editing'
                                   ? 'drafting'
                                   : isJobPending
-                                    ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.length} horses pending`
-                                    : isJobAccepted
+                                    ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
+                                    : isJobAccepted && horsesCompleted === 0
                                       ? 'all accepted'
-                                      : isJobDenied
-                                        ? 'denied'
-                                        : isJobCanceled
-                                          ? 'canceled'
-                                          : job.status === 'submitted'
-                                            ? 'all completed'
-                                            : job.status}
+                                      : horsesCompleted > 0
+                                        ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                        : isJobDenied
+                                          ? 'denied'
+                                          : isJobCanceled
+                                            ? 'canceled'
+                                            : job.status === 'submitted'
+                                              ? 'all completed'
+                                              : job.status}
                         </span>
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>
@@ -875,15 +875,15 @@ const JobCard = ({
             {completedNotPaid && (
                 <div
                     onClick={() => {
-                        if (role !== 'subcontractor') setSelectedPage('Invoices');
+                        if (role === 'braider') setSelectedPage('Invoices');
                     }}
                     className={cn(
                         'cursor-pointer flex items-center gap-2 font-figtree uppercase font-bold absolute -top-3 right-2 text-[15px] tracking-wide px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 hover:bg-amber-200 transition-all',
-                        role === 'subcontractor' ? 'pointer-events-none' : '',
+                        role !== 'braider' ? 'pointer-events-none' : '',
                     )}
                 >
-                    {role === 'barn' ? 'Payment Required' : 'Invoice Sent to Barn'}
-                    {role !== 'subcontractor' && <ChevronsRight className='w-5 h-5' />}
+                    Invoices Sent
+                    {role === 'braider' && <ChevronsRight className='w-5 h-5' />}
                 </div>
             )}
         </div>

@@ -316,7 +316,7 @@ export async function markJobCompleted(jobId: string) {
         const job = await prisma.job.update({
             where: { id: jobId },
             data: { status: 'completed', invoiceSentAt: new Date() },
-            include: { braider: true, subcontractors: true },
+            include: { braider: true },
         });
 
         await createNotification(
@@ -418,35 +418,6 @@ export async function addAssignmentsToJob(jobId: string, assignments: { horseId:
         return { error: 'Failed to add assignments' };
     }
 }
-export async function markJobPaid(jobId: string, paymentPlatform: string) {
-    const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
-
-    try {
-        const job = await prisma.job.findUnique({ where: { id: jobId }, include: { show: true } });
-
-        if (job) {
-            const res = await prisma.job.update({
-                where: { id: jobId },
-                data: {
-                    paidAt: new Date(),
-                    paymentPlatform,
-                },
-                include: { barn: true },
-            });
-
-            await createNotification(job.braiderId, NotificationType.job_paid, `The ${job.show.name} job has been paid for`, jobId, job.barnId, res.barn.image);
-
-            revalidatePath('/dashboard');
-            return { success: true };
-        }
-
-        return { error: 'Job not found' };
-    } catch (error) {
-        console.error('Mark paid error:', error);
-        return { error: 'Failed to mark job as paid' };
-    }
-}
 
 export async function getBraiderData(braiderId: string) {
     try {
@@ -454,10 +425,11 @@ export async function getBraiderData(braiderId: string) {
             where: { id: braiderId },
             include: {
                 shows: {
-                    where: { endDate: { gte: getLocalTodayStart(0) } }, // Default to 0 for now as it's a broad range
+                    where: { endDate: { gte: getLocalTodayStart(0) } },
                     orderBy: { startDate: 'asc' },
                 },
                 services: true,
+                braiderJobs: true,
             },
         });
 
@@ -466,6 +438,7 @@ export async function getBraiderData(braiderId: string) {
         return null;
     }
 }
+
 export async function cancelJob(jobId: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
@@ -639,5 +612,96 @@ export async function getBraiderUsageAction(email: string, timezoneOffset: numbe
     } catch (error) {
         console.error('Get braider usage error:', error);
         return null;
+    }
+}
+
+export async function markClientPaid(jobId: string, clientId: string | null, markPaid: boolean) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            include: { assignments: { include: { horse: true } } },
+        });
+
+        if (!job) return { error: 'Job not found' };
+
+        const assignmentIds = job.assignments.filter((a) => a.horse.clientId === clientId).map((a) => a.id);
+
+        if (assignmentIds.length === 0) return { error: 'No assignments found for client' };
+
+        await prisma.jobAssignment.updateMany({
+            where: { id: { in: assignmentIds } },
+            data: {
+                paidAt: markPaid ? new Date() : null,
+            },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Mark client paid error:', error);
+        return { error: 'Failed to update payment status' };
+    }
+}
+
+export async function getEarningsHistory(period: 'day' | 'week' | 'month' | 'year') {
+    const session = await auth();
+    if (!session?.user?.email) return [];
+
+    try {
+        const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+        if (!user) return [];
+
+        const assignments = await prisma.jobAssignment.findMany({
+            where: {
+                job: { braiderId: user.id },
+                paidAt: { not: null },
+            },
+            include: {
+                services: true,
+                customCharges: true,
+            },
+            orderBy: { paidAt: 'asc' },
+        });
+
+        // Helper to calculate assignment total
+        const getAssignmentTotal = (a: any) => {
+            const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id)).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+            const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+            return servicesTotal + customTotal;
+        };
+
+        const data: Record<string, number> = {};
+
+        assignments.forEach((assignment) => {
+            if (!assignment.paidAt) return;
+
+            const date = new Date(assignment.paidAt);
+            let key = '';
+
+            if (period === 'day') {
+                key = date.toISOString().split('T')[0];
+            } else if (period === 'week') {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                const monday = new Date(d.setDate(diff));
+                key = monday.toISOString().split('T')[0];
+            } else if (period === 'month') {
+                key = date.toISOString().slice(0, 7);
+            } else if (period === 'year') {
+                key = date.getFullYear().toString();
+            }
+
+            if (!data[key]) data[key] = 0;
+            data[key] += getAssignmentTotal(assignment);
+        });
+
+        return Object.entries(data).map(([date, amount]) => ({ date, amount }));
+    } catch (error) {
+        console.error('Get earnings history error:', error);
+        return [];
     }
 }

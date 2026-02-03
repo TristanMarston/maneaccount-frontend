@@ -27,7 +27,9 @@ import {
     Settings,
     X,
     Check,
+    Icon,
 } from 'lucide-react';
+import { horseHead } from '@lucide/lab';
 import { format } from 'date-fns';
 import { getDashboardData } from '@/app/actions/dashboard';
 import { parseUTCToLocal } from '@/lib/date-utils';
@@ -595,8 +597,10 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
             j.assignments.reduce(
                 (sAcc: number, s: any) =>
                     sAcc +
-                    s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                    (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+                    (!s.paidAt
+                        ? s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                          (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0))
+                        : 0),
                 0,
             ),
         0,
@@ -728,8 +732,8 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
             j.assignments.reduce(
                 (sAcc: number, s: any) =>
                     sAcc +
-                    s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                    (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+                    (!s.paidAt ? s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                    (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)) : 0),
                 0,
             ),
         0,
@@ -744,7 +748,7 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
                     icon={Banknote}
                     color='amber'
                     subtext={`${unpaidJobs.length} invoice${unpaidJobs.length === 1 ? '' : 's'} to pay`}
-                    onClick={() => setSelectedPage('Invoices')}
+                    onClick={() => setSelectedPage('Tasks')}
                 />
                 <StatCard
                     title='Next Event'
@@ -761,7 +765,7 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
                 <div className='grid grid-cols-2 @min-[500px]/home:grid-cols-4 gap-4'>
                     <ActionCard icon={Scissors} label='Braiders' onClick={() => setSelectedPage('Braiders')} />
                     <ActionCard icon={Briefcase} label='Services' onClick={() => setSelectedPage('Services')} />
-                    <ActionCard icon={Banknote} label='Invoices' onClick={() => setSelectedPage('Invoices')} />
+                    <ActionCard icon={() => <Icon iconNode={horseHead} />} label='Horses' onClick={() => setSelectedPage('Horses')} />
                     <ActionCard icon={Calendar} label='Calendar' onClick={() => setSelectedPage('Calendar')} />
                 </div>
             </div>
@@ -771,7 +775,7 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
                     {upcomingShows.length > 0 ? upcomingShows.map((show) => <ShowCard key={show.id} show={show} />) : <EmptyState message='No upcoming events.' />}
                 </SectionContainer>
 
-                <SectionContainer title='Invoices to Pay' onViewAll={() => setSelectedPage('Invoices')}>
+                <SectionContainer title='Invoices for Clients' onViewAll={() => setSelectedPage('Tasks')}>
                     {unpaidJobs.length > 0 ? (
                         unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='barn' color='amber' />)
                     ) : (
@@ -898,8 +902,8 @@ const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; colo
     const total = job.assignments.reduce(
         (acc: any, s: any) =>
             acc +
-            s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-            (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)),
+            (!s.paidAt ? s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+            (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)) : 0),
         0,
     );
 

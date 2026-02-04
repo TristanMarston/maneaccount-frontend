@@ -45,8 +45,21 @@ import { respondToShowInvite } from '@/app/actions/calendar';
 import { acceptRelationRequest, removeRelation } from '@/app/actions/barn-relations';
 import Modal from '../Modal';
 import { acceptRequest, removeMember } from '@/app/actions/team';
+import { Tab } from './_braider/BraiderDashboard';
 
-const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: string; name: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
+const DashboardHome = ({
+    role,
+    name,
+    userEmail,
+    setSelectedPage,
+    setSettingsOpen,
+}: {
+    role: string;
+    name: string;
+    userEmail: string;
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    setSettingsOpen: (page: Tab) => void;
+}) => {
     const hours = new Date().getHours();
     const greeting = hours < 12 ? 'Good morning' : hours < 18 ? 'Good afternoon' : 'Good evening';
 
@@ -129,7 +142,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
                         </h1>
                         <p className='text-gray-500 font-figtree mt-1 ml-1'>Here&apos;s what&apos;s happening in your stable today.</p>
                     </div>
-                    <Notifications setSelectedPage={setSelectedPage} role={role} setCheckAcceptModal={setCheckAcceptModal} />
+                    <Notifications setSelectedPage={setSelectedPage} role={role} setCheckAcceptModal={setCheckAcceptModal} setSettingsOpen={setSettingsOpen} />
                 </header>
 
                 {loading ? (
@@ -184,10 +197,12 @@ const Notifications = ({
     setSelectedPage,
     role,
     setCheckAcceptModal,
+    setSettingsOpen,
 }: {
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
     role: string;
     setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void }>>;
+    setSettingsOpen: (page: Tab) => void;
 }) => {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -293,8 +308,12 @@ const Notifications = ({
                             <div className='p-5 @container/notification-window'>
                                 <div className='flex items-center gap-3'>
                                     <h1 className='font-lusitana font-bold text-gray-900 text-3xl'>Notifications</h1>
-                                    <MailCheck onClick={() => handleMarkAllAsRead()} className='w-5.5 h-5.5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors' />
-                                    <Settings onClick={() => {}} className='w-5.5 h-5.5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors' />
+                                    <span onClick={() => handleMarkAllAsRead()} title='Mark all as read'>
+                                        <MailCheck className='w-5.5 h-5.5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors' />
+                                    </span>
+                                    <span onClick={() => setSettingsOpen('notifications')} title='Open notifications settings'>
+                                        <Settings className='w-5.5 h-5.5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors' />
+                                    </span>
                                 </div>
                                 <div className='flex flex-col gap-4 overflow-y-auto max-h-[340px] pt-[11px] pr-1 pb-1'>
                                     {notifications.length === 0 ? (
@@ -599,6 +618,7 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
 
     let unpaidJobs: { [key: string]: { amount: number; date: Date } } = {};
     jobs.forEach((job) => {
+        if (!job.jobData.invoiceSentAt) return;
         job.jobData.assignments.forEach((assignment: any) => {
             const showName = job.name;
             if (!addedJobIds.has(job.jobData.showId)) {
@@ -762,18 +782,27 @@ const SubcontractorView = ({
 const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: Show[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const allAssignments = jobs.filter((j, index, self) => j.jobData && self.findIndex((s) => s.jobData?.id === j.jobData?.id) === index).flatMap((j) => j.jobData.assignments || []);
 
-    const pendingServicesCount = allAssignments.filter((a: any) => a.completedServiceIds.length !== a.services.length - a.canceledServiceIds.length).length;
+    const pendingServicesCount = allAssignments.filter(
+        (a: any) =>
+            jobs.find((j) => j.id === a.jobId)?.jobData.status !== 'editing' &&
+            a.status !== 'denied' &&
+            a.status !== 'canceled' &&
+            !a.canceledAt &&
+            a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id)).length !==
+                [...new Set(a.completedServiceIds.filter((id: string) => !a.canceledServiceIds.includes(id)))].length,
+    ).length;
 
     const clientPayments: { showName: string; clientName: string; amount: number; date: Date }[] = [];
 
     const processedJobs = jobs.filter((j, index, self) => j.jobData && self.findIndex((s) => s.jobData?.id === j.jobData?.id) === index);
 
     processedJobs.forEach((job) => {
+        if (!job.jobData.invoiceSentAt) return;
         const assignments = job.jobData.assignments || [];
         const clientGroups: { [clientName: string]: number } = {};
 
         assignments.forEach((a: any) => {
-            if (a.paidAt || a.canceledAt) return;
+            if (a.paidAt || a.canceledAt || a.status === 'denied' || a.status === 'canceled') return;
 
             const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id)).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
             const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);

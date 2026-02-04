@@ -47,7 +47,18 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
-                return <DashboardHome role='subcontractor' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <DashboardHome
+                        role='subcontractor'
+                        name={name}
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
             case 'Calendar':
                 return <Calendar role='subcontractor' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
@@ -57,7 +68,18 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
             case 'Settings':
                 return <Settings update={update} role='subcontractor' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:
-                return <DashboardHome role='subcontractor' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <DashboardHome
+                        role='subcontractor'
+                        name={name}
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
         }
     };
 

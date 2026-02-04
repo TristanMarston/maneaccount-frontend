@@ -47,7 +47,18 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
-                return <DashboardHome role='barn' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <DashboardHome
+                        role='barn'
+                        name={name}
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
             case 'Horses':
                 return <Horses userEmail={email} />;
             case 'Braiders':
@@ -69,7 +80,18 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
             case 'Settings':
                 return <Settings update={update} role='barn' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:
-                return <DashboardHome role='barn' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <DashboardHome
+                        role='barn'
+                        name={name}
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
         }
     };
 

@@ -182,7 +182,7 @@ const SubscriptionSettings = ({
     if (loading) {
         return (
             <div className='w-full h-64 flex items-center justify-center'>
-                <span className='loader'></span>
+                <span className='loader-primary'></span>
             </div>
         );
     }

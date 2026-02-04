@@ -17,7 +17,6 @@ export async function getBraiderUsage(
         return { count: 0, limit: Infinity, period: 'unlimited' };
     }
 
-    // Adjust referenceDate to local time to calculate start/end of day/week
     const localDate = new Date(referenceDate.getTime() - timezoneOffset * 60000);
 
     if (subscriptionTier === 'starter') {
@@ -26,8 +25,10 @@ export async function getBraiderUsage(
         const localEnd = endOfWeek(localDate, { weekStartsOn: 0 });
 
         // Convert back to UTC for database comparison
-        startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
-        endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
+        // startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
+        // endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
+        startDate = localStart;
+        endDate = localEnd;
         limit = 50;
         period = 'week';
     } else {
@@ -36,12 +37,23 @@ export async function getBraiderUsage(
         const localEnd = endOfDay(localDate);
 
         // Convert back to UTC for database comparison
-        startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
-        endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
+        // startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
+        // endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
+        startDate = localStart;
+        endDate = localEnd;
         limit = 50;
         period = 'day';
     }
 
+    // const assignments = await prisma.jobAssignment.findMany({
+    //     where: {
+    //         job: {
+    //             braiderId: braiderId,
+    //         },
+    //         canceledAt: null,
+    //     },
+    //     include: { job: true, services: true },
+    // });
     const assignments = await prisma.jobAssignment.findMany({
         where: {
             job: {
@@ -49,12 +61,23 @@ export async function getBraiderUsage(
             },
             canceledAt: null,
         },
-        include: { job: true, services: true },
+        include: {
+            job: {
+                include: {
+                    show: true,
+                },
+            },
+            services: true,
+            horse: true,
+        },
     });
 
     const count = assignments.filter(
         (assignment) =>
             assignment.job.status !== 'editing' &&
+            assignment.status !== 'denied' &&
+            assignment.status !== 'canceled' &&
+            assignment.status !== 'pending' &&
             !assignment.canceledAt &&
             assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
                 [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
@@ -62,6 +85,39 @@ export async function getBraiderUsage(
             assignment.updatedAt >= startDate &&
             assignment.updatedAt <= endDate,
     ).length;
+
+    // console.log(
+    //     assignments
+    //         .filter(
+    //             (assignment) =>
+    //                 assignment.job.status !== 'editing' &&
+    //                 assignment.status !== 'denied' &&
+    //                 assignment.status !== 'canceled' &&
+    //                 assignment.status !== 'pending' &&
+    //                 !assignment.canceledAt &&
+    //                 assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
+    //                     [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
+    //                 assignment.completedServiceIds.length > 0 &&
+    //                 assignment.updatedAt >= startDate &&
+    //                 assignment.updatedAt <= endDate,
+    //         )
+    //         .map((assignment) => ({
+    //             assignmentDate: assignment.assignmentDate,
+    //             completedServiceIds: assignment.completedServiceIds,
+    //             canceledServiceIds: assignment.canceledServiceIds,
+    //             updatedAt: assignment.updatedAt,
+    //             status: assignment.status,
+    //             createdAt: assignment.createdAt,
+    //             canceledAt: assignment.canceledAt,
+    //             showName: assignment.horse.showName,
+    //             barnName: assignment.horse.barnName,
+    //             show: assignment.job.show.name,
+    //             jobStatus: assignment.job.status,
+    //             services: assignment.services.length,
+    //         }))
+    //         .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime())
+    //         .splice(0, 10),
+    // );
 
     return { count, limit, period };
 }

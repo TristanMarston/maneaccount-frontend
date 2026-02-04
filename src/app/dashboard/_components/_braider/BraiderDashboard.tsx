@@ -100,7 +100,18 @@ const BraiderDashboard = ({
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
-                return <DashboardHome role='braider' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <DashboardHome
+                        role='braider'
+                        name={name}
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
             case 'Calendar':
                 return <Calendar role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
@@ -158,7 +169,18 @@ const BraiderDashboard = ({
                     />
                 );
             default:
-                return <DashboardHome role='braider' name={name} userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <DashboardHome
+                        role='braider'
+                        name={name}
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
         }
     };
 

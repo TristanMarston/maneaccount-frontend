@@ -599,21 +599,22 @@ export const JobDetailSubpage = ({
         <div className='font-figtree pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 w-full @container/job-subpage'>
             <div ref={containerRef} className='w-full'>
                 <div className='flex flex-col gap-4 @min-[400px]/tasks:gap-0 @min-[400px]/tasks:flex-row @min-[400px]/tasks:justify-between @min-[400px]/tasks:items-start'>
-                    <div>
+                    <div className='flex items-center gap-4'>
                         <button
                             onClick={onBack}
-                            className='flex items-center justify-center gap-1.5 rounded-xl bg-transparent border border-gray-200 px-4 py-1 text-gray-400 shadow-sm font-bold font-figtree mb-3 cursor-pointer hover:bg-gray-100 transition-all'
+                            className='p-2 cursor-pointer rounded-xl border border-gray-200 text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-all'
                         >
                             <ChevronLeft size={20} />
-                            Back
                         </button>
-                        <h1 className='text-3xl @min-[400px]/tasks:text-4xl font-lusitana font-bold text-gray-900'>{job.show.name}</h1>
-                        <span className='text-gray-500 flex gap-1 items-center mt-1'>
-                            <MapPin className='min-w-5 w-5' />
-                            <p className='font-figtree text-lg'>
-                                {job.show.city}, {job.show.state}
-                            </p>
-                        </span>
+                        <div>
+                            <h1 className='text-3xl @min-[400px]/tasks:text-4xl font-lusitana font-bold text-gray-900'>{job.show.name}</h1>
+                            <span className='text-gray-500 flex gap-1 items-center'>
+                                <MapPin className='min-w-4.5 w-4.5' />
+                                <p className='font-figtree'>
+                                    {job.show.city}, {job.show.state}
+                                </p>
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -640,7 +641,7 @@ export const JobDetailSubpage = ({
                     <span
                         className={cn(
                             'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
-                            statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 ? 'accepted' : job.status],
+                            statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 || role === 'subcontractor' ? 'accepted' : job.status],
                         )}
                     >
                         {job.assignments.every((a) => a.paidAt)
@@ -649,17 +650,19 @@ export const JobDetailSubpage = ({
                               ? 'drafting'
                               : isJobPending
                                 ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                : isJobAccepted && horsesCompleted === 0
+                                : isJobAccepted && horsesCompleted === 0 && role !== 'subcontractor'
                                   ? 'all accepted'
-                                  : horsesCompleted > 0
-                                    ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                    : isJobDenied
-                                      ? 'denied'
-                                      : isJobCanceled
-                                        ? 'canceled'
-                                        : job.status === 'submitted'
-                                          ? 'all completed'
-                                          : job.status}
+                                  : isJobAccepted && horsesCompleted === 0 && role === 'subcontractor'
+                                    ? `${job.assignments.filter((a) => a.subcontractor && a.status === 'pending').length}/${job.assignments.filter((a) => a.subcontractor).length} horses completed`
+                                    : horsesCompleted > 0
+                                      ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                      : isJobDenied
+                                        ? 'denied'
+                                        : isJobCanceled
+                                          ? 'canceled'
+                                          : job.status === 'submitted'
+                                            ? 'all completed'
+                                            : job.status}
                     </span>
                 </div>
 

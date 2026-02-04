@@ -104,7 +104,18 @@ const BraiderDashboard = ({
             case 'Calendar':
                 return <Calendar role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
-                return <Tasks role='braider' userEmail={email} setSelectedPage={setSelectedPage} subscriptionTier={subscription?.subscriptionTier} />;
+                return (
+                    <Tasks
+                        role='braider'
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        subscriptionTier={subscription?.subscriptionTier}
+                        setSettingsOpen={(page: Tab) => {
+                            setSelectedPage('Settings');
+                            setActiveTab(page);
+                        }}
+                    />
+                );
             case 'Barns':
                 return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Invoices':

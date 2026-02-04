@@ -13,7 +13,7 @@ import Calendar from '../_calendar/Calendar';
 import Services from '../_braider/Services';
 import Invoices from '../_invoices/Invoices';
 import Settings from '../_settings/Settings';
-import Tasks from '../_tasks/Tasks';
+import Tasks, { Job } from '../_tasks/Tasks';
 import { Tab } from '../_braider/BraiderDashboard';
 
 const BarnDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
@@ -23,6 +23,8 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
     const [image, setImage] = useState('');
     const [unsavedChanges, setUnsavedChanges] = useState(false);
     const [activeTab, setActiveTab] = useState<Tab>('profile');
+    const [requestingJob, setRequestingJob] = useState<Job | null | 'creating'>(null);
+    const [selectedBraider, setSelectedBraider] = useState<any>(null);
 
     useEffect(() => {
         setUnsavedChanges(false);
@@ -36,6 +38,12 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
         }
     }, [session]);
 
+    const selectBraider = (braider: any) => {
+        setSelectedPage('Services');
+        setRequestingJob('creating');
+        setSelectedBraider(braider);
+    };
+
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':
@@ -43,11 +51,21 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
             case 'Horses':
                 return <Horses userEmail={email} />;
             case 'Braiders':
-                return <Relations userEmail={email} role='barn' userPublicID='' setSelectedPage={setSelectedPage} />;
+                return <Relations userEmail={email} role='barn' userPublicID='' setSelectedPage={setSelectedPage} selectBraider={selectBraider} />;
             case 'Calendar':
                 return <Calendar role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Services':
-                return <Tasks role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
+                return (
+                    <Tasks
+                        role='barn'
+                        userEmail={email}
+                        setSelectedPage={setSelectedPage}
+                        requestingJob={requestingJob}
+                        setRequestingJob={setRequestingJob}
+                        selectedBraider={selectedBraider}
+                        setSelectedBraider={setSelectedBraider}
+                    />
+                );
             case 'Settings':
                 return <Settings update={update} role='barn' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:

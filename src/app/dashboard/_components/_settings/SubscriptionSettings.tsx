@@ -165,14 +165,12 @@ const SubscriptionSettings = ({
     const handlePaymentSuccess = async (paymentMethodId: string) => {
         if (!processingPlan) return;
 
-        // Update subscription
         const res = await updateSubscription(paymentMethodId, processingPlan);
         if (res.success) {
             successToast('Subscription updated successfully!');
             setShowPaymentModal(false);
             setClientSecret(null);
 
-            // Refresh subscription details
             const sub = await getSubscriptionDetails();
             updateSubscriptionTier(sub);
             setSubscription(sub as any);
@@ -431,138 +429,9 @@ const SubscriptionSettings = ({
                             </div>
                         );
                     })}
-
-                    {/* <div
-                        className={cn(
-                            'border rounded-2xl p-6 relative transition-all duration-300 hover:shadow-lg cursor-pointer group flex flex-col',
-                            selectedPlan === 'starter' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10' : 'border-gray-200 bg-white',
-                        )}
-                        onClick={() => handleSelectPlan('starter')}
-                    >
-                        {selectedPlan === 'starter' && (
-                            <div className='absolute top-4 right-4 text-blue-500'>
-                                <Check size={20} />
-                            </div>
-                        )}
-                        <StarterIcon />
-                        <h4 className='text-lg font-bold text-gray-900'>Starter</h4>
-                        <div className='mt-2 mb-6'>
-                            <span className='text-3xl font-bold text-gray-900'>$29</span>
-                            <span className='text-gray-500 font-medium'>/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
-                        </div>
-                        <ul className='space-y-3 mb-8 flex-1'>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Basic profile</span>
-                            </li>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Up to 10 jobs/month</span>
-                            </li>
-                        </ul>
-                        <button
-                            type='button'
-                            className={cn(
-                                'w-full py-2.5 rounded-xl font-bold transition-colors mt-auto',
-                                selectedPlan === 'starter' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-50 text-gray-900 hover:bg-gray-100',
-                            )}
-                        >
-                            {selectedPlan === 'starter' ? 'Current Plan' : 'Select Plan'}
-                        </button>
-                    </div>
-
-                    <div
-                        className={cn(
-                            'border rounded-2xl p-6 relative transition-all duration-300 hover:shadow-lg cursor-pointer group flex flex-col',
-                            selectedPlan === 'professional' ? 'border-purple-500 ring-1 ring-purple-500 bg-purple-50/10' : 'border-gray-200 bg-white',
-                        )}
-                        onClick={() => handleSelectPlan('professional')}
-                    >
-                        {selectedPlan === 'professional' && (
-                            <div className='absolute top-4 right-4 text-purple-500'>
-                                <Check size={20} />
-                            </div>
-                        )}
-                        <ProfessionalIcon />
-                        <h4 className='text-lg font-bold text-gray-900'>Professional</h4>
-                        <div className='mt-2 mb-6'>
-                            <span className='text-3xl font-bold text-gray-900'>$49</span>
-                            <span className='text-gray-500 font-medium'>/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
-                        </div>
-                        <ul className='space-y-3 mb-8 flex-1'>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Featured profile</span>
-                            </li>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Unlimited jobs</span>
-                            </li>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Analytics dashboard</span>
-                            </li>
-                        </ul>
-                        <button
-                            type='button'
-                            className={cn(
-                                'w-full py-2.5 rounded-xl font-bold transition-colors mt-auto',
-                                selectedPlan === 'professional' ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-50 text-gray-900 hover:bg-gray-100',
-                            )}
-                        >
-                            {selectedPlan === 'professional' ? 'Current Plan' : 'Select Plan'}
-                        </button>
-                    </div>
-
-                    <div
-                        className={cn(
-                            'border rounded-2xl p-6 relative transition-all duration-300 hover:shadow-lg cursor-pointer group flex flex-col',
-                            selectedPlan === 'enterprise' ? 'border-amber-500 ring-1 ring-amber-500 bg-amber-50/10' : 'border-gray-200 bg-white',
-                        )}
-                        onClick={() => handleSelectPlan('enterprise')}
-                    >
-                        {selectedPlan === 'enterprise' && (
-                            <div className='absolute top-4 right-4 text-amber-500'>
-                                <Check size={20} />
-                            </div>
-                        )}
-                        <div className='absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide'>
-                            Best Value
-                        </div>
-                        <EnterpriseIcon />
-                        <h4 className='text-lg font-bold text-gray-900'>Enterprise</h4>
-                        <div className='mt-2 mb-6'>
-                            <span className='text-3xl font-bold text-gray-900'>$79</span>
-                            <span className='text-gray-500 font-medium'>/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
-                        </div>
-                        <ul className='space-y-3 mb-8 flex-1'>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Priority support</span>
-                            </li>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Team management</span>
-                            </li>
-                            <li className='flex items-start gap-2 text-sm text-gray-600'>
-                                <Check size={16} className='text-green-500 mt-0.5 shrink-0' />
-                                <span>Custom integrations</span>
-                            </li>
-                        </ul>
-                        <button
-                            type='button'
-                            className={cn(
-                                'w-full py-2.5 rounded-xl font-bold transition-colors mt-auto',
-                                selectedPlan === 'enterprise' ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-50 text-gray-900 hover:bg-gray-100',
-                            )}
-                        >
-                            {selectedPlan === 'enterprise' ? 'Current Plan' : 'Select Plan'}
-                        </button>
-                    </div> */}
                 </div>
             </div>
 
-            {/* Payment Modal/Overlay */}
             {showPaymentModal && clientSecret && (
                 <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-in fade-in font-figtree'>
                     <div className='bg-white rounded-2xl primary-border-bold w-full max-w-md p-6 animate-in zoom-in-95 duration-200'>

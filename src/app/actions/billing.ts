@@ -89,7 +89,6 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
     }
 
     try {
-        // If a payment method is provided, attach it and set as default
         if (paymentMethodId) {
             await stripe.paymentMethods.attach(paymentMethodId, {
                 customer: user.stripeCustomerId,
@@ -109,7 +108,6 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
             tier = 'enterprise';
         }
 
-        // Check for existing subscription
         const existingSubscriptions = await stripe.subscriptions.list({
             customer: user.stripeCustomerId,
             status: 'all',
@@ -119,18 +117,13 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
         let subscription;
         let subscriptionStatus: SubscriptionStatus = 'active';
 
-        // Calculate trial end unix timestamp if trial is still valid
         let trialEndTimestamp: number | undefined = undefined;
         if (user.trialEndsAt && new Date(user.trialEndsAt) > new Date()) {
             trialEndTimestamp = Math.floor(new Date(user.trialEndsAt).getTime() / 1000);
         }
 
         if (existingSubscriptions.data.length > 0) {
-            // Update existing subscription
             const currentSub = existingSubscriptions.data[0];
-
-            // If we are still in trial, we keep the trial end date
-            // If the user is upgrading, we might want to respect the trial
 
             const updateParams: any = {
                 items: [
@@ -139,22 +132,20 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
                         price: priceId,
                     },
                 ],
-                trial_end: 'now', // End trial immediately on upgrade
+                trial_end: 'now',
             };
 
             subscription = await stripe.subscriptions.update(currentSub.id, updateParams);
         } else {
-            // Create new subscription
             const createParams: any = {
                 customer: user.stripeCustomerId,
                 items: [{ price: priceId }],
-                trial_end: 'now', // End trial immediately on upgrade
+                trial_end: 'now',
             };
 
             subscription = await stripe.subscriptions.create(createParams);
         }
 
-        // Map Stripe status to Prisma status
         switch (subscription.status) {
             case 'trialing':
                 subscriptionStatus = 'trialing';
@@ -179,6 +170,7 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
                 stripeSubscriptionId: subscription.id,
                 subscriptionTier: tier,
                 subscriptionStatus: subscriptionStatus,
+                hasUsedTrial: subscription.status !== 'trialing',
             },
         });
 

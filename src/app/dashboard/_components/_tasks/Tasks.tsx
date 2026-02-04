@@ -29,9 +29,22 @@ import {
     Mail,
     Phone,
     Copy,
+    BadgeDollarSign,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getJobs, createJob, addNote, cancelJob, getBraiderUsageAction, deleteJob, getBraiderData, toggleServiceCompletion, submitJob, markJobCompleted } from '@/app/actions/jobs';
+import {
+    getJobs,
+    createJob,
+    addNote,
+    cancelJob,
+    getBraiderUsageAction,
+    deleteJob,
+    getBraiderData,
+    toggleServiceCompletion,
+    submitJob,
+    markJobCompleted,
+    getUserByEmail,
+} from '@/app/actions/jobs';
 import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
@@ -53,6 +66,7 @@ import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { formatPhoneNumber } from '../_settings/Settings';
 import RequestWorkSubpage from './RequestWorkSubpage';
 import { parseUTCToLocal } from '@/lib/date-utils';
+import { Tab } from '../_braider/BraiderDashboard';
 
 export type Job = {
     id: string;
@@ -104,15 +118,24 @@ const Tasks = ({
     userEmail,
     setSelectedPage,
     subscriptionTier,
+    requestingJob,
+    setRequestingJob,
+    selectedBraider,
+    setSelectedBraider,
+    setSettingsOpen,
 }: {
     role: string;
     userEmail: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
     subscriptionTier?: SubscriptionTier;
+    requestingJob?: Job | null | 'creating';
+    setRequestingJob?: React.Dispatch<React.SetStateAction<Job | null | 'creating'>>;
+    selectedBraider?: any;
+    setSelectedBraider?: React.Dispatch<React.SetStateAction<any>>;
+    setSettingsOpen?: (page: Tab) => void;
 }) => {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
-    const [requestModalOpen, setRequestModalOpen] = useState(false);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
     const [notesJob, setNotesJob] = useState<Job | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState<{ open: boolean; show: any | null; onSelect: () => void }>({ open: false, show: null, onSelect: () => {} });
@@ -123,7 +146,6 @@ const Tasks = ({
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
     const [exactTime, setExactTime] = useState(new Date());
     const [braiderUsage, setBraiderUsage] = useState<{ count: number; limit: number; period: string } | null>(null);
-    const [requestingJob, setRequestingJob] = useState<Job | null | 'creating'>(null);
 
     useEffect(() => {
         const getUsages = async () => {
@@ -249,7 +271,7 @@ const Tasks = ({
                                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'barn' ? 'Services' : 'Tasks'}</h1>
                                     <p className='text-gray-500 font-figtree mt-1 @min-[400px]/tasks:mt-1.5'>Manage your braiding schedule and requests.</p>
                                 </div>
-                                {role === 'barn' && (
+                                {role === 'barn' && requestingJob && setRequestingJob && (
                                     <button
                                         onClick={() => setRequestingJob('creating')}
                                         className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
@@ -289,7 +311,7 @@ const Tasks = ({
                                 </div>
                             ) : jobs.length === 0 ? (
                                 <div className='grid grid-cols-1'>
-                                    {role === 'barn' ? (
+                                    {role === 'barn' && requestingJob && setRequestingJob ? (
                                         <div
                                             onClick={() => setRequestingJob('creating')}
                                             className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
@@ -319,7 +341,7 @@ const Tasks = ({
                                             !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied') &&
                                             !j.assignments.every((a) => a.paidAt),
                                     ).length === 0 &&
-                                        (role === 'barn' ? (
+                                        (role === 'barn' && requestingJob && setRequestingJob ? (
                                             <div
                                                 onClick={() => setRequestingJob('creating')}
                                                 className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
@@ -477,7 +499,7 @@ const Tasks = ({
                                 </div>
                             )}
                         </motion.div>
-                    ) : requestingJob !== null && role === 'barn' ? (
+                    ) : requestingJob !== null && role === 'barn' && requestingJob && setRequestingJob && selectedBraider && setSelectedBraider ? (
                         <motion.div
                             key='requesting'
                             initial={{ x: 100, opacity: 0 }}
@@ -493,6 +515,8 @@ const Tasks = ({
                                 userEmail={userEmail}
                                 onBack={() => setRequestingJob(null)}
                                 refresh={refreshJobs}
+                                selectedBraider={selectedBraider}
+                                setSelectedBraider={setSelectedBraider}
                             />
                         </motion.div>
                     ) : (
@@ -570,64 +594,142 @@ const Tasks = ({
                 closeOnOutsideClick={false}
                 className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative @container/check-completed'
             >
-                {checkMarkedCompleted.id.length > 0 && role === 'braider' && (
-                    <div>
-                        <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
-                            Have you completed this service?
-                        </h1>
-                        <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
-                            <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
-                            <p className='mt-2'>
-                                Payments occur outside of the ManeAccount platform, but we offer the ability to track them in the <span className='font-bold'>Invoices</span> panel.
-                                Please ensure that all reported services were actually completed.
-                            </p>
-                        </div>
-                        <div className='flex flex-col gap-2 mt-4'>
-                            <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
-                            <div className='p-4 w-full flex-wrap font-figtree flex items-center gap-3 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
-                                <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
-                                    {new Intl.NumberFormat('en-US', {
-                                        style: 'currency',
-                                        currency: 'USD',
-                                    }).format(checkMarkedCompleted.earnings)}
-                                </div>
-                                <div className='font-figtree font-normal text-sm'>
-                                    <div className='flex items-center gap-2 font-semibold text-[15px]'>
-                                        <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
-                                        {format(exactTime, 'Pp')}
-                                    </div>
-                                    <span>
-                                        {checkMarkedCompleted.horses} Horse{checkMarkedCompleted.horses === 1 ? '' : 's'}
-                                    </span>{' '}
-                                    •{' '}
-                                    <span>
-                                        {checkMarkedCompleted.services} Service{checkMarkedCompleted.services === 1 ? '' : 's'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
-                            <button
-                                onClick={() => setCheckMarkedCompleted((prev) => ({ ...prev, open: false }))}
-                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id)}
-                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
-                            >
-                                Send Invoice
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <CheckMarkedCompletedModal
+                    checkMarkedCompleted={checkMarkedCompleted}
+                    setCheckMarkedCompleted={setCheckMarkedCompleted}
+                    handleMarkJobCompleted={handleMarkJobCompleted}
+                    exactTime={exactTime}
+                    role={role}
+                    userEmail={userEmail}
+                    setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
+                />
             </Modal>
 
             <Modal isOpen={!!notesJob} setIsOpen={() => setNotesJob(null)} className='max-w-lg p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {notesJob && <JobNotesModal job={notesJob} role={role} onClose={() => setNotesJob(null)} refresh={refreshJobs} />}
             </Modal>
         </>
+    );
+};
+
+const CheckMarkedCompletedModal = ({
+    checkMarkedCompleted,
+    setCheckMarkedCompleted,
+    handleMarkJobCompleted,
+    exactTime,
+    role,
+    userEmail,
+    setSettingsOpen,
+}: {
+    checkMarkedCompleted: {
+        open: boolean;
+        id: string;
+        earnings: number;
+        horses: number;
+        services: number;
+    };
+    setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; earnings: number; horses: number; services: number }) => void;
+    role: string;
+    handleMarkJobCompleted: (id: string) => void;
+    exactTime: Date;
+    userEmail: string;
+    setSettingsOpen: (page: Tab) => void;
+}) => {
+    // @ts-ignore
+    if (!checkMarkedCompleted.id) setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
+
+    const [loadingDetails, setLoadingDetails] = useState(true);
+    const [hasPayoutInfo, setHasPayoutInfo] = useState(false);
+
+    useEffect(() => {
+        const getPayoutInfo = async () => {
+            setLoadingDetails(true);
+            const user = await getUserByEmail(userEmail);
+
+            if (user && ((user.venmo && user.venmoEnabled) || user.zelle !== 'disabled')) setHasPayoutInfo(true);
+            setLoadingDetails(false);
+        };
+
+        getPayoutInfo();
+    }, [checkMarkedCompleted.id]);
+
+    return loadingDetails ? (
+        <div className='w-full h-48 flex items-center justify-center'>
+            <span className='loader-primary'></span>
+        </div>
+    ) : checkMarkedCompleted.id.length > 0 && role === 'braider' && hasPayoutInfo ? (
+        <div>
+            <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
+                Have you completed this service?
+            </h1>
+            <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
+                <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
+                <p className='mt-2'>
+                    Payments occur outside of the ManeAccount platform, but we offer the ability to track them in the <span className='font-bold'>Invoices</span> panel. Please ensure
+                    that all reported services were actually completed.
+                </p>
+            </div>
+            <div className='flex flex-col gap-2 mt-4'>
+                <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
+                <div className='p-4 w-full flex-wrap font-figtree flex items-center gap-3 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
+                    <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
+                        {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                        }).format(checkMarkedCompleted.earnings)}
+                    </div>
+                    <div className='font-figtree font-normal text-sm'>
+                        <div className='flex items-center gap-2 font-semibold text-[15px]'>
+                            <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
+                            {format(exactTime, 'Pp')}
+                        </div>
+                        <span>
+                            {checkMarkedCompleted.horses} Horse{checkMarkedCompleted.horses === 1 ? '' : 's'}
+                        </span>{' '}
+                        •{' '}
+                        <span>
+                            {checkMarkedCompleted.services} Service{checkMarkedCompleted.services === 1 ? '' : 's'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
+                <button
+                    // @ts-ignore
+                    onClick={() => setCheckMarkedCompleted((prev) => ({ ...prev, open: false }))}
+                    className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                >
+                    Cancel
+                </button>
+                <button
+                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id)}
+                    className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+                >
+                    Send Invoice
+                </button>
+            </div>
+        </div>
+    ) : (
+        role === 'braider' &&
+        !hasPayoutInfo && (
+            <div className='w-full px-5 py-24 flex flex-col items-center justify-center gap-4'>
+                <div className='bg-primary-extra-light rounded-full p-3'>
+                    <BadgeDollarSign className='text-primary w-14 h-14' />
+                </div>
+                <h4 className='text-gray-700 text-lg text-center font-figtree'>
+                    You have no payout information added, so clients will have no way of paying you. Go to{' '}
+                    <button
+                        onClick={() => {
+                            setSettingsOpen('payments');
+                        }}
+                        className='text-primary hover:text-primary-light transition-all font-semibold cursor-pointer'
+                    >
+                        Settings
+                    </button>{' '}
+                    to fix this.
+                </h4>
+            </div>
+        )
     );
 };
 
@@ -721,7 +823,7 @@ const JobCard = ({
                         <span
                             className={cn(
                                 'text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1',
-                                statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 ? 'accepted' : job.status],
+                                statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 || role === 'subcontractor' ? 'accepted' : job.status],
                             )}
                         >
                             {job.assignments.every((a) => a.paidAt)
@@ -730,17 +832,19 @@ const JobCard = ({
                                   ? 'drafting'
                                   : isJobPending
                                     ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                    : isJobAccepted && horsesCompleted === 0
+                                    : isJobAccepted && horsesCompleted === 0 && role !== 'subcontractor'
                                       ? 'all accepted'
-                                      : horsesCompleted > 0
-                                        ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                        : isJobDenied
-                                          ? 'denied'
-                                          : isJobCanceled
-                                            ? 'canceled'
-                                            : job.status === 'submitted'
-                                              ? 'all completed'
-                                              : job.status}
+                                      : isJobAccepted && horsesCompleted === 0 && role === 'subcontractor'
+                                        ? `${job.assignments.filter((a) => a.subcontractor && a.status === 'pending').length}/${job.assignments.filter((a) => a.subcontractor).length} horses completed`
+                                        : horsesCompleted > 0
+                                          ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                          : isJobDenied
+                                            ? 'denied'
+                                            : isJobCanceled
+                                              ? 'canceled'
+                                              : job.status === 'submitted'
+                                                ? 'all completed'
+                                                : job.status}
                         </span>
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>

@@ -38,11 +38,13 @@ const Relations = ({
     role,
     userPublicID,
     setSelectedPage,
+    selectBraider,
 }: {
     userEmail: string;
     role: string;
     userPublicID: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    selectBraider?: (braider: any) => void;
 }) => {
     const [members, setMembers] = useState<RelationMember[]>([]);
     const [pending, setPending] = useState<{ incoming: PendingRelation[]; outgoing: PendingRelation[] }>({ incoming: [], outgoing: [] });
@@ -335,7 +337,7 @@ const Relations = ({
                                                 </div>
                                                 <span className='font-medium'>{`(${member.phoneNumber.slice(0, 3)}) ${member.phoneNumber.slice(3, 6)}-${member.phoneNumber.slice(
                                                     6,
-                                                    10
+                                                    10,
                                                 )}`}</span>
                                             </Link>
                                         )}
@@ -359,9 +361,11 @@ const Relations = ({
                                     Remove
                                 </button>
 
-                                {isBarn && (
+                                {isBarn && selectBraider && (
                                     <button
-                                        onClick={() => setSelectedPage('Services')}
+                                        onClick={() => {
+                                            selectBraider(member);
+                                        }}
                                         className='mt-3 text-primary font-figtree w-full cursor-pointer font-bold text-[17px] @min-[290px]/relation-card:text-lg flex justify-center items-center gap-2 text-nowrap rounded-[14px] primary-border-hover py-1.5 @min-[290px]/relation-card:py-2 transition-colors'
                                     >
                                         <Briefcase className='w-5 h-5' />
@@ -495,32 +499,28 @@ const InviteModal = ({
         successToast('Link copied');
     };
 
-    useEffect(() => {
-        const getUser = async (val: string) => {
-            setLoadingUser('loading');
-            if (inviteInput.length < 3) {
-                setLoadingUser('inactive');
-                return;
+    const getUser = async (val: string) => {
+        setLoadingUser('loading');
+        if (inviteInput.length < 3) {
+            setLoadingUser('inactive');
+            return;
+        } else {
+            const res = await getRelationByPublicID(val);
+            if (!res || res.error || val === publicID) {
+                setLoadingUser('fail');
             } else {
-                const res = await getRelationByPublicID(val);
-                if (!res || res.error || val === publicID) {
-                    setLoadingUser('fail');
-                } else {
-                    const foundRole = res.user?.role;
-                    const isValid = (role.toLowerCase() === 'braider' && foundRole === 'barn') || (role.toLowerCase() === 'barn' && foundRole === 'braider');
+                const foundRole = res.user?.role;
+                const isValid = (role.toLowerCase() === 'braider' && foundRole === 'barn') || (role.toLowerCase() === 'barn' && foundRole === 'braider');
 
-                    if (isValid) {
-                        setInvitedUser({ name: res.user?.name || '', image: res.user?.image || '', publicID: res.user?.publicID || '' });
-                        setLoadingUser('success');
-                    } else {
-                        setLoadingUser('fail');
-                    }
+                if (isValid) {
+                    setInvitedUser({ name: res.user?.name || '', image: res.user?.image || '', publicID: res.user?.publicID || '' });
+                    setLoadingUser('success');
+                } else {
+                    setLoadingUser('fail');
                 }
             }
-        };
-
-        getUser(inviteInput);
-    }, [inviteInput]);
+        }
+    };
 
     const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/join/${publicID}` : '';
 
@@ -585,7 +585,7 @@ const InviteModal = ({
                         <button
                             className={cn(
                                 'cursor-pointer font-medium grid place-items-center pr-3.5 pl-3 transition-all relative w-full h-full',
-                                inviteMode === 'id' ? 'text-background' : 'text-primary'
+                                inviteMode === 'id' ? 'text-background' : 'text-primary',
                             )}
                             onClick={() => setInviteMode('id')}
                         >
@@ -594,7 +594,7 @@ const InviteModal = ({
                         <button
                             className={cn(
                                 'cursor-pointer font-medium grid place-items-center pl-4 pr-3 transition-all relative w-full h-full',
-                                inviteMode === 'qr' ? 'text-background' : 'text-primary'
+                                inviteMode === 'qr' ? 'text-background' : 'text-primary',
                             )}
                             onClick={() => setInviteMode('qr')}
                         >
@@ -629,11 +629,15 @@ const InviteModal = ({
                                                 ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
                                                 : loadingUser === 'success'
                                                   ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
-                                                  : 'border-gray-200 focus:border-primary focus:ring-primary/10'
+                                                  : 'border-gray-200 focus:border-primary focus:ring-primary/10',
                                         )}
                                         name='invite'
                                         value={inviteInput}
-                                        onChange={(e) => setInviteInput(e.target.value)}
+                                        onChange={(e) => {
+                                            setLoadingUser('loading');
+                                            setInviteInput(e.target.value);
+                                            getUser(e.target.value);
+                                        }}
                                         placeholder='e.g. sarahb123'
                                         required
                                     />

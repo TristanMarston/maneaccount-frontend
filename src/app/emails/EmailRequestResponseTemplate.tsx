@@ -54,7 +54,7 @@ export const ManeAccountRequestResponseEmail = ({ message, connection, image, li
 
                     <Section style={content}>
                         <Heading style={h1}>{connection ? 'Invite Response' : 'Job Request Response'}</Heading>
-                        <Img style={{ ...profileImage, border: image && image.length > 0 ? 'none' : '2px solid #3f6559' }} src={image || (accepted ? 'https://maneaccount.com/email-badge-check.png' : 'https://maneaccount.com/email-badge-user-x.png')}></Img>
+                        <Img style={{ ...profileImage, border: image && image.length > 0 ? '2px solid #3f6559' : 'none' }} src={image || (accepted ? 'https://maneaccount.com/email-badge-check.png' : 'https://maneaccount.com/email-badge-user-x.png')}></Img>
 
                         <Text style={textBlock}>
                             <Text style={bold}>{name}</Text>{' '}
@@ -70,13 +70,6 @@ export const ManeAccountRequestResponseEmail = ({ message, connection, image, li
                                 </>
                             )}
                         </Text>
-
-                        {date !== 'TBD' && (
-                            <Text style={textBlock}>
-                                <Text style={normal}>They are scheduled to finish all requested services by&nbsp;</Text>
-                                <Text style={bold}>{date}.</Text>
-                            </Text>
-                        )}
 
                         <Button style={button} href={link || 'https://maneaccount.com/dashboard'}>
                             Go to Dashboard

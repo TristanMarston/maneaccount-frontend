@@ -439,6 +439,29 @@ export async function getBraiderData(braiderId: string) {
     }
 }
 
+export async function getUserByEmail(email: string) {
+    const session = await auth();
+    if (!session?.user?.email) return null;
+    if (!email) return null;
+
+    return await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: {
+            name: true,
+            email: true,
+            image: true,
+            emailVerified: true,
+            publicID: true,
+            role: true,
+            phoneNumber: true,
+            venmo: true,
+            zelle: true,
+            venmoEnabled: true,
+            allowedNotifications: true,
+        },
+    });
+}
+
 export async function cancelJob(jobId: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };

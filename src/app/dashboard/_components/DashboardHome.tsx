@@ -51,7 +51,7 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
     const greeting = hours < 12 ? 'Good morning' : hours < 18 ? 'Good afternoon' : 'Good evening';
 
     const [shows, setShows] = useState<Show[]>([]);
-    const [jobs, setJobs] = useState<any[]>([]);
+    const [mappedJobShows, setMappedJobShows] = useState<Show[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [checkAcceptModal, setCheckAcceptModal] = useState<{ open: boolean; name: string; callback: () => void }>({
@@ -60,9 +60,9 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
         callback: () => {},
     });
 
-    const fetchData = async () => {
+    const fetchData = async (load: boolean) => {
         if (!userEmail) return;
-        setLoading(true);
+        if (load) setLoading(true);
 
         try {
             const result = await getDashboardData(role);
@@ -74,27 +74,29 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
 
             const { shows: showsData, jobs: jobsData } = result;
 
-            const mappedJobs: Show[] = (jobsData as any[])
-                .map((job) => {
-                    return {
-                        id: job.id,
-                        name: job.show?.name || 'Job',
-                        city: job.show?.city || '',
-                        state: job.show?.state || '',
-                        country: 'USA',
-                        startDate: job.scheduledDate,
-                        endDate: job.scheduledDate,
-                        type: 'job' as 'show' | 'job',
-                        jobData: job,
-                        isOwner: true,
-                    };
-                })
-                .filter((item) => item !== null);
+            const mappedJobs: Show[] = (jobsData as any[]).flatMap((job) => {
+                const assignmentDates = [...new Set(job.assignments.map((a: any) => format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd')))];
+
+                if (assignmentDates.length === 0) return [];
+
+                return assignmentDates.map((dateKey) => ({
+                    id: `${job.show.id}`,
+                    jobId: job.id,
+                    name: job.show?.name || 'Job',
+                    city: job.show?.city || '',
+                    state: job.show?.state || '',
+                    country: 'USA',
+                    startDate: new Date(dateKey + 'T12:00:00'),
+                    endDate: new Date(dateKey + 'T12:00:00'),
+                    type: 'job' as 'show' | 'job',
+                    jobData: job,
+                    isOwner: true,
+                }));
+            });
 
             // @ts-ignore
-            setShows([...showsData, ...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
-            // @ts-ignore
-            setJobs(jobsData);
+            setShows([...showsData].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
+            setMappedJobShows([...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
             setLoading(false);
         } catch (error) {
             console.error('Failed to fetch dashboard data', error);
@@ -102,10 +104,10 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
         }
     };
     useEffect(() => {
-        fetchData();
+        fetchData(true);
     }, [role, userEmail]);
 
-    useAutoRefresh(fetchData);
+    useAutoRefresh(() => fetchData(false));
 
     const upcomingShows = shows
         .filter((s) => {
@@ -136,9 +138,9 @@ const DashboardHome = ({ role, name, userEmail, setSelectedPage }: { role: strin
                     </div>
                 ) : (
                     <div className='space-y-8 animate-in fade-in duration-500 font-figtree overflow-y-auto pb-28 dashboard-sm:pb-8 pr-1'>
-                        {role === 'braider' && <BraiderView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
-                        {role === 'subcontractor' && <SubcontractorView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
-                        {role === 'barn' && <BarnView upcomingShows={upcomingShows} jobs={jobs} setSelectedPage={setSelectedPage} />}
+                        {role === 'braider' && <BraiderView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} />}
+                        {role === 'subcontractor' && <SubcontractorView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} userEmail={userEmail} />}
+                        {role === 'barn' && <BarnView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} />}
                     </div>
                 )}
             </div>
@@ -589,42 +591,58 @@ const Notification = ({
     );
 };
 
-const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
-    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.assignments.every((a: any) => a.paidAt));
-    const pendingAmount = unpaidJobs.reduce(
-        (acc, j) =>
-            acc +
-            j.assignments.reduce(
-                (sAcc: number, s: any) =>
-                    sAcc +
-                    (!s.paidAt
-                        ? s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                          (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0))
-                        : 0),
-                0,
-            ),
-        0,
-    );
-    const upcomingEvents = upcomingShows.filter(
-        (s) =>
-            s.type !== 'job' ||
-            (s.type === 'job' &&
-                s.jobData &&
-                s.jobData.status !== 'completed' &&
-                s.jobData.status !== 'denied' &&
-                s.jobData.status !== 'canceled' &&
-                s.jobData.status !== 'sub_declined'),
-    ).length;
+const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: Show[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
+    const jobShows = new Set();
+    jobs.forEach((job) => jobShows.add(job.jobData.showId));
+
+    const addedJobIds = new Set();
+
+    let unpaidJobs: { [key: string]: { amount: number; date: Date } } = {};
+    jobs.forEach((job) => {
+        job.jobData.assignments.forEach((assignment: any) => {
+            const showName = job.name;
+            if (!addedJobIds.has(job.jobData.showId)) {
+                if (unpaidJobs[showName]) {
+                    unpaidJobs[showName] = {
+                        date: job.endDate,
+                        amount:
+                            unpaidJobs[showName].amount +
+                            (!assignment.paidAt
+                                ? assignment.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                                  (assignment.canceledAt
+                                      ? 0
+                                      : assignment.services.reduce((ssAcc: number, ss: any) => ssAcc + (assignment.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0))
+                                : 0),
+                    };
+                } else {
+                    unpaidJobs[showName] = {
+                        date: job.endDate,
+                        amount: !assignment.paidAt
+                            ? assignment.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
+                              (assignment.canceledAt
+                                  ? 0
+                                  : assignment.services.reduce((ssAcc: number, ss: any) => ssAcc + (assignment.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0))
+                            : 0,
+                    };
+                }
+            }
+        });
+        addedJobIds.add(job.jobData.showId);
+    });
+
+    const upcomingEvents = upcomingShows.length;
 
     return (
         <div className='space-y-8'>
             <div className='grid grid-cols-1 @min-[600px]/home:grid-cols-2 gap-4'>
                 <StatCard
                     title='Incoming Invoices'
-                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
+                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                        Object.values(unpaidJobs).reduce((acc: number, j: { amount: number; date: Date }) => acc + j.amount, 0),
+                    )}
                     icon={DollarSign}
                     color='purple'
-                    subtext={`${unpaidJobs.length} job${unpaidJobs.length === 1 ? '' : 's'} to be paid for`}
+                    subtext={`${Object.keys(unpaidJobs).length} job${Object.keys(unpaidJobs).length === 1 ? '' : 's'} to be paid for`}
                     onClick={() => setSelectedPage('Invoices')}
                 />
                 <StatCard
@@ -653,8 +671,10 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
                 </SectionContainer>
 
                 <SectionContainer title='Incoming Invoices' onViewAll={() => setSelectedPage('Invoices')}>
-                    {unpaidJobs.length > 0 ? (
-                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='braider' color='purple' />)
+                    {Object.keys(unpaidJobs).length > 0 ? (
+                        Object.keys(unpaidJobs)
+                            .slice(0, 3)
+                            .map((jobKey) => <InvoicePreviewCard key={jobKey} showName={jobKey} amount={unpaidJobs[jobKey].amount} date={unpaidJobs[jobKey].date} color='purple' />)
                     ) : (
                         <EmptyState message='No incoming invoices.' icon={CheckCircle2} />
                     )}
@@ -664,37 +684,52 @@ const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: 
     );
 };
 
-const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
-    const upcomingEvents = upcomingShows.filter(
-        (s) =>
-            s.type !== 'job' ||
-            (s.type === 'job' &&
-                s.jobData &&
-                s.jobData.status !== 'completed' &&
-                s.jobData.status !== 'denied' &&
-                s.jobData.status !== 'canceled' &&
-                s.jobData.status !== 'sub_declined'),
-    ).length;
+const SubcontractorView = ({
+    upcomingShows,
+    jobs,
+    setSelectedPage,
+    userEmail,
+}: {
+    upcomingShows: Show[];
+    jobs: Show[];
+    setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
+    userEmail: string;
+}) => {
+    const upcomingEvents = upcomingShows.length;
+
+    const jobShows = new Set();
+    jobs.forEach((job) => jobShows.add(job.jobData.showId));
+
+    const addedJobIds = new Set();
+
+    let assignedJobs: { [key: string]: number } = {};
+    jobs.forEach((job) => {
+        job.jobData.assignments.forEach((assignment: any) => {
+            const jobId = job.id;
+            if (assignment.subcontractor && assignment.subcontractor.email === userEmail && !addedJobIds.has(job.jobData.showId)) {
+                if (assignedJobs[jobId]) {
+                    assignedJobs[jobId] = assignedJobs[jobId] + 1;
+                } else {
+                    assignedJobs[jobId] = 1;
+                }
+            }
+        });
+        addedJobIds.add(job.jobData.showId);
+    });
 
     return (
         <div className='space-y-8'>
             <div className='grid grid-cols-1 @min-[600px]/home:grid-cols-2 gap-4'>
                 <StatCard
                     title='Upcoming Jobs'
-                    value={upcomingShows
-                        .filter(
-                            (s) =>
-                                s.type === 'job' &&
-                                s.jobData &&
-                                s.jobData.status !== 'completed' &&
-                                s.jobData.status !== 'denied' &&
-                                s.jobData.status !== 'canceled' &&
-                                s.jobData.status !== 'sub_declined',
-                        )
-                        .length.toString()}
+                    value={Object.values(assignedJobs)
+                        .reduce((acc, val) => acc + val, 0)
+                        .toString()}
                     icon={Briefcase}
                     color='blue'
-                    subtext='Assigned jobs'
+                    subtext={`${Object.values(assignedJobs)
+                        .reduce((acc, val) => acc + val, 0)
+                        .toString()} assigned horses`}
                     onClick={() => setSelectedPage('Tasks')}
                 />
                 <StatCard
@@ -724,31 +759,57 @@ const SubcontractorView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingS
     );
 };
 
-const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: any[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
-    const unpaidJobs = jobs.filter((j) => j.status === 'completed' && !j.assignments.every((a: any) => a.paidAt));
-    const pendingAmount = unpaidJobs.reduce(
-        (acc, j) =>
-            acc +
-            j.assignments.reduce(
-                (sAcc: number, s: any) =>
-                    sAcc +
-                    (!s.paidAt ? s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-                    (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)) : 0),
-                0,
-            ),
-        0,
-    );
+const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: Show[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
+    const allAssignments = jobs.filter((j, index, self) => j.jobData && self.findIndex((s) => s.jobData?.id === j.jobData?.id) === index).flatMap((j) => j.jobData.assignments || []);
+
+    const pendingServicesCount = allAssignments.filter((a: any) => a.completedServiceIds.length !== a.services.length - a.canceledServiceIds.length).length;
+
+    const clientPayments: { showName: string; clientName: string; amount: number; date: Date }[] = [];
+
+    const processedJobs = jobs.filter((j, index, self) => j.jobData && self.findIndex((s) => s.jobData?.id === j.jobData?.id) === index);
+
+    processedJobs.forEach((job) => {
+        const assignments = job.jobData.assignments || [];
+        const clientGroups: { [clientName: string]: number } = {};
+
+        assignments.forEach((a: any) => {
+            if (a.paidAt || a.canceledAt) return;
+
+            const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id)).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+            const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+            const total = servicesTotal + customTotal;
+
+            if (total > 0) {
+                const clientName = a.horse.client?.name || 'Barn/No Client';
+                clientGroups[clientName] = (clientGroups[clientName] || 0) + total;
+            }
+        });
+
+        Object.entries(clientGroups).forEach(([clientName, amount]) => {
+            clientPayments.push({
+                showName: job.name,
+                clientName,
+                amount,
+                date: job.endDate,
+            });
+        });
+    });
+
+    clientPayments.sort((a, b) => {
+        const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+        return dateDiff !== 0 ? dateDiff : a.clientName.localeCompare(b.clientName);
+    });
 
     return (
         <div className='space-y-8'>
             <div className='grid grid-cols-1 @min-[600px]/home:grid-cols-2 gap-4'>
                 <StatCard
-                    title='To Pay'
-                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
-                    icon={Banknote}
+                    title='Requested Services'
+                    value={pendingServicesCount.toString()}
+                    icon={Scissors}
                     color='amber'
-                    subtext={`${unpaidJobs.length} invoice${unpaidJobs.length === 1 ? '' : 's'} to pay`}
-                    onClick={() => setSelectedPage('Tasks')}
+                    subtext={`${pendingServicesCount} horse${pendingServicesCount === 1 ? '' : 's'} to be serviced`}
+                    onClick={() => setSelectedPage('Services')}
                 />
                 <StatCard
                     title='Next Event'
@@ -775,9 +836,20 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
                     {upcomingShows.length > 0 ? upcomingShows.map((show) => <ShowCard key={show.id} show={show} />) : <EmptyState message='No upcoming events.' />}
                 </SectionContainer>
 
-                <SectionContainer title='Invoices for Clients' onViewAll={() => setSelectedPage('Tasks')}>
-                    {unpaidJobs.length > 0 ? (
-                        unpaidJobs.slice(0, 3).map((job) => <InvoicePreviewCard key={job.id} job={job} role='barn' color='amber' />)
+                <SectionContainer title='Invoices for Clients' onViewAll={() => setSelectedPage('Services')}>
+                    {clientPayments.length > 0 ? (
+                        clientPayments
+                            .slice(0, 5)
+                            .map((payment, idx) => (
+                                <InvoicePreviewCard
+                                    key={`${payment.showName}-${payment.clientName}-${idx}`}
+                                    showName={`${payment.clientName}`}
+                                    amount={payment.amount}
+                                    date={payment.date}
+                                    dateText={payment.showName}
+                                    color='amber'
+                                />
+                            ))
                     ) : (
                         <EmptyState message='All caught up on invoices!' icon={CheckCircle2} />
                     )}
@@ -898,15 +970,7 @@ const ShowCard = ({ show }: { show: Show }) => {
     );
 };
 
-const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; color: 'amber' | 'purple' }) => {
-    const total = job.assignments.reduce(
-        (acc: any, s: any) =>
-            acc +
-            (!s.paidAt ? s.customCharges.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) +
-            (s.canceledAt ? 0 : s.services.reduce((ssAcc: number, ss: any) => ssAcc + (s.canceledServiceIds.includes(ss.id) ? 0 : ss.priceUSD), 0)) : 0),
-        0,
-    );
-
+const InvoicePreviewCard = ({ showName, amount, date, dateText, color }: { showName: string; amount: number; date: Date; dateText?: string; color: 'amber' | 'purple' }) => {
     return (
         <div className='flex items-center justify-between p-4 rounded-[18px] bg-white border border-gray-100 shadow-sm relative'>
             <div className='flex items-center gap-4 min-w-0'>
@@ -916,12 +980,17 @@ const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; colo
                     <DollarSign size={20} strokeWidth={2.5} />
                 </div>
                 <div className='min-w-0'>
-                    <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'barn' ? job.braider.name : job.barn.name}</p>
-                    <p className='text-xs text-gray-500 font-medium'>{format(parseUTCToLocal(job.scheduledDate) || new Date(), 'MMM d, yyyy')}</p>
+                    {/* <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'barn' ? job.braider.name : job.barn.name}</p> */}
+                    <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{showName}</p>
+                    {/* <p className='text-xs text-gray-500 font-medium'>{format(parseUTCToLocal(job.scheduledDate) || new Date(), 'MMM d, yyyy')}</p> */}
+                    <p className='text-xs text-gray-500 font-medium'>
+                        {dateText ? `${dateText} • ` : ''}
+                        {format(parseUTCToLocal(date) || new Date(), 'MMM d, yyyy')}
+                    </p>
                 </div>
             </div>
             <span className={cn('font-lusitana font-bold text-lg hidden @min-[360px]/home:block', color === 'amber' ? 'text-amber-700' : 'text-purple-700')}>
-                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)}
             </span>
             <span
                 className={cn(
@@ -929,7 +998,7 @@ const InvoicePreviewCard = ({ job, role, color }: { job: any; role: string; colo
                     color === 'amber' ? 'bg-amber-100 border border-amber-200 text-amber-700' : 'bg-purple-100 border border-purple-200 text-purple-700',
                 )}
             >
-                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)}
             </span>
         </div>
     );

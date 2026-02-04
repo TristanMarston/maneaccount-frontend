@@ -23,6 +23,8 @@ const RequestWorkSubpage = ({
     onBack,
     setSelectedHorse,
     refresh,
+    selectedBraider,
+    setSelectedBraider,
 }: {
     job: Job | 'creating';
     role: string;
@@ -30,21 +32,19 @@ const RequestWorkSubpage = ({
     onBack: () => void;
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
     refresh: () => void;
+    selectedBraider: any;
+    setSelectedBraider: React.Dispatch<React.SetStateAction<any | null>>;
 }) => {
-    // Mode
     const isEditing = initialJob !== 'creating';
+    if (selectedBraider === null && isEditing) setSelectedBraider((initialJob as Job).braider);
 
-    // Data State
     const [braiders, setBraiders] = useState<any[]>([]);
     const [shows, setShows] = useState<any[]>([]);
     const [horses, setHorses] = useState<any[]>([]);
     const [braiderServices, setBraiderServices] = useState<any[]>([]);
 
-    // Selection State
-    const [selectedBraider, setSelectedBraider] = useState<any>(isEditing ? (initialJob as Job).braider : null);
     const [selectedShow, setSelectedShow] = useState<any>(isEditing ? (initialJob as Job).show : null);
 
-    // Assignment Editor State
     const [assignments, setAssignments] = useState<{ horseId: string; clientName: string; serviceIds: string[]; date: Date; id?: string }[]>(
         isEditing
             ? (initialJob as Job).assignments.map((a) => ({
@@ -193,12 +193,6 @@ const RequestWorkSubpage = ({
 
     const handleRemoveAssignment = (index: number) => {
         setAssignments((prev) => prev.filter((_, i) => i !== index));
-    };
-
-    const handleDateSelect = (date: Date) => {
-        const safeDate = new Date(date);
-        safeDate.setHours(12, 0, 0, 0);
-        setSelectedDate(safeDate);
     };
 
     const handleSaveDraft = async () => {

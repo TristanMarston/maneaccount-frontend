@@ -61,7 +61,7 @@ export const DayAssignmentsModal = ({
         <div className='bg-white w-full max-w-2xl overflow-hidden rounded-[18px] max-h-[90dvh] overflow-y-auto font-figtree flex flex-col'>
             <div className='p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50'>
                 <div>
-                    <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate flex items-center gap-2'>{format(date, 'MMMM d, yyyy')}</h3>
+                    <h3 className='text-3xl font-bold font-lusitana text-gray-900 truncate flex items-center gap-2'>{format(date, 'MMMM d, yyyy')}</h3>
                     <div className='flex items-center flex-wrap gap-1 mt-1 text-sm text-gray-500 font-figtree'>
                         <span onClick={() => setViewingShow(job.show)} className='font-bold text-primary flex items-center gap-1 hover:text-primary-light transition-all cursor-pointer'>
                             <p>{job.show.name}</p>

@@ -388,10 +388,6 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
               )
             : null;
 
-        console.log(jobForDate);
-        console.log(show.id);
-        console.log(mappedJobShows);
-
         if (jobForDate) {
             setSelectedJob(jobForDate.jobData);
             setViewingJobDate(date!);
@@ -568,7 +564,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
                     <p className='text-gray-800 text-[17px] font-figtree mt-2'>
                         This will delete <span className='font-bold'>{isDeleting.name}</span> from your calendar.{' '}
-                        <span className='font-bold text-red-600 mt-2'>Any associated job records will also be deleted</span>.
+                        {role === 'braider' && <span className='font-bold text-red-600 mt-2'>Any associated job records will also be deleted.</span>}
                     </p>
                     <div className='grid @min-[300px]/check-team:grid-cols-2 gap-3 mt-4'>
                         <button

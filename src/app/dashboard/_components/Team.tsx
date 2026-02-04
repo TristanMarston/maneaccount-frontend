@@ -508,29 +508,25 @@ const InviteModal = ({
         successToast('Link copied to clipboard');
     };
 
-    useEffect(() => {
-        const getUser = async (invitePublicID: string) => {
-            setLoadingUser('loading');
-            if (inviteInput.length < 3) {
-                setLoadingUser('inactive');
+    const getUser = async (invitePublicID: string) => {
+        setLoadingUser('loading');
+        if (inviteInput.length < 3) {
+            setLoadingUser('inactive');
+            return;
+        } else {
+            const user = await getUserByPublicID(invitePublicID);
+            if (!user || user.error || publicID === invitePublicID) {
+                setLoadingUser('fail');
                 return;
+            } else if (user.user?.publicID === invitePublicID && user.user.role.toLowerCase() !== role.toLowerCase() && user.user.role.toLowerCase() !== 'barn') {
+                const { name, image } = user.user;
+                setInvitedUser({ publicID: user.user.publicID, name: name || '', image: image || '' });
+                setLoadingUser('success');
             } else {
-                const user = await getUserByPublicID(invitePublicID);
-                if (!user || user.error || publicID === invitePublicID) {
-                    setLoadingUser('fail');
-                    return;
-                } else if (user.user?.publicID === invitePublicID && user.user.role.toLowerCase() !== role.toLowerCase() && user.user.role.toLowerCase() !== 'barn') {
-                    const { name, image } = user.user;
-                    setInvitedUser({ publicID: user.user.publicID, name: name || '', image: image || '' });
-                    setLoadingUser('success');
-                } else {
-                    setLoadingUser('fail');
-                }
+                setLoadingUser('fail');
             }
-        };
-
-        getUser(inviteInput);
-    }, [inviteInput]);
+        }
+    };
 
     const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/join/${publicID}` : '';
 
@@ -641,7 +637,11 @@ const InviteModal = ({
                                         )}
                                         name='invite'
                                         value={inviteInput}
-                                        onChange={(e) => setInviteInput(e.target.value)}
+                                        onChange={(e) => {
+                                            setLoadingUser('loading');
+                                            setInviteInput(e.target.value);
+                                            getUser(e.target.value);
+                                        }}
                                         placeholder='e.g. sarahb123'
                                         required
                                     />

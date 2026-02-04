@@ -98,7 +98,7 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
         );
     }
 
-    const allAssignments = jobs.flatMap((j) => j.assignments.map((a: any) => ({ ...a, job: j })));
+    const allAssignments = jobs.filter((j) => j.invoiceSentAt).flatMap((j) => j.assignments.map((a: any) => ({ ...a, job: j })));
 
     const getAssignmentCost = (a: any) => {
         const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
@@ -591,41 +591,43 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
                         <div className='p-4 space-y-3'>
                             <p className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>Client Payments</p>
 
-                            {Object.values(assignmentsByClient).map((group: any) => {
-                                const groupTotal = group.assignments.reduce((acc: number, a: any) => {
-                                    const servicesTotal = a.services
-                                        .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
-                                        .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
-                                    const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
-                                    return acc + servicesTotal + customTotal;
-                                }, 0);
+                            {Object.values(assignmentsByClient)
+                                .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
+                                .map((group: any) => {
+                                    const groupTotal = group.assignments.reduce((acc: number, a: any) => {
+                                        const servicesTotal = a.services
+                                            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
+                                            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+                                        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+                                        return acc + servicesTotal + customTotal;
+                                    }, 0);
 
-                                if (groupTotal === 0) return null;
+                                    if (groupTotal === 0) return null;
 
-                                return (
-                                    <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100'>
-                                        <div className='flex items-center gap-3'>
-                                            <button
-                                                type='button'
-                                                disabled={loadingClient === group.id}
-                                                onClick={() => handleClientToggle(group.id, group.isPaid, group.id === 'barn' ? null : group.id)}
-                                                className={cn(
-                                                    'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer hover:border-primary disabled:cursor-not-allowed',
-                                                    group.isPaid ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300 text-white',
-                                                    loadingClient && !group.isPaid ? 'text-primary' : '',
-                                                )}
-                                            >
-                                                {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin' /> : <CheckSquare size={14} strokeWidth={3} />}
-                                            </button>
-                                            <div>
-                                                <p className='font-bold text-sm text-gray-900'>{group.name}</p>
-                                                <p className='text-xs text-gray-500'>{group.assignments.length} horses</p>
+                                    return (
+                                        <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100'>
+                                            <div className='flex items-center gap-3'>
+                                                <button
+                                                    type='button'
+                                                    disabled={loadingClient === group.id}
+                                                    onClick={() => handleClientToggle(group.id, group.isPaid, group.id === 'barn' ? null : group.id)}
+                                                    className={cn(
+                                                        'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer hover:border-primary disabled:cursor-not-allowed',
+                                                        group.isPaid ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300 text-white',
+                                                        loadingClient && !group.isPaid ? 'text-primary' : '',
+                                                    )}
+                                                >
+                                                    {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin' /> : <CheckSquare size={14} strokeWidth={3} />}
+                                                </button>
+                                                <div>
+                                                    <p className='font-bold text-sm text-gray-900'>{group.name}</p>
+                                                    <p className='text-xs text-gray-500'>{group.assignments.length} horses</p>
+                                                </div>
                                             </div>
+                                            <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
                                         </div>
-                                        <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
                         </div>
                     </motion.div>
                 )}

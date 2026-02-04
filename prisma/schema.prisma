@@ -214,6 +214,8 @@ model Show {
   endDate     DateTime
   
 
+  addedToAppleCalendar Boolean @default(false)
+
   invites     ShowInvite[]
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -234,6 +236,7 @@ model ShowInvite {
   inviterId   String
   inviteeId   String
   status      ShowInviteStatus  @default(pending)
+  addedToAppleCalendar Boolean @default(false)
   
   show        Show              @relation(fields: [showId], references: [id], onDelete: Cascade)
   inviter     User              @relation("ShowInviter", fields: [inviterId], references: [id], onDelete: Cascade)

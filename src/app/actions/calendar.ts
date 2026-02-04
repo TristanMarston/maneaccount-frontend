@@ -339,6 +339,7 @@ export async function getShows(email: string) {
             inviteStatus: invite.status,
             inviteId: invite.id,
             inviterName: invite.show.user.name,
+            addedToAppleCalendar: invite.addedToAppleCalendar,
         }));
 
         const allShows = [...ownedShows, ...invitedShows].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());

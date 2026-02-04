@@ -1,6 +1,7 @@
 'use client';
 
 import { updateShow, createShow } from '@/app/actions/calendar';
+import { generateShowICS } from '@/app/actions/apple-calendar';
 import { failToast, successToast, usaStates } from '@/app/context';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
         startDate: initialData?.startDate ? parseUTCToLocal(initialData.startDate) : null,
         endDate: initialData?.endDate ? parseUTCToLocal(initialData.endDate) : null,
     });
+    const [addToAppleCalendar, setAddToAppleCalendar] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [startDateSelectorOpen, setStartDateSelectorOpen] = useState(false);
     const [endDateSelectorOpen, setEndDateSelectorOpen] = useState(false);
@@ -67,7 +69,20 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                 endDate: formData.endDate,
             });
 
-            if (res.success) {
+            if (res.success && res.show) {
+                if (addToAppleCalendar) {
+                    const icsRes = await generateShowICS(res.show.id);
+                    if (icsRes.success && icsRes.icsData) {
+                        const blob = new Blob([icsRes.icsData], { type: 'text/calendar;charset=utf-8' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = icsRes.filename || 'show.ics';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+                }
                 successToast('Show added to calendar!');
                 onSuccess();
             } else {
@@ -230,6 +245,18 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                                     />
                                 </div>
                             </div>
+                        </div>
+                        <div className='flex items-center gap-2 mt-4'>
+                            <input
+                                type='checkbox'
+                                id='apple-calendar'
+                                checked={addToAppleCalendar}
+                                onChange={(e) => setAddToAppleCalendar(e.target.checked)}
+                                className='w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2'
+                            />
+                            <label htmlFor='apple-calendar' className='text-sm font-medium text-gray-700 cursor-pointer select-none'>
+                                Add to Apple Calendar
+                            </label>
                         </div>
                         <p className='text-gray-500 text-sm italic mt-2'>Note: All your connected barns and subcontractors will be automatically invited to this show.</p>
                     </div>

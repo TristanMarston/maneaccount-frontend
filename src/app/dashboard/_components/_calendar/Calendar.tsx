@@ -41,6 +41,7 @@ import {
     isEqual,
 } from 'date-fns';
 import { deleteShow, getInvites, getShows, respondToShowInvite } from '@/app/actions/calendar';
+import { generateShowICS } from '@/app/actions/apple-calendar';
 import { parseUTCToLocal } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
@@ -75,6 +76,7 @@ export interface Show {
     inviteStatus?: string | null;
     inviterName?: string | null;
     inviteId?: string;
+    addedToAppleCalendar?: boolean;
 }
 
 const ShowDetailsModal = ({
@@ -216,6 +218,36 @@ const ShowDetailsModal = ({
                                     </div>
                                 </div>
                             )}
+                            <div className='flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm'>
+                                <button
+                                    onClick={async () => {
+                                        const res = await generateShowICS(show.id);
+                                        if (res.success && res.icsData) {
+                                            const blob = new Blob([res.icsData], { type: 'text/calendar;charset=utf-8' });
+                                            const url = window.URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = res.filename || 'show.ics';
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            successToast('Downloaded Apple Calendar file');
+                                            onClose();
+                                        } else {
+                                            failToast('Failed to generate calendar file');
+                                        }
+                                    }}
+                                    className={cn(
+                                        'w-full py-2 px-4 rounded-xl font-bold text-sm transition-all border flex items-center justify-center gap-2',
+                                        show.addedToAppleCalendar
+                                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100',
+                                    )}
+                                >
+                                    <CalendarIcon size={16} />
+                                    {show.addedToAppleCalendar ? 'Added to Apple Calendar' : 'Add to Apple Calendar'}
+                                </button>
+                            </div>
                         </div>
                     </motion.div>
                 </motion.div>
@@ -333,45 +365,48 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
         });
     }, [refreshCounts]);
 
-    const loadShows = useCallback(async () => {
-        setLoading(true);
-        const result = await getFullDashboardData(role);
+    const loadShows = useCallback(
+        async (load: boolean) => {
+            if (load) setLoading(true);
+            const result = await getFullDashboardData(role);
 
-        if (result.error) {
-            console.error(result.error);
+            if (result.error) {
+                console.error(result.error);
+                setLoading(false);
+                return;
+            }
+
+            const { shows: showsData, jobs: jobsData } = result;
+
+            const mappedJobs: Show[] = (jobsData as any[]).flatMap((job) => {
+                const assignmentDates = [...new Set(job.assignments.map((a: any) => format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd')))];
+
+                if (assignmentDates.length === 0) return [];
+
+                return assignmentDates.map((dateKey) => ({
+                    id: `${job.show.id}`,
+                    jobId: job.id,
+                    name: job.show?.name || 'Job',
+                    city: job.show?.city || '',
+                    state: job.show?.state || '',
+                    country: 'USA',
+                    startDate: new Date(dateKey + 'T12:00:00'),
+                    endDate: new Date(dateKey + 'T12:00:00'),
+                    type: 'job' as 'show' | 'job',
+                    jobData: job,
+                    isOwner: true,
+                }));
+            });
+
+            // @ts-ignore
+            setShows([...showsData].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
+            setMappedJobShows([...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
             setLoading(false);
-            return;
-        }
+        },
+        [role],
+    );
 
-        const { shows: showsData, jobs: jobsData } = result;
-
-        const mappedJobs: Show[] = (jobsData as any[]).flatMap((job) => {
-            const assignmentDates = [...new Set(job.assignments.map((a: any) => format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd')))];
-
-            if (assignmentDates.length === 0) return [];
-
-            return assignmentDates.map((dateKey) => ({
-                id: `${job.show.id}`,
-                jobId: job.id,
-                name: job.show?.name || 'Job',
-                city: job.show?.city || '',
-                state: job.show?.state || '',
-                country: 'USA',
-                startDate: new Date(dateKey + 'T12:00:00'),
-                endDate: new Date(dateKey + 'T12:00:00'),
-                type: 'job' as 'show' | 'job',
-                jobData: job,
-                isOwner: true,
-            }));
-        });
-
-        // @ts-ignore
-        setShows([...showsData].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
-        setMappedJobShows([...mappedJobs].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()));
-        setLoading(false);
-    }, [role]);
-
-    useAutoRefresh(loadShows);
+    useAutoRefresh(() => loadShows(false));
 
     const navigate = (direction: 'prev' | 'next') => {
         if (view === 'month') {
@@ -402,7 +437,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
         const res = await respondToShowInvite(showId, status);
         if (res.success) {
             successToast(status === 'accepted' ? 'Accepted invitation!' : 'Declined invitation');
-            loadShows();
+            loadShows(true);
         } else {
             failToast(status === 'accepted' ? 'Failed to accept invitation' : 'Failed to decline invitation');
         }
@@ -418,7 +453,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
         const result = await deleteShow(id);
 
         if (result.success) {
-            loadShows();
+            loadShows(true);
             successToast('Successfully deleted!');
         } else failToast('Failed to delete. Please try again.');
 
@@ -548,7 +583,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     onSuccess={() => {
                         setIsAdding(false);
                         setEditingShow(null);
-                        loadShows();
+                        loadShows(true);
                     }}
                     initialData={editingShow || undefined}
                     userEmail={userEmail}
@@ -601,7 +636,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                             setSelectedJob(null);
                             setViewingJobDate(null);
                         }}
-                        refresh={loadShows}
+                        refresh={() => loadShows(true)}
                     />
                 )}
             </Modal>

@@ -723,7 +723,7 @@ export const JobDetailSubpage = ({
                 <div className={cn(job.invoiceSentAt ? 'pointer-events-none opacity-70' : '')}>
                     <div className='flex justify-between items-center mb-3 mt-4'>
                         <h3 className='text-sm font-bold text-gray-500 uppercase'>Assignments</h3>
-                        {role === 'barn' && !isJobCompleted && !isJobCanceled && !isJobDenied && (
+                        {role === 'barn' && !job.invoiceSentAt && (
                             <button
                                 onClick={() => setShowAddHorseModal(true)}
                                 className='text-sm font-bold text-primary flex items-center gap-1.5 primary-border-hover cursor-pointer px-4 py-1 rounded-lg'

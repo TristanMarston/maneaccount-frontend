@@ -523,7 +523,7 @@ const RequestWorkSubpage = ({
 
                             <div className='mb-6'>
                                 <label className='block text-xs font-bold text-gray-500 uppercase mb-2'>1. Select Date</label>
-                                <div className='flex gap-2 overflow-x-auto hide-scrollbar pb-1'>
+                                <div className='flex gap-2 overflow-x-auto pb-1'>
                                     {showDates.map((date) => {
                                         const isSelected = selectedDate && isSameDay(date, selectedDate);
                                         return (

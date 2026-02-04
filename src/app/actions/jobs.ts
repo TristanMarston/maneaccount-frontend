@@ -381,13 +381,28 @@ export async function addAssignmentsToJob(jobId: string, assignments: { horseId:
     try {
         const job = await prisma.job.findUnique({
             where: { id: jobId },
-            include: { barn: true, braider: true, show: true },
+            include: { barn: true, braider: true, show: true, assignments: true },
         });
 
         if (!job) return { error: 'Job not found' };
         if (job.status === 'completed') return { error: 'Cannot add to completed job' };
 
-        // We use a loop to create assignments with their service connections
+        const timezoneOffset = new Date().getTimezoneOffset();
+
+        const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date(), timezoneOffset);
+        const newHorsesCount = job.assignments.length;
+
+        if (period !== 'unlimited' && count + newHorsesCount > limit) {
+            await createNotification(
+                job.braiderId,
+                NotificationType.limit_exceeded,
+                `${job.barn.name}'s service request was denied because it exceeds your ${period === 'week' ? 'weekly ' : period === 'day' ? 'daily ' : ''}limit`,
+                null,
+                job.barn.id,
+            );
+            return { error: `Request exceeds braider's limit of ${limit} horses per ${period}. Sorry!` };
+        }
+
         for (const a of assignments) {
             await prisma.jobAssignment.create({
                 data: {

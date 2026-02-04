@@ -271,7 +271,7 @@ const Tasks = ({
                                     <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{role === 'barn' ? 'Services' : 'Tasks'}</h1>
                                     <p className='text-gray-500 font-figtree mt-1 @min-[400px]/tasks:mt-1.5'>Manage your braiding schedule and requests.</p>
                                 </div>
-                                {role === 'barn' && requestingJob && setRequestingJob && (
+                                {role === 'barn' && requestingJob !== undefined && setRequestingJob !== undefined && (
                                     <button
                                         onClick={() => setRequestingJob('creating')}
                                         className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] py-2 px-6 @min-[400px]/tasks:rounded-[20px] @min-[400px]/tasks:p-3 @min-[560px]/tasks:rounded-[10px] @min-[560px]/tasks:py-2 @min-[560px]/tasks:px-6 bg-primary-light text-background primary-border-hover'
@@ -311,7 +311,7 @@ const Tasks = ({
                                 </div>
                             ) : jobs.length === 0 ? (
                                 <div className='grid grid-cols-1'>
-                                    {role === 'barn' && requestingJob && setRequestingJob ? (
+                                    {role === 'barn' && requestingJob !== undefined && setRequestingJob !== undefined ? (
                                         <div
                                             onClick={() => setRequestingJob('creating')}
                                             className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
@@ -341,7 +341,7 @@ const Tasks = ({
                                             !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied') &&
                                             !j.assignments.every((a) => a.paidAt),
                                     ).length === 0 &&
-                                        (role === 'barn' && requestingJob && setRequestingJob ? (
+                                        (role === 'barn' && requestingJob !== undefined && setRequestingJob !== undefined ? (
                                             <div
                                                 onClick={() => setRequestingJob('creating')}
                                                 className='grid place-items-center text-center p-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
@@ -499,7 +499,12 @@ const Tasks = ({
                                 </div>
                             )}
                         </motion.div>
-                    ) : requestingJob !== null && role === 'barn' && requestingJob && setRequestingJob && selectedBraider && setSelectedBraider ? (
+                    ) : requestingJob !== null &&
+                      role === 'barn' &&
+                      requestingJob !== undefined &&
+                      setRequestingJob !== undefined &&
+                      selectedBraider !== undefined &&
+                      setSelectedBraider !== undefined ? (
                         <motion.div
                             key='requesting'
                             initial={{ x: 100, opacity: 0 }}
@@ -790,7 +795,7 @@ const JobCard = ({
     return (
         <div
             onClick={() => {
-                if (job.status === 'editing' && setRequestingJob) {
+                if (job.status === 'editing' && setRequestingJob !== undefined) {
                     setRequestingJob(job);
                 } else {
                     setSelectedJob(job);

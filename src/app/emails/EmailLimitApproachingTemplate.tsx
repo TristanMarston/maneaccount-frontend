@@ -54,6 +54,8 @@ export const ManeAccountLimitEmail = ({ count, limit, period, type, barnName }: 
                         <Hr style={hr} />
 
                         <Text style={footer}>
+                            You received this email because you enabled notifications for usage limits. You can disable these notifications in your dashboard settings.
+                            <br />
                             <Link href='https://maneaccount.com' style={linkStyle}>
                                 maneaccount.com
                             </Link>

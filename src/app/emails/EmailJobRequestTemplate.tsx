@@ -65,6 +65,8 @@ export const ManeAccountJobRequestEmail = ({ showName, barnName, braiderName, ho
                         <Hr style={hr} />
 
                         <Text style={footer}>
+                            You received this email because you enabled notifications for job requests. You can disable these notifications in your dashboard settings.
+                            <br />
                             <Link href='https://maneaccount.com' style={linkStyle}>
                                 maneaccount.com
                             </Link>

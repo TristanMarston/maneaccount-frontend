@@ -46,7 +46,8 @@ export const ManeAccountCalendarInviteEmail = ({ eventName, date, location, invi
                         <Hr style={hr} />
 
                         <Text style={footer}>
-                            You can accept or decline this invitation in your dashboard.
+                            You may accept or decline this invitation in your dashboard. You received this email because you enabled notifications for calendar invitations. You can
+                            disable these notifications in your dashboard settings.
                             <br />
                             <Link href='https://maneaccount.com' style={linkStyle}>
                                 maneaccount.com

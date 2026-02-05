@@ -203,7 +203,6 @@ const Tasks = ({
             await markAllTypeAsRead(NotificationType.job_request);
             await markAllTypeAsRead(NotificationType.job_status_change);
             await markAllTypeAsRead(NotificationType.job_completed);
-            await markAllTypeAsRead(NotificationType.job_paid);
             refreshCounts();
         };
 

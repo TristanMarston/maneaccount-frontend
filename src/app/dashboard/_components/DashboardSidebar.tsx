@@ -129,7 +129,6 @@ const DashboardSidebar = ({
                 (unreadCounts.byType[NotificationType.job_request] || 0) +
                 (unreadCounts.byType[NotificationType.job_status_change] || 0) +
                 (unreadCounts.byType[NotificationType.job_completed] || 0) +
-                (unreadCounts.byType[NotificationType.job_paid] || 0) +
                 (unreadCounts.byType[NotificationType.new_message] || 0)
             );
         }

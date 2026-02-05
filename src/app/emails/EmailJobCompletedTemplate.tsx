@@ -167,8 +167,8 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
                                     </Section>
                                 )}
                             </Section>
-                        ) : isClient && (
-                            <Text style={italic}>No payment information provided for {braiderName}. Please contact your barn to complete payment.</Text>
+                        ) : (
+                            isClient && <Text style={italic}>No payment information provided for {braiderName}. Please contact your barn to complete payment.</Text>
                         )}
 
                         <Button style={button} href='https://maneaccount.com/dashboard'>
@@ -178,9 +178,11 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
                         <Hr style={hr} />
 
                         <Text style={footer}>
-                            ManeAccount does not process payments. Payments are processed through the payment processor of your choice.
+                            ManeAccount does not process payments. Payments are processed through the payment processor of your choice. You received this email because you enabled
+                            notifications for job completions. You can disable these notifications in your dashboard settings.
+                            <br />
                             <Link href='https://maneaccount.com' style={linkStyle}>
-                                &nbsp;maneaccount.com
+                                maneaccount.com
                             </Link>
                         </Text>
                     </Section>

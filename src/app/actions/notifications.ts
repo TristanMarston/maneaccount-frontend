@@ -401,39 +401,6 @@ export async function createNotification(
                         }
                     }
                 }
-            } else if (type === NotificationType.job_paid && user.allowedNotifications.includes('job_paid')) {
-                if (targetId) {
-                    const job = await prisma.job.findUnique({
-                        where: { id: targetId },
-                        include: {
-                            show: true,
-                            barn: true,
-                            assignments: {
-                                include: {
-                                    services: true,
-                                },
-                            },
-                        },
-                    });
-
-                    if (job) {
-                        const { sendJobPaidEmail } = await import('@/lib/email');
-                        const paymentMethod = job.paymentPlatform || 'Unknown';
-                        const amount = job.assignments.reduce(
-                            (acc, a) => acc + (a.canceledAt ? 0 : a.services.reduce((sAcc, s) => sAcc + (a.canceledServiceIds.includes(s.id) ? 0 : s.priceUSD), 0)),
-                            0,
-                        );
-
-                        await sendJobPaidEmail({
-                            to: user.email,
-                            barnName: job.barn.name || 'Barn',
-                            amount,
-                            showName: job.show.name,
-                            paymentMethod,
-                            image: image || '',
-                        });
-                    }
-                }
             } else if (type === NotificationType.new_message && user.allowedNotifications.includes('new_message')) {
                 const { sendNewMessageEmail } = await import('@/lib/email');
                 let senderName = 'A user';

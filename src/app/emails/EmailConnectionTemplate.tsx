@@ -52,7 +52,8 @@ export const ManeAccountConnectionRequestEmail = ({ message, image }: ManeAccoun
                         <Hr style={hr} />
 
                         <Text style={footer}>
-                            If you do not know this person or do not wish to connect, you can safely ignore this email.
+                            If you do not know this person or do not wish to connect, you can safely ignore this email. You received this email because you enabled notifications for
+                            connection requests. You can disable these notifications in your dashboard settings.
                             <br />
                             <Link href='https://maneaccount.com' style={link}>
                                 maneaccount.com

@@ -24,6 +24,7 @@ import {
     Lock,
     KeyRound,
     Sparkles,
+    ArrowUpRight,
 } from 'lucide-react';
 import { Session } from 'next-auth';
 import React, { useState, useEffect, useRef, Fragment } from 'react';
@@ -43,7 +44,6 @@ enum NotificationType {
     job_request = 'job_request',
     job_status_change = 'job_status_change',
     job_completed = 'job_completed',
-    job_paid = 'job_paid',
     barn_invite = 'barn_invite',
     barn_status_change = 'barn_status_change',
     team_invite = 'team_invite',
@@ -782,35 +782,51 @@ const Settings = ({
                                                     </span>
 
                                                     <div className='grid grid-cols-1 gap-3 @min-[500px]/payments:grid-cols-2 @min-[500px]/payments:gap-4 ml-4'>
-                                                        {originalInfo.current.phoneNumber.length > 0 && (
-                                                            <div className='flex flex-col gap-2 w-full'>
-                                                                <div className='flex items-center gap-2'>
-                                                                    <label className='text-xs font-bold text-gray-500 uppercase'>Phone Number</label>
-                                                                    <button
-                                                                        type='button'
-                                                                        onClick={() => setZelle((prev) => (prev === 'phone' ? 'disabled' : 'phone'))}
-                                                                        className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
-                                                                            zelle === 'phone' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
-                                                                        }`}
-                                                                    >
-                                                                        <motion.div
-                                                                            className='h-3 w-3 rounded-full bg-white shadow-sm'
-                                                                            animate={{ x: zelle === 'phone' ? 16 : 0 }}
-                                                                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                                        />
-                                                                    </button>
-                                                                </div>
-
-                                                                <div
-                                                                    className={cn(
-                                                                        'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
-                                                                        zelleUpset.includes('phone') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : '',
-                                                                    )}
+                                                        <div className={cn('flex flex-col gap-2 w-full', originalInfo.current.phoneNumber.length > 0 ? '' : 'cursor-not-allowed')}>
+                                                            <div
+                                                                className={cn(
+                                                                    'flex items-center gap-2',
+                                                                    originalInfo.current.phoneNumber.length > 0 ? '' : 'pointer-events-none opacity-50',
+                                                                )}
+                                                            >
+                                                                <label className='text-xs font-bold text-gray-500 uppercase'>Phone Number</label>
+                                                                <button
+                                                                    type='button'
+                                                                    onClick={() => setZelle((prev) => (prev === 'phone' ? 'disabled' : 'phone'))}
+                                                                    className={`relative cursor-pointer flex items-center rounded-full p-1 transition-colors duration-200 h-5 w-9 ${
+                                                                        zelle === 'phone' ? 'bg-[#6c1cd3]' : 'bg-gray-300'
+                                                                    }`}
                                                                 >
-                                                                    {originalInfo.current.phoneNumber}
-                                                                </div>
+                                                                    <motion.div
+                                                                        className='h-3 w-3 rounded-full bg-white shadow-sm'
+                                                                        animate={{ x: zelle === 'phone' ? 16 : 0 }}
+                                                                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                                    />
+                                                                </button>
                                                             </div>
-                                                        )}
+
+                                                            <div
+                                                                onClick={() => {
+                                                                    if (originalInfo.current.phoneNumber.length === 0) {
+                                                                        setActiveTab('account');
+                                                                    }
+                                                                }}
+                                                                className={cn(
+                                                                    'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
+                                                                    zelleUpset.includes('phone') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : '',
+                                                                    originalInfo.current.phoneNumber.length > 0 ? '' : 'cursor-pointer',
+                                                                )}
+                                                            >
+                                                                {originalInfo.current.phoneNumber.length > 0 ? (
+                                                                    originalInfo.current.phoneNumber
+                                                                ) : (
+                                                                    <span className='flex items-center gap-1'>
+                                                                        Set phone number <ArrowUpRight className='w-4.5 h-4.5' />
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
                                                         <div className={cn('flex flex-col gap-2 w-full', originalInfo.current.phoneNumber.length > 0 ? 'col-span-1' : 'col-span-2')}>
                                                             <div className='flex items-center gap-2'>
                                                                 <label className='text-xs font-bold text-gray-500 uppercase'>Email</label>

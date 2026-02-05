@@ -40,6 +40,8 @@ export const ManeAccountNewMessageEmail = ({ senderName, message, showName, send
                         <Hr style={hr} />
 
                         <Text style={footer}>
+                            You received this email because you enabled notifications for messages. You can disable these notifications in your dashboard settings.
+                            <br />
                             <Link href='https://maneaccount.com' style={linkStyle}>
                                 maneaccount.com
                             </Link>

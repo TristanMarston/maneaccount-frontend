@@ -406,7 +406,7 @@ const Settings = ({
                         {propRole === 'braider' && <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />}
                         {propRole === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payout Methods' />}
                         <NavTab active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={Bell} label='Notifications' />
-                        <motion.div className={cn('flex flex-col gap-3', isDirty ? '' : 'pointer-events-none')} initial={{ opacity: 0.3 }} animate={{ opacity: isDirty ? 1 : 0.3 }}>
+                        <motion.div className={cn('flex mt-1 flex-col gap-3', isDirty ? '' : 'pointer-events-none')} initial={{ opacity: 0.3 }} animate={{ opacity: isDirty ? 1 : 0.3 }}>
                             <button
                                 onClick={() => {
                                     setName(originalInfo.current.name);

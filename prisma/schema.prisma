@@ -324,6 +324,7 @@ model JobAssignment {
   completedServiceIds String[] @default([])
   canceledServiceIds  String[] @default([])
   canceledAt          DateTime?
+  completedAt         DateTime?
   customCharges       CustomCharge[]
 
   paidAt              DateTime?

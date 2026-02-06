@@ -82,8 +82,9 @@ export async function getBraiderUsage(
             assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
                 [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
             assignment.completedServiceIds.length > 0 &&
-            assignment.updatedAt >= startDate &&
-            assignment.updatedAt <= endDate,
+            assignment.completedAt &&
+            assignment.completedAt >= startDate &&
+            assignment.completedAt <= endDate,
     ).length;
 
     // console.log(

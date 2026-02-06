@@ -149,9 +149,7 @@ const Tasks = ({
 
     useEffect(() => {
         const getUsages = async () => {
-            console.log('test');
             const res = await getBraiderUsageAction(userEmail, new Date().getTimezoneOffset());
-            console.log(res);
             if (res) setBraiderUsage(res);
         };
 

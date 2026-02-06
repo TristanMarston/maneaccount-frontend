@@ -245,16 +245,19 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
             successMessage = 'Marked as complete';
         }
 
+        const isComplete =
+            assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
+                [...new Set(completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length && completedServiceIds.length > 0;
+
         await prisma.jobAssignment.update({
             where: { id: assignmentId },
-            data: { completedServiceIds },
+            data: {
+                completedServiceIds,
+                completedAt: isComplete ? new Date() : null,
+            },
         });
 
-        if (
-            assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
-                [...new Set(completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
-            completedServiceIds.length > 0
-        ) {
+        if (isComplete) {
             const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date(), timezoneOffset);
 
             if (period !== 'unlimited') {
@@ -315,7 +318,16 @@ export async function markJobCompleted(jobId: string) {
     try {
         const job = await prisma.job.update({
             where: { id: jobId },
-            data: { status: 'completed', invoiceSentAt: new Date() },
+            data: {
+                status: 'completed',
+                invoiceSentAt: new Date(),
+                assignments: {
+                    updateMany: {
+                        where: { completedAt: null, canceledAt: null },
+                        data: { completedAt: new Date() },
+                    },
+                },
+            },
             include: { braider: true },
         });
 
@@ -577,10 +589,10 @@ export async function cancelAssignment(assignmentId: string) {
             data.canceledAt = null;
             data.canceledServiceIds = [];
         } else {
-            // Cancel
             data.status = 'canceled';
             data.canceledAt = new Date();
             data.completedServiceIds = [];
+            data.completedAt = null;
         }
 
         await prisma.jobAssignment.update({
@@ -601,7 +613,10 @@ export async function cancelAssignmentService(assignmentId: string, serviceId: s
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId } });
+        const assignment = await prisma.jobAssignment.findUnique({
+            where: { id: assignmentId },
+            include: { services: true },
+        });
         if (!assignment) return { error: 'Assignment not found' };
 
         let canceledServiceIds = assignment.canceledServiceIds || [];
@@ -627,9 +642,16 @@ export async function cancelAssignmentService(assignmentId: string, serviceId: s
             message = 'Service canceled';
         }
 
+        const isComplete =
+            assignment.services.filter((s) => !canceledServiceIds.includes(s.id)).length ===
+                [...new Set(assignment.completedServiceIds.filter((id) => !canceledServiceIds.includes(id)))].length && assignment.completedServiceIds.length > 0;
+
         await prisma.jobAssignment.update({
             where: { id: assignmentId },
-            data: { canceledServiceIds },
+            data: {
+                canceledServiceIds,
+                completedAt: isComplete ? new Date() : null,
+            },
         });
 
         revalidatePath('/dashboard');

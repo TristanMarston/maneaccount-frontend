@@ -63,7 +63,13 @@ export const DayAssignmentsModal = ({
                 <div>
                     <h3 className='text-3xl font-bold font-lusitana text-gray-900 truncate flex items-center gap-2'>{format(date, 'MMMM d, yyyy')}</h3>
                     <div className='flex items-center flex-wrap gap-1 mt-1 text-sm text-gray-500 font-figtree'>
-                        <span onClick={() => setViewingShow(job.show)} className='font-bold text-primary flex items-center gap-1 hover:text-primary-light transition-all cursor-pointer'>
+                        <span
+                            onClick={() => {
+                                onClose();
+                                setViewingShow({ ...job.show, isOwner: role === 'braider' });
+                            }}
+                            className='font-bold text-primary flex items-center gap-1 hover:text-primary-light transition-all cursor-pointer'
+                        >
                             <p>{job.show.name}</p>
                             <ArrowUpRight className='w-4 h-4' />
                         </span>

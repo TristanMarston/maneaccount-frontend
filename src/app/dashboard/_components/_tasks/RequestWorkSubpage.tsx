@@ -472,7 +472,7 @@ const RequestWorkSubpage = ({
                                             )}
                                         </AnimatePresence>
                                     ) : (
-                                        <div className='col-span-3 text-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl'>
+                                        <div className='col-span-3 px-5 text-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl'>
                                             No braiders connected. Please add a braider first.
                                         </div>
                                     )}
@@ -505,7 +505,7 @@ const RequestWorkSubpage = ({
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className='col-span-3 text-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl'>
+                                            <div className='col-span-3 px-5 text-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl'>
                                                 This braider has no upcoming shows listed.
                                             </div>
                                         )}

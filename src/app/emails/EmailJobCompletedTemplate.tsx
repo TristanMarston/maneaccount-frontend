@@ -159,7 +159,8 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
                                                     <span>{formatPhoneNumber(paymentInformation.zelle)}</span>
                                                 ) : (
                                                     <span>
-                                                        {paymentInformation.zelle.split('@')[0]}&zwnj;@{paymentInformation.zelle.split('@')[1]}
+                                                        {paymentInformation.zelle.split('@')[0]}&zwnj;@{paymentInformation.zelle.split('.')[0].split('@')[1]}&zwnj;.
+                                                        {paymentInformation.zelle.split('.')[1]}
                                                     </span>
                                                 )}
                                             </Text>

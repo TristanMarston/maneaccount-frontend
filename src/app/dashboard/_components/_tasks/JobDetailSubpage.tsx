@@ -23,6 +23,7 @@ import {
     Mail,
     Phone,
     DollarSign,
+    Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -44,7 +45,6 @@ import {
 } from '@/app/actions/jobs';
 import { getTeamMembers } from '@/app/actions/team';
 import { getIDByEmail } from '@/app/actions/join';
-import { addShowToCalendar } from '@/app/actions/calendar';
 import { successToast, failToast } from '@/app/context';
 import { getHorses } from '@/app/actions/horses';
 import Modal from '../../Modal';
@@ -139,7 +139,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                         disabled={loading || !note}
                         className='p-2.5 rounded-xl cursor-pointer shadow-sm bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:pointer-events-none transition-all font-bold'
                     >
-                        <Check size={18} />
+                        {loading ? <Loader size={18} className='animate-spin' /> : <Check size={18} />}
                     </button>
                 </div>
             </div>
@@ -360,6 +360,7 @@ export const JobDetailSubpage = ({
     const [invoiceLoading, setInvoiceLoading] = useState(false);
     const [exactTime, setExactTime] = useState(new Date());
     const [acceptAllLoading, setAcceptAllLoading] = useState(false);
+    const [loadingServiceIds, setLoadingServiceIds] = useState<{ horseId: string; id: string }[]>([]);
 
     useEffect(() => {
         const getContainerWidth = () => {
@@ -528,24 +529,24 @@ export const JobDetailSubpage = ({
 
     const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
         e.stopPropagation();
+        setJob((prev) => {
+            if (!prev) return prev;
+
+            return {
+                ...prev,
+                assignments: prev.assignments.map((assignment) => {
+                    if (assignment.id !== assignmentId) return assignment;
+
+                    const hasService = assignment.completedServiceIds.includes(serviceId);
+                    const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
+
+                    return { ...assignment, completedServiceIds: newServices };
+                }),
+            };
+        });
+
         const res = await toggleServiceCompletion(assignmentId, serviceId, new Date().getTimezoneOffset());
         if (res.success) {
-            setJob((prev) => {
-                if (!prev) return prev;
-
-                return {
-                    ...prev,
-                    assignments: prev.assignments.map((assignment) => {
-                        if (assignment.id !== assignmentId) return assignment;
-
-                        const hasService = assignment.completedServiceIds.includes(serviceId);
-                        const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
-
-                        return { ...assignment, completedServiceIds: newServices };
-                    }),
-                };
-            });
-
             refresh();
         } else {
             failToast('Failed to update');
@@ -1027,9 +1028,21 @@ export const JobDetailSubpage = ({
                                                                                                             <button
                                                                                                                 type='button'
                                                                                                                 disabled={!canEdit || assignment.canceledServiceIds.includes(service.id)}
-                                                                                                                onClick={(e) =>
-                                                                                                                    canEdit && handleToggleService(e, assignment.id, service.id)
-                                                                                                                }
+                                                                                                                onClick={async (e) => {
+                                                                                                                    if (canEdit) {
+                                                                                                                        setLoadingServiceIds((prev) => [
+                                                                                                                            ...prev,
+                                                                                                                            { horseId: assignment.horse.id, id: service.id },
+                                                                                                                        ]);
+                                                                                                                        await handleToggleService(e, assignment.id, service.id);
+                                                                                                                        setLoadingServiceIds((prev) =>
+                                                                                                                            prev.filter(
+                                                                                                                                ({ horseId, id }) =>
+                                                                                                                                    id !== service.id && horseId !== assignment.horse.id,
+                                                                                                                            ),
+                                                                                                                        );
+                                                                                                                    }
+                                                                                                                }}
                                                                                                                 className={cn(
                                                                                                                     'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed',
                                                                                                                     canEdit ? 'cursor-pointer hover:border-primary' : 'opacity-50',
@@ -1040,7 +1053,20 @@ export const JobDetailSubpage = ({
                                                                                                                         'opacity-50 cursor-not-allowed hover:border-gray-300',
                                                                                                                 )}
                                                                                                             >
-                                                                                                                {isCompleted && <CheckSquare size={14} strokeWidth={3} />}
+                                                                                                                {isCompleted ? (
+                                                                                                                    <CheckSquare size={14} strokeWidth={3} />
+                                                                                                                ) : loadingServiceIds.some(
+                                                                                                                      ({ horseId, id }) =>
+                                                                                                                          id === service.id && horseId === assignment.horse.id,
+                                                                                                                  ) ? (
+                                                                                                                    <Loader
+                                                                                                                        size={14}
+                                                                                                                        strokeWidth={3}
+                                                                                                                        className='animate-spin text-primary'
+                                                                                                                    />
+                                                                                                                ) : (
+                                                                                                                    <></>
+                                                                                                                )}
                                                                                                             </button>
                                                                                                         ) : (
                                                                                                             isCompleted && <CheckCircle2 size={16} className='text-primary' />

@@ -614,7 +614,7 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
                                                     className={cn(
                                                         'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer hover:border-primary disabled:cursor-not-allowed',
                                                         group.isPaid ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300 text-white',
-                                                        loadingClient && !group.isPaid ? 'text-primary' : '',
+                                                        loadingClient === group.id && !group.isPaid ? 'text-primary' : '',
                                                     )}
                                                 >
                                                     {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin' /> : <CheckSquare size={14} strokeWidth={3} />}

@@ -524,7 +524,14 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     </div>
                 </header>
 
-                <div className='flex-1 bg-white h-[calc(100%-146px)] @min-[400px]/calendar:h-[calc(100%-116px)] @min-[550px]/calendar:h-[calc(100%-64px)] rounded-3xl border border-gray-100 shadow-sm overflow-hidden relative'>
+                <div
+                    className={cn(
+                        'flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden relative',
+                        view === 'list'
+                            ? 'h-[calc(100%-116px)] @min-[550px]/calendar:h-[calc(100%-64px)]'
+                            : 'h-[calc(100%-146px)] @min-[400px]/calendar:h-[calc(100%-116px)] @min-[550px]/calendar:h-[calc(100%-64px)]',
+                    )}
+                >
                     {loading ? (
                         <div className='absolute inset-0 flex items-center justify-center'>
                             <span className='loader-primary'></span>

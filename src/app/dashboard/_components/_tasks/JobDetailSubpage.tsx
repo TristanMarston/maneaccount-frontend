@@ -360,7 +360,7 @@ export const JobDetailSubpage = ({
     const [invoiceLoading, setInvoiceLoading] = useState(false);
     const [exactTime, setExactTime] = useState(new Date());
     const [acceptAllLoading, setAcceptAllLoading] = useState(false);
-    const [loadingServiceIds, setLoadingServiceIds] = useState<{ horseId: string; id: string }[]>([]);
+    const [loadingServiceIds, setLoadingServiceIds] = useState<{ horseId: string; date: string; id: string }[]>([]);
 
     useEffect(() => {
         const getContainerWidth = () => {
@@ -463,19 +463,6 @@ export const JobDetailSubpage = ({
         }
     };
 
-    const handleSendInvoice = async () => {
-        setInvoiceLoading(true);
-        const res = await markJobCompleted(job.id);
-        if (res.success) {
-            successToast('Invoice sent to client(s)');
-            setInvoiceModalOpen(false);
-            refresh();
-        } else {
-            failToast(res.error || 'Failed to send invoice');
-        }
-        setInvoiceLoading(false);
-    };
-
     const handleCancelAssignment = async (assignmentId: string) => {
         const res = await cancelAssignment(assignmentId);
         if (res.success) {
@@ -529,21 +516,21 @@ export const JobDetailSubpage = ({
 
     const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
         e.stopPropagation();
-        setJob((prev) => {
-            if (!prev) return prev;
+        // setJob((prev) => {
+        //     if (!prev) return prev;
 
-            return {
-                ...prev,
-                assignments: prev.assignments.map((assignment) => {
-                    if (assignment.id !== assignmentId) return assignment;
+        //     return {
+        //         ...prev,
+        //         assignments: prev.assignments.map((assignment) => {
+        //             if (assignment.id !== assignmentId) return assignment;
 
-                    const hasService = assignment.completedServiceIds.includes(serviceId);
-                    const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
+        //             const hasService = assignment.completedServiceIds.includes(serviceId);
+        //             const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
 
-                    return { ...assignment, completedServiceIds: newServices };
-                }),
-            };
-        });
+        //             return { ...assignment, completedServiceIds: newServices };
+        //         }),
+        //     };
+        // });
 
         const res = await toggleServiceCompletion(assignmentId, serviceId, new Date().getTimezoneOffset());
         if (res.success) {
@@ -1032,13 +1019,19 @@ export const JobDetailSubpage = ({
                                                                                                                     if (canEdit) {
                                                                                                                         setLoadingServiceIds((prev) => [
                                                                                                                             ...prev,
-                                                                                                                            { horseId: assignment.horse.id, id: service.id },
+                                                                                                                            {
+                                                                                                                                horseId: assignment.horse.id,
+                                                                                                                                date: dateKey,
+                                                                                                                                id: service.id,
+                                                                                                                            },
                                                                                                                         ]);
                                                                                                                         await handleToggleService(e, assignment.id, service.id);
                                                                                                                         setLoadingServiceIds((prev) =>
                                                                                                                             prev.filter(
-                                                                                                                                ({ horseId, id }) =>
-                                                                                                                                    id !== service.id && horseId !== assignment.horse.id,
+                                                                                                                                ({ horseId, date, id }) =>
+                                                                                                                                    id !== service.id &&
+                                                                                                                                    dateKey !== date &&
+                                                                                                                                    horseId !== assignment.horse.id,
                                                                                                                             ),
                                                                                                                         );
                                                                                                                     }
@@ -1056,8 +1049,10 @@ export const JobDetailSubpage = ({
                                                                                                                 {isCompleted ? (
                                                                                                                     <CheckSquare size={14} strokeWidth={3} />
                                                                                                                 ) : loadingServiceIds.some(
-                                                                                                                      ({ horseId, id }) =>
-                                                                                                                          id === service.id && horseId === assignment.horse.id,
+                                                                                                                      ({ horseId, date, id }) =>
+                                                                                                                          id === service.id &&
+                                                                                                                          dateKey === date &&
+                                                                                                                          horseId === assignment.horse.id,
                                                                                                                   ) ? (
                                                                                                                     <Loader
                                                                                                                         size={14}

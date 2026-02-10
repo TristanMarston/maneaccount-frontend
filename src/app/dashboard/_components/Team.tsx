@@ -469,6 +469,7 @@ type InviteUserInfo = {
     name: string;
     image: string;
     publicID: string;
+    tier?: 'starter' | 'professional' | 'enterprise';
 };
 
 const InviteModal = ({
@@ -523,7 +524,6 @@ const InviteModal = ({
         try {
             const user = await getUserByPublicID(invitePublicID);
 
-            // If a newer request has been made, ignore this response
             if (invitePublicID !== lastRequestValue.current) return;
 
             if (!user || user.error || publicID === invitePublicID) {
@@ -531,8 +531,8 @@ const InviteModal = ({
                 setInvitedUser({ name: '', image: '', publicID: '' });
                 return;
             } else if (user.user?.publicID === invitePublicID && user.user.role.toLowerCase() !== role.toLowerCase() && user.user.role.toLowerCase() !== 'barn') {
-                const { name, image } = user.user;
-                setInvitedUser({ publicID: user.user.publicID, name: name || '', image: image || '' });
+                const { name, image, subscriptionTier, role } = user.user;
+                setInvitedUser({ publicID: user.user.publicID, name: name || '', image: image || '', tier: (role === 'braider' ? subscriptionTier : undefined) || undefined });
                 setLoadingUser('success');
             } else {
                 setLoadingUser('fail');
@@ -647,7 +647,7 @@ const InviteModal = ({
                                     <input
                                         className={cn(
                                             'w-full outline-none font-figtree shadow-sm border border-gray-200 pl-8 pr-4 pt-[7px] pb-[9px] rounded-xl focus:border-primary transition-colors',
-                                            loadingUser === 'fail'
+                                            loadingUser === 'fail' || invitedUser.tier === 'starter'
                                                 ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
                                                 : loadingUser === 'success'
                                                   ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
@@ -665,9 +665,9 @@ const InviteModal = ({
                                     <div className='absolute right-4 top-1/2 -translate-y-1/2'>
                                         {loadingUser === 'loading' ? (
                                             <Loader2 size={18} className='animate-spin text-gray-400' />
-                                        ) : loadingUser === 'success' ? (
+                                        ) : loadingUser === 'success' && (!invitedUser.tier || invitedUser.tier !== 'starter') ? (
                                             <Check size={18} className='text-green-500' />
-                                        ) : loadingUser === 'fail' ? (
+                                        ) : loadingUser === 'fail' || invitedUser.tier === 'starter' ? (
                                             <X size={18} className='text-red-500' />
                                         ) : null}
                                     </div>
@@ -687,7 +687,11 @@ const InviteModal = ({
                                             <div className=''>
                                                 <h4 className='font-figtree text-xl font-bold truncate'>{invitedUser.name}</h4>
                                                 <h4 className='font-figtree text-xs font-semibold text-gray-600 truncate'>
-                                                    {role === 'braider' ? 'Add as a subcontractor' : 'Add as a braider'}
+                                                    {invitedUser.tier === 'starter'
+                                                        ? 'Braider cannot add subcontractors'
+                                                        : role === 'braider'
+                                                          ? 'Add as a subcontractor'
+                                                          : 'Add as a braider'}
                                                 </h4>
                                             </div>
                                         </motion.div>
@@ -704,7 +708,7 @@ const InviteModal = ({
                                     </button>
                                     <button
                                         type='submit'
-                                        disabled={!inviteInput || loading || invitedUser.name.length === 0}
+                                        disabled={!inviteInput || loading || invitedUser.name.length === 0 || invitedUser.tier === 'starter'}
                                         className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                                     >
                                         {loading ? 'Sending...' : 'Send Invite'}

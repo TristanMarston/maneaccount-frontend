@@ -513,8 +513,8 @@ const Notification = ({
                                     ? 'Barns'
                                     : notification.type.startsWith('team')
                                       ? 'Team'
-                                      : notification.type === 'new_message'
-                                        ? 'Messages'
+                                      : notification.type.startsWith('new_message')
+                                        ? 'Tasks'
                                         : '',
                         );
                     } else if (role === 'barn') {
@@ -527,8 +527,8 @@ const Notification = ({
                                     ? 'Braiders'
                                     : notification.type.startsWith('team')
                                       ? 'Team'
-                                      : notification.type === 'new_message'
-                                        ? 'Messages'
+                                      : notification.type.startsWith('new_message')
+                                        ? 'Services'
                                         : '',
                         );
                     }

@@ -13,15 +13,15 @@ const Solutions = () => {
     const contentMap = {
         braiders: {
             alt: 'Dashboard view for Braiders showing schedule and income',
-            src: 'https://placehold.co/1200x675/png?text=Braider+Dashboard+View',
+            src: '/braider-dashboard.png',
         },
         subcontractors: {
             alt: 'Mobile view for Subcontractors showing assigned horses',
-            src: 'https://placehold.co/1200x675/png?text=Subcontractor+Mobile+List',
+            src: '/subcontractor-photo.png',
         },
         barns: {
             alt: 'Desktop view for Horse Barns showing horse lists',
-            src: 'https://placehold.co/1200x675/png?text=Barn+Dashboard+View',
+            src: '/barn-photo.png',
         },
     };
 

@@ -378,7 +378,7 @@ const Tasks = ({
                                                 refresh={refreshJobs}
                                                 setSelectedPage={setSelectedPage}
                                                 setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                                unreadCount={unreadCounts.byType.new_message}
+                                                unreadCount={unreadCounts.byType[`new_message_${job.id}`]}
                                                 setRequestingJob={setRequestingJob}
                                             />
                                         ))}
@@ -432,7 +432,7 @@ const Tasks = ({
                                                                     refresh={refreshJobs}
                                                                     setSelectedPage={setSelectedPage}
                                                                     setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                                                    unreadCount={unreadCounts.byType.new_message}
+                                                                    unreadCount={unreadCounts.byType[`new_message_${job.id}`]}
                                                                 />
                                                             ))}
                                                     </motion.div>
@@ -487,7 +487,7 @@ const Tasks = ({
                                                                     refresh={refreshJobs}
                                                                     setSelectedPage={setSelectedPage}
                                                                     setCheckMarkedCompleted={setCheckMarkedCompleted}
-                                                                    unreadCount={unreadCounts.byType.new_message}
+                                                                    unreadCount={unreadCounts.byType[`new_message_${job.id}`]}
                                                                 />
                                                             ))}
                                                     </motion.div>

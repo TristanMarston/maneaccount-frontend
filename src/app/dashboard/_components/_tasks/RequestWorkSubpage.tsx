@@ -36,7 +36,10 @@ const RequestWorkSubpage = ({
     setSelectedBraider: React.Dispatch<React.SetStateAction<any | null>>;
 }) => {
     const isEditing = initialJob !== 'creating';
-    if (selectedBraider === null && isEditing) setSelectedBraider((initialJob as Job).braider);
+
+    useEffect(() => {
+        if (selectedBraider === null && isEditing) setSelectedBraider((initialJob as Job).braider);
+    }, [initialJob, selectedBraider, setSelectedBraider]);
 
     const [braiders, setBraiders] = useState<any[]>([]);
     const [shows, setShows] = useState<any[]>([]);
@@ -398,8 +401,12 @@ const RequestWorkSubpage = ({
                         )}
                         <div className='flex items-center gap-2 w-full @min-[475px]/request-page:w-auto'>
                             <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
-                                <div className='w-5 h-5 rounded-full bg-gray-100 overflow-hidden relative shrink-0'>
-                                    <Image src={selectedBraider.image || ''} alt={selectedBraider.name} fill className='object-cover' />
+                                <div className='w-5 h-5 rounded-full bg-gray-100 overflow-hidden flex justify-center items-center relative shrink-0'>
+                                    {selectedBraider.image && selectedBraider.image.length > 0 ? (
+                                        <Image src={selectedBraider.image || ''} alt={selectedBraider.name} fill className='object-cover' />
+                                    ) : (
+                                        <User className='p-[3px] text-gray-400' />
+                                    )}
                                 </div>
                                 <span className='font-bold text-sm text-gray-900'>{selectedBraider.name}</span>
                             </div>

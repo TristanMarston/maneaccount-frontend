@@ -284,7 +284,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
 
                                         {client.horses && client.horses.length > 0 ? (
                                             <div className='grid grid-cols-1 @min-[825px]/horses:grid-cols-2 @min-[1250px]/horses:grid-cols-3 gap-6'>
-                                                {client.horses.map((horse) => (
+                                                {client.horses.sort((a, b) => a.barnName.localeCompare(b.barnName)).map((horse) => (
                                                     <HorseCard
                                                         key={horse.id}
                                                         horse={horse}

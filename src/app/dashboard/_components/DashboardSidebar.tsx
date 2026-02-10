@@ -129,7 +129,7 @@ const DashboardSidebar = ({
                 (unreadCounts.byType[NotificationType.job_request] || 0) +
                 (unreadCounts.byType[NotificationType.job_status_change] || 0) +
                 (unreadCounts.byType[NotificationType.job_completed] || 0) +
-                (unreadCounts.byType[NotificationType.new_message] || 0)
+                (Object.keys(unreadCounts.byType).reduce((acc, notifKey) => acc + (notifKey.startsWith('new_message') ? unreadCounts.byType[notifKey] : 0), 0) || 0)
             );
         }
         if (page.title === 'Team') {

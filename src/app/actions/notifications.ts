@@ -32,7 +32,7 @@ export async function getUnreadNotificationCount() {
 
     try {
         const counts = await prisma.notification.groupBy({
-            by: ['type'],
+            by: ['type', 'targetId'],
             where: {
                 user: { email: session.user.email },
                 isRead: false,
@@ -42,12 +42,24 @@ export async function getUnreadNotificationCount() {
             },
         });
 
-        const byType = counts.reduce((acc: any, curr) => {
-            acc[curr.type] = curr._count._all;
-            return acc;
+        const byType = await counts.reduce(async (acc: any, curr) => {
+            if (curr.type === NotificationType.new_message) {
+                const note = await prisma.note.findUnique({
+                    where: { id: curr.targetId || '' },
+                    select: { jobId: true },
+                });
+                if (!note) return acc;
+                acc[`${curr.type}_${note.jobId}`] = curr._count._all;
+                return acc;
+            } else {
+                acc[curr.type] = curr._count._all;
+                return acc;
+            }
         }, {});
 
         const total = counts.reduce((acc, curr) => acc + curr._count._all, 0);
+
+        console.log(byType);
 
         return { total, byType };
     } catch (error) {

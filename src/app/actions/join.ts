@@ -95,6 +95,7 @@ export async function establishConnection(email: string) {
             select: {
                 id: true,
                 role: true,
+                subscriptionTier: true,
             },
         });
 
@@ -110,8 +111,17 @@ export async function establishConnection(email: string) {
                 select: {
                     id: true,
                     role: true,
+                    subscriptionTier: true,
                 },
             });
+
+            if (!targetUser) return { error: 'No target user found' };
+
+            if (
+                (dbUser.role === 'braider' && targetUser.role === 'subcontractor' && dbUser.subscriptionTier === 'starter') ||
+                (dbUser.role === 'subcontractor' && targetUser.role === 'braider' && targetUser.subscriptionTier === 'starter')
+            )
+                return { error: 'Braider must have professional or enterprise subscription to connect with subcontractors' };
 
             if (targetUser && dbUser && targetUser.id !== dbUser.id) {
                 const existing = await getConnection(dbUser.id, targetUser.id);

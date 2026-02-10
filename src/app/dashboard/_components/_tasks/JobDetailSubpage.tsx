@@ -213,7 +213,7 @@ const SelectSubcontractorDropdown = ({
                     disabled || completed ? 'opacity-50 cursor-not-allowed hover:border-gray-200' : '',
                 )}
             >
-                <div className='flex items-center gap-2 text-sm min-w-0'>
+                <div className={cn('flex items-center gap-2 text-sm min-w-0', disabled || completed ? 'pointer-events-none' : '')}>
                     <div className='min-w-5 h-5 rounded-full bg-primary-extra-light flex items-center justify-center overflow-hidden border border-primary/15'>
                         {loading ? (
                             <Loader size={12} className='text-primary-light animate-spin' />
@@ -233,7 +233,7 @@ const SelectSubcontractorDropdown = ({
                         {value ? selectedMember?.name || 'Unknown' : 'Myself'}
                     </span>
                 </div>
-                <ChevronDown size={16} className={`text-primary-light transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={16} className={cn('text-primary-light transition-transform', isOpen ? 'rotate-180' : '', disabled || completed ? 'pointer-events-none' : '')} />
             </button>
 
             <AnimatePresence>

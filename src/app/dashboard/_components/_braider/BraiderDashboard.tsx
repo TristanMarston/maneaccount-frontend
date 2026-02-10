@@ -128,7 +128,7 @@ const BraiderDashboard = ({
                     />
                 );
             case 'Barns':
-                return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
+                return <Relations userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} canInviteSubcontractors={subscription?.subscriptionTier !== 'starter'} />;
             case 'Invoices':
                 return (
                     <Invoices

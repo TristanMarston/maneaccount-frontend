@@ -508,15 +508,27 @@ const InviteModal = ({
         successToast('Link copied to clipboard');
     };
 
+    const lastRequestValue = useRef('');
+
     const getUser = async (invitePublicID: string) => {
-        setLoadingUser('loading');
-        if (inviteInput.length < 3) {
+        lastRequestValue.current = invitePublicID;
+
+        if (invitePublicID.length < 3) {
             setLoadingUser('inactive');
+            setInvitedUser({ name: '', image: '', publicID: '' });
             return;
-        } else {
+        }
+
+        setLoadingUser('loading');
+        try {
             const user = await getUserByPublicID(invitePublicID);
+
+            // If a newer request has been made, ignore this response
+            if (invitePublicID !== lastRequestValue.current) return;
+
             if (!user || user.error || publicID === invitePublicID) {
                 setLoadingUser('fail');
+                setInvitedUser({ name: '', image: '', publicID: '' });
                 return;
             } else if (user.user?.publicID === invitePublicID && user.user.role.toLowerCase() !== role.toLowerCase() && user.user.role.toLowerCase() !== 'barn') {
                 const { name, image } = user.user;
@@ -524,6 +536,12 @@ const InviteModal = ({
                 setLoadingUser('success');
             } else {
                 setLoadingUser('fail');
+                setInvitedUser({ name: '', image: '', publicID: '' });
+            }
+        } catch (error) {
+            if (invitePublicID === lastRequestValue.current) {
+                setLoadingUser('fail');
+                setInvitedUser({ name: '', image: '', publicID: '' });
             }
         }
     };
@@ -638,7 +656,6 @@ const InviteModal = ({
                                         name='invite'
                                         value={inviteInput}
                                         onChange={(e) => {
-                                            setLoadingUser('loading');
                                             setInviteInput(e.target.value);
                                             getUser(e.target.value);
                                         }}

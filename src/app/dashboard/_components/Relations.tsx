@@ -39,12 +39,14 @@ const Relations = ({
     userPublicID,
     setSelectedPage,
     selectBraider,
+    canInviteSubcontractors,
 }: {
     userEmail: string;
     role: string;
     userPublicID: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
     selectBraider?: (braider: any) => void;
+    canInviteSubcontractors?: boolean;
 }) => {
     const [members, setMembers] = useState<RelationMember[]>([]);
     const [pending, setPending] = useState<{ incoming: PendingRelation[]; outgoing: PendingRelation[] }>({ incoming: [], outgoing: [] });
@@ -284,7 +286,7 @@ const Relations = ({
                                 Send your first invite
                             </button>
                         </div>
-                        {targetLabel === 'Barn' && (
+                        {targetLabel === 'Barn' && canInviteSubcontractors && (
                             <div
                                 onClick={() => setSelectedPage('Team')}
                                 className='flex gap-2 w-fit items-start text-primary font-figtree py-2 px-4 rounded-full hover:bg-primary-extra-light cursor-pointer transition-all'
@@ -499,15 +501,26 @@ const InviteModal = ({
         successToast('Link copied');
     };
 
+    const lastRequestValue = useRef('');
+
     const getUser = async (val: string) => {
-        setLoadingUser('loading');
-        if (inviteInput.length < 3) {
+        lastRequestValue.current = val;
+
+        if (val.length < 3) {
             setLoadingUser('inactive');
+            setInvitedUser({ name: '', image: '', publicID: '' });
             return;
-        } else {
+        }
+
+        setLoadingUser('loading');
+        try {
             const res = await getRelationByPublicID(val);
+
+            if (val !== lastRequestValue.current) return;
             if (!res || res.error || val === publicID) {
+                console.log('failed not yet');
                 setLoadingUser('fail');
+                setInvitedUser({ name: '', image: '', publicID: '' });
             } else {
                 const foundRole = res.user?.role;
                 const isValid = (role.toLowerCase() === 'braider' && foundRole === 'barn') || (role.toLowerCase() === 'barn' && foundRole === 'braider');
@@ -516,8 +529,15 @@ const InviteModal = ({
                     setInvitedUser({ name: res.user?.name || '', image: res.user?.image || '', publicID: res.user?.publicID || '' });
                     setLoadingUser('success');
                 } else {
+                    console.log('failed invalid');
                     setLoadingUser('fail');
+                    setInvitedUser({ name: '', image: '', publicID: '' });
                 }
+            }
+        } catch (error) {
+            if (val === lastRequestValue.current) {
+                setLoadingUser('fail');
+                setInvitedUser({ name: '', image: '', publicID: '' });
             }
         }
     };
@@ -634,7 +654,6 @@ const InviteModal = ({
                                         name='invite'
                                         value={inviteInput}
                                         onChange={(e) => {
-                                            setLoadingUser('loading');
                                             setInviteInput(e.target.value);
                                             getUser(e.target.value);
                                         }}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createPortal } from 'react-dom';
 import { X, Calendar as CalendarIcon, Check, Loader2, CircleAlert, Link as LinkIcon } from 'lucide-react';
@@ -11,6 +11,7 @@ import { failToast, successToast } from '@/app/context';
 import Image from 'next/image';
 import Modal from '../../Modal';
 import { signIn } from 'next-auth/react';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
 const CalendarIntegrationModal = ({
     isOpen,
@@ -31,6 +32,8 @@ const CalendarIntegrationModal = ({
     const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [appleWarningHover, setAppleWarningHover] = useState(false);
     const [googleAuthState, setGoogleAuthState] = useState<'idle' | 'require_connect' | 'require_reconnect'>('idle');
+    const warningRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(warningRef, [], () => setAppleWarningHover(false));
 
     const handleGoogleClick = async () => {
         if (googleAuthState === 'require_connect' || googleAuthState === 'require_reconnect') {
@@ -191,7 +194,12 @@ const CalendarIntegrationModal = ({
                     <div
                         onMouseOver={() => setAppleWarningHover(true)}
                         onMouseLeave={() => setAppleWarningHover(false)}
-                        className='absolute -left-2 -top-2 bg-white rounded-full xs:left-4 xs:top-1/2 xs:-translate-y-1/2 cursor-default'
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setAppleWarningHover((prev) => !prev);
+                        }}
+                        ref={warningRef}
+                        className='absolute -left-2 -top-2 bg-white rounded-full xs:left-4 xs:top-1/2 xs:-translate-y-1/2'
                     >
                         <CircleAlert className='w-5.5 h-5.5 text-red-400' />
                         <AnimatePresence>

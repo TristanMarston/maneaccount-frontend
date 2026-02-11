@@ -2,9 +2,9 @@
 
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
+import { deleteGoogleCalendarEvent, updateGoogleCalendarEvent } from './google-calendar';
 import { NotificationType } from '@prisma/client';
 import { normalizeDateToUTC, getLocalTodayStart } from '@/lib/date-utils';
 
@@ -15,97 +15,8 @@ type CreateShowInput = {
     city: string;
     startDate: Date;
     endDate: Date;
-
     invites?: string[];
 };
-
-// export async function syncToGoogleCalendar(userId: string, show: any, days: any[]) {
-//     try {
-//         // 1. Get the user's Google Account tokens
-//         const account = await prisma.account.findFirst({
-//             where: {
-//                 userId: userId,
-//                 provider: 'google',
-//             },
-//         });
-//
-//         if (!account || !account.access_token) {
-//             console.log('No linked Google account found for calendar sync.');
-//             return;
-//         }
-//
-//         // 2. Setup Google OAuth Client
-//         const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-//
-//         auth.setCredentials({
-//             access_token: account.access_token,
-//             refresh_token: account.refresh_token,
-//             // If expiry is stored as Int (seconds) or BigInt, convert if necessary.
-//             // Prisma 'expires_at' is usually Int (seconds since epoch or seconds duration).
-//             // Google expects expiry_date in ms.
-//             expiry_date: account.expires_at ? account.expires_at * 1000 : undefined,
-//         });
-//
-//         const calendar = google.calendar({ version: 'v3', auth });
-//
-//         // 3. Iterate through days and create events
-//         for (const day of days) {
-//             // Construct DateTimes for Google (ISO format)
-//             // day.date is the base date, startTime is "HH:mm"
-//
-//             // Helper to combine date + time string into ISO string
-//             const startDateTime = combineDateAndTime(day.date, day.startTime);
-//             const endDateTime = combineDateAndTime(day.date, day.endTime);
-//
-//             const event = {
-//                 summary: `Braiding: ${show.name}`,
-//                 location: `${show.city}, ${show.state || ''}, ${show.country}`,
-//                 description: 'Show schedule managed by ManeAccount',
-//                 start: {
-//                     dateTime: startDateTime,
-//                     timeZone: 'UTC', // Ideally, you'd capture the show's specific timezone
-//                 },
-//                 end: {
-//                     dateTime: endDateTime,
-//                     timeZone: 'UTC',
-//                 },
-//             };
-//
-//             // 4. Insert Event
-//             const response = await calendar.events.insert({
-//                 calendarId: 'primary', // Use the user's main calendar
-//                 requestBody: event,
-//             });
-//
-//             // 5. Save Google Event ID locally (so we can update/delete later)
-//             if (response.data.id) {
-//                 await prisma.showDay.update({
-//                     where: { id: day.id },
-//                     data: { googleEventId: response.data.id },
-//                 });
-//             }
-//         }
-//     } catch (error) {
-//         console.error('Google Calendar Sync Failed:', error);
-//     }
-// }
-
-function combineDateAndTime(dateObj: Date, timeStr: string) {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const newDate = new Date(dateObj);
-    newDate.setUTCHours(hours, minutes, 0, 0);
-    return newDate.toISOString();
-}
-
-async function syncToOutlookCalendar(show: any) {
-    // TODO: Implement Microsoft Graph API
-    console.log('Syncing to Outlook:', show.name);
-}
-
-async function syncToAppleCalendar(show: any) {
-    // TODO: Generate .ics file or use CalDAV
-    console.log('Syncing to Apple:', show.name);
-}
 
 export async function createShow(data: CreateShowInput) {
     const session = await auth();
@@ -340,6 +251,8 @@ export async function getShows(email: string) {
             inviteId: invite.id,
             inviterName: invite.show.user.name,
             addedToAppleCalendar: invite.addedToAppleCalendar,
+            addedToGoogleCalendar: invite.addedToGoogleCalendar,
+            googleEventId: invite.googleEventId,
         }));
 
         const allShows = [...ownedShows, ...invitedShows].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
@@ -406,10 +319,11 @@ export async function updateShow(id: string, data: CreateShowInput) {
             });
         });
 
-        // Notify new invitees
         for (const inviteeId of toAdd) {
             await createNotification(inviteeId, NotificationType.calendar_invite, `${existingShow.user.name} invited you to ${data.name}`, id, existingShow.userId);
         }
+
+        await updateGoogleCalendarEvent(id);
 
         revalidatePath('/dashboard');
         return { success: true, show: updatedShow };
@@ -426,6 +340,7 @@ export async function deleteShow(id: string) {
     try {
         const show = await prisma.show.findUnique({ where: { id }, include: { user: true } });
         if (show && show.user.email === session.user.email) {
+            await deleteGoogleCalendarEvent(id);
             await prisma.show.delete({
                 where: { id },
             });
@@ -442,6 +357,7 @@ export async function deleteShow(id: string) {
         });
 
         if (invite) {
+            await deleteGoogleCalendarEvent(id);
             await prisma.showInvite.delete({ where: { id: invite.id } });
             revalidatePath('/dashboard');
             return { success: true };
@@ -470,15 +386,22 @@ export async function respondToShowInvite(showId: string, status: 'accepted' | '
 
         if (status === 'declined') {
             await prisma.showInvite.delete({ where: { id: invite.id } });
+            revalidatePath('/dashboard');
+            return { success: true };
         } else {
             await prisma.showInvite.update({
                 where: { id: invite.id },
                 data: { status },
             });
-        }
 
-        revalidatePath('/dashboard');
-        return { success: true };
+            const show = await prisma.show.findUnique({
+                where: { id: showId },
+                select: { name: true },
+            });
+
+            revalidatePath('/dashboard');
+            return { success: true, showName: show?.name || 'Show', googleSynced: false, appleSynced: false };
+        }
     } catch (error) {
         console.error('Respond invite error:', error);
         return { error: 'Failed to respond to invite' };

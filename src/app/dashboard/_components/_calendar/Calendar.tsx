@@ -57,6 +57,7 @@ import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { DayAssignmentsModal } from './DayAssignmentsModal';
 import { getFullDashboardData } from '@/app/actions/dashboard';
+import CalendarIntegrationModal from './CalendarIntegrationModal';
 
 type CalendarViewType = 'month' | 'week' | 'list';
 
@@ -77,6 +78,8 @@ export interface Show {
     inviterName?: string | null;
     inviteId?: string;
     addedToAppleCalendar?: boolean;
+    addedToGoogleCalendar?: boolean;
+    googleEventId?: string | null;
 }
 
 const ShowDetailsModal = ({
@@ -87,6 +90,7 @@ const ShowDetailsModal = ({
     handleInviteResponse,
     showDetailsRef,
     role,
+    onSyncClick,
 }: {
     show: Show;
     onClose: () => void;
@@ -95,6 +99,7 @@ const ShowDetailsModal = ({
     handleInviteResponse: (showId: string, status: 'accepted' | 'declined') => void;
     showDetailsRef?: React.RefObject<HTMLDivElement | null>;
     role: string;
+    onSyncClick?: (show: Show) => void;
 }) => {
     const modalRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(modalRef, [], () => onClose());
@@ -218,35 +223,59 @@ const ShowDetailsModal = ({
                                     </div>
                                 </div>
                             )}
-                            <div className='flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm'>
-                                <button
-                                    onClick={async () => {
-                                        const res = await generateShowICS(show.id);
-                                        if (res.success && res.icsData) {
-                                            const blob = new Blob([res.icsData], { type: 'text/calendar;charset=utf-8' });
-                                            const url = window.URL.createObjectURL(blob);
-                                            const a = document.createElement('a');
-                                            a.href = url;
-                                            a.download = res.filename || 'show.ics';
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            document.body.removeChild(a);
-                                            successToast('Downloaded Apple Calendar file');
+                            <div className='bg-gray-200 w-full h-px my-3 rounded-full' />
+                            <div className=''>
+                                {show.addedToGoogleCalendar || show.addedToAppleCalendar ? (
+                                    <div className='flex flex-col gap-2'>
+                                        {show.addedToGoogleCalendar && (
+                                            <div className='flex items-center gap-2.5 px-3 py-2 bg-primary-extra-light/50 text-primary border border-primary/10 rounded-lg text-sm font-bold'>
+                                                <Image
+                                                    src='https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg'
+                                                    alt='Google Calendar'
+                                                    width={32}
+                                                    height={32}
+                                                    className='shadow-xs shadow-primary rounded-lg'
+                                                />
+                                                Synced with Google Calendar
+                                            </div>
+                                        )}
+                                        {show.addedToAppleCalendar && (
+                                            <div className='flex items-center gap-2.5 px-3 py-2 bg-primary-extra-light/50 text-primary border border-primary/10 rounded-lg text-sm font-bold'>
+                                                <Image
+                                                    src='https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/8f/83/88/8f83887d-87c5-d85a-c80e-d114f7f6205b/Placeholder.mill/400x400bb-75.webp'
+                                                    alt='Apple Calendar'
+                                                    width={32}
+                                                    height={32}
+                                                    className='border border-primary/50 rounded-lg'
+                                                />
+                                                Added to Apple Calendar
+                                            </div>
+                                        )}
+                                        {(!show.addedToGoogleCalendar || !show.addedToAppleCalendar) && (
+                                            <button
+                                                onClick={() => {
+                                                    onClose();
+                                                    onSyncClick?.(show);
+                                                }}
+                                                className='w-full py-2 px-4 rounded-[10px] font-bold text-sm transition-all border border-gray-200 cursor-pointer text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2'
+                                            >
+                                                <CalendarIcon size={16} />
+                                                {!show.addedToGoogleCalendar && !show.addedToAppleCalendar ? 'More ' : ''}Sync Options
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => {
                                             onClose();
-                                        } else {
-                                            failToast('Failed to generate calendar file');
-                                        }
-                                    }}
-                                    className={cn(
-                                        'w-full py-2 px-4 rounded-xl font-bold text-sm transition-all border flex items-center justify-center gap-2',
-                                        show.addedToAppleCalendar
-                                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100',
-                                    )}
-                                >
-                                    <CalendarIcon size={16} />
-                                    {show.addedToAppleCalendar ? 'Added to Apple Calendar' : 'Add to Apple Calendar'}
-                                </button>
+                                            onSyncClick?.(show);
+                                        }}
+                                        className='w-full py-2.5 px-4 rounded-xl font-bold cursor-pointer text-sm transition-all bg-primary-light text-white hover:bg-primary shadow-sm flex items-center justify-center gap-2'
+                                    >
+                                        <CalendarIcon size={16} />
+                                        Add to Calendar
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </motion.div>
@@ -355,6 +384,13 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
     const [viewingJobDate, setViewingJobDate] = useState<Date | null>(null);
     const [viewingShow, setViewingShow] = useState<Show | null>(null);
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
+    const [calendarModal, setCalendarModal] = useState<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>({
+        open: false,
+        showId: '',
+        showName: '',
+        googleSynced: false,
+        appleSynced: false,
+    });
     const showDetailsRef = useRef<HTMLDivElement>(null);
 
     const { refreshCounts } = useNotifications();
@@ -438,6 +474,10 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
         if (res.success) {
             successToast(status === 'accepted' ? 'Accepted invitation!' : 'Declined invitation');
             loadShows(true);
+
+            if (status === 'accepted') {
+                setCalendarModal({ open: true, showId, showName: res.showName || 'Show', googleSynced: res.googleSynced || false, appleSynced: res.appleSynced || false });
+            }
         } else {
             failToast(status === 'accepted' ? 'Failed to accept invitation' : 'Failed to decline invitation');
         }
@@ -593,7 +633,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                         loadShows(true);
                     }}
                     initialData={editingShow || undefined}
-                    userEmail={userEmail}
+                    setCalendarModal={setCalendarModal}
                 />
             </Modal>
             <Modal
@@ -655,14 +695,37 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     setEditingShow(show);
                     setIsAdding(true);
                 }}
-                onDelete={(show) => {
-                    setViewingShow(null);
-                    setIsDeleting({ open: true, id: show.id, name: show.name });
-                }}
+                onDelete={(show) => setIsDeleting({ open: true, id: show.id, name: show.name })}
                 handleInviteResponse={handleInviteResponse}
                 showDetailsRef={showDetailsRef}
                 role={role}
+                onSyncClick={(show) =>
+                    setCalendarModal({
+                        open: true,
+                        showId: show.id,
+                        showName: show.name,
+                        googleSynced: show.addedToGoogleCalendar || false,
+                        appleSynced: show.addedToAppleCalendar || false,
+                    })
+                }
             />
+            <Modal
+                isOpen={calendarModal.open}
+                setIsOpen={(val: boolean) => setCalendarModal({ open: val, showId: '', showName: '', googleSynced: false, appleSynced: false })}
+                closeOnOutsideClick={false}
+                className='max-w-md font-figtree p-7 rounded-[18px] primary-border-bold'
+            >
+                <CalendarIntegrationModal
+                    isOpen={calendarModal.open}
+                    onClose={() => {
+                        setCalendarModal({ open: false, showId: '', showName: '', googleSynced: false, appleSynced: false });
+                        loadShows(false);
+                    }}
+                    showId={calendarModal.showId}
+                    showName={calendarModal.showName}
+                    alreadySynced={{ google: calendarModal.googleSynced, apple: calendarModal.appleSynced }}
+                />
+            </Modal>
 
             <Modal isOpen={!!selectedHorse} setIsOpen={() => setSelectedHorse(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {selectedHorse && <HorseDetailView horse={selectedHorse} onClose={() => setSelectedHorse(null)} />}

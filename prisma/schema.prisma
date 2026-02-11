@@ -168,6 +168,7 @@ model User {
   subscriptionStatus     SubscriptionStatus @default(inactive)
 
   trialEndsAt            DateTime?
+  googleCalendarId       String?
   hasUsedTrial           Boolean  @default(false)
 }
 
@@ -211,9 +212,11 @@ model Show {
 
   startDate   DateTime
   endDate     DateTime
-  
+
 
   addedToAppleCalendar Boolean @default(false)
+  addedToGoogleCalendar Boolean @default(false)
+  googleEventId         String?
 
   invites     ShowInvite[]
 
@@ -236,14 +239,16 @@ model ShowInvite {
   inviteeId   String
   status      ShowInviteStatus  @default(pending)
   addedToAppleCalendar Boolean @default(false)
-  
+  addedToGoogleCalendar Boolean @default(false)
+  googleEventId         String?
+
   show        Show              @relation(fields: [showId], references: [id], onDelete: Cascade)
   inviter     User              @relation("ShowInviter", fields: [inviterId], references: [id], onDelete: Cascade)
   invitee     User              @relation("ShowInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
-  
+
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
-  
+
   @@unique([showId, inviteeId])
 }
 

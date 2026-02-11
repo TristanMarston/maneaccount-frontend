@@ -13,8 +13,19 @@ import { createPortal } from 'react-dom';
 import DatePicker from '../DatePicker';
 import { Show } from '@/app/dashboard/_components/_calendar/Calendar';
 import { parseUTCToLocal } from '@/lib/date-utils';
+import CalendarIntegrationModal from './CalendarIntegrationModal';
 
-const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: () => void; onSuccess: () => void; initialData?: Show; userEmail: string }) => {
+const AddShowForm = ({
+    onClose,
+    onSuccess,
+    initialData,
+    setCalendarModal,
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+    initialData?: Show;
+    setCalendarModal: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>>;
+}) => {
     const [formData, setFormData] = useState({
         name: initialData?.name || '',
         country: initialData?.country || 'USA',
@@ -23,7 +34,6 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
         startDate: initialData?.startDate ? parseUTCToLocal(initialData.startDate) : null,
         endDate: initialData?.endDate ? parseUTCToLocal(initialData.endDate) : null,
     });
-    const [addToAppleCalendar, setAddToAppleCalendar] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [startDateSelectorOpen, setStartDateSelectorOpen] = useState(false);
     const [endDateSelectorOpen, setEndDateSelectorOpen] = useState(false);
@@ -70,21 +80,8 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
             });
 
             if (res.success && res.show) {
-                if (addToAppleCalendar) {
-                    const icsRes = await generateShowICS(res.show.id);
-                    if (icsRes.success && icsRes.icsData) {
-                        const blob = new Blob([icsRes.icsData], { type: 'text/calendar;charset=utf-8' });
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = icsRes.filename || 'show.ics';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                    }
-                }
-                successToast('Show added to calendar!');
                 onSuccess();
+                setCalendarModal({ open: true, showId: res.show.id, showName: res.show.name, googleSynced: false, appleSynced: false });
             } else {
                 failToast(res.error || 'Failed to create show');
             }
@@ -245,18 +242,6 @@ const AddShowForm = ({ onClose, onSuccess, initialData, userEmail }: { onClose: 
                                     />
                                 </div>
                             </div>
-                        </div>
-                        <div className='flex items-center gap-2 mt-4'>
-                            <input
-                                type='checkbox'
-                                id='apple-calendar'
-                                checked={addToAppleCalendar}
-                                onChange={(e) => setAddToAppleCalendar(e.target.checked)}
-                                className='w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2'
-                            />
-                            <label htmlFor='apple-calendar' className='text-sm font-medium text-gray-700 cursor-pointer select-none'>
-                                Add to Apple Calendar
-                            </label>
                         </div>
                         <p className='text-gray-500 text-sm italic mt-2'>Note: All your connected barns and subcontractors will be automatically invited to this show.</p>
                     </div>

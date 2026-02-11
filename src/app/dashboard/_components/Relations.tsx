@@ -518,7 +518,6 @@ const InviteModal = ({
 
             if (val !== lastRequestValue.current) return;
             if (!res || res.error || val === publicID) {
-                console.log('failed not yet');
                 setLoadingUser('fail');
                 setInvitedUser({ name: '', image: '', publicID: '' });
             } else {
@@ -529,7 +528,6 @@ const InviteModal = ({
                     setInvitedUser({ name: res.user?.name || '', image: res.user?.image || '', publicID: res.user?.publicID || '' });
                     setLoadingUser('success');
                 } else {
-                    console.log('failed invalid');
                     setLoadingUser('fail');
                     setInvitedUser({ name: '', image: '', publicID: '' });
                 }

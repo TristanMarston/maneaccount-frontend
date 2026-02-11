@@ -80,6 +80,8 @@ export async function getFullDashboardData(role: string) {
             inviteStatus: invite.status,
             inviteId: invite.id,
             inviterName: invite.show.user.name,
+            addedToGoogleCalendar: invite.addedToGoogleCalendar,
+            addedToAppleCalendar: invite.addedToAppleCalendar,
         }));
 
         const showsData = [...ownedShows, ...invitedShows].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());

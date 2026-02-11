@@ -17,14 +17,15 @@ export const authOptions: AuthOptions = {
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID || '',
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-            // authorization: {
-            //     params: {
-            //         scope: 'openid email profile https://www.googleapis.com/auth/calendar',
-            //         prompt: 'consent',
-            //         access_type: 'offline',
-            //         response_type: 'code',
-            //     },
-            // },
+            allowDangerousEmailAccountLinking: true,
+            authorization: {
+                params: {
+                    scope: 'openid email profile https://www.googleapis.com/auth/calendar.app.created',
+                    prompt: 'select_account',
+                    access_type: 'offline',
+                    response_type: 'code',
+                },
+            },
         }),
         CredentialsProvider({
             name: 'Credentials',
@@ -99,6 +100,26 @@ export const authOptions: AuthOptions = {
     callbacks: {
         async signIn({ user, account }) {
             if (account?.provider === 'google') {
+                if (account.refresh_token && user.email) {
+                    try {
+                        const existingAccount = await prisma.account.findFirst({
+                            where: {
+                                provider: 'google',
+                                user: { email: user.email },
+                            },
+                        });
+
+                        if (existingAccount && !existingAccount.refresh_token) {
+                            await prisma.account.update({
+                                where: { id: existingAccount.id },
+                                data: { refresh_token: account.refresh_token },
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Error updating refresh token:', err);
+                    }
+                }
+
                 try {
                     const cookieStore = await cookies();
                     const intent = cookieStore.get('auth_intent')?.value;
@@ -138,7 +159,7 @@ export const authOptions: AuthOptions = {
 
                         if (role && ['braider', 'subcontractor', 'barn'].includes(role)) {
                             if (user.email) {
-                                const updateData: any = { role: role as any }
+                                const updateData: any = { role: role as any };
 
                                 if (role === 'braider') {
                                     const customer = await stripe.customers.create({
@@ -146,8 +167,8 @@ export const authOptions: AuthOptions = {
                                         name: user.name || undefined,
                                         metadata: {
                                             userId: user.id,
-                                            role: 'braider'
-                                        }
+                                            role: 'braider',
+                                        },
                                     });
 
                                     const trialEndDate = new Date();

@@ -45,15 +45,12 @@ export async function generateShowICS(showId: string) {
         const end = show.endDate;
 
         if (!start || !end) return { error: 'Invalid dates' };
-
-        // Create a date for the end of the event (exclusive)
+        
         const exclusiveEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
 
         const event: EventAttributes = {
             start: [start.getUTCFullYear(), start.getUTCMonth() + 1, start.getUTCDate()],
-            end: [exclusiveEnd.getUTCFullYear(), exclusiveEnd.getUTCMonth() + 1, exclusiveEnd.getUTCDate()], // +1 because end is exclusive in ICS usually, or check ics package docs.
-            // Actually, for all-day events, 'end' is exclusive. So if show is Jan 1 - Jan 3, we want Jan 4 as end.
-            // Let's verify standard behavior. usually yes, exclusive end date for all day.
+            end: [exclusiveEnd.getUTCFullYear(), exclusiveEnd.getUTCMonth() + 1, exclusiveEnd.getUTCDate()],
 
             title: show.name,
             description: `Show in ${show.city}, ${show.state || show.country}`,

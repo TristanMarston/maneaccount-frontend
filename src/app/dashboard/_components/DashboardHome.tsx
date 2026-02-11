@@ -46,6 +46,7 @@ import { acceptRelationRequest, removeRelation } from '@/app/actions/barn-relati
 import Modal from '../Modal';
 import { acceptRequest, removeMember } from '@/app/actions/team';
 import { Tab } from './_braider/BraiderDashboard';
+import CalendarIntegrationModal from './_calendar/CalendarIntegrationModal';
 
 const DashboardHome = ({
     role,
@@ -207,6 +208,13 @@ const Notifications = ({
     const [notifications, setNotifications] = useState<any[]>([]);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [isWrapped, setIsWrapped] = useState(false);
+    const [calendarModal, setCalendarModal] = useState<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>({
+        open: false,
+        showId: '',
+        showName: '',
+        googleSynced: false,
+        appleSynced: false,
+    });
     const bellRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(bellRef, [], () => setNotificationsOpen(false));
     const notificationsRef = useRef<HTMLDivElement>(null);
@@ -337,6 +345,7 @@ const Notifications = ({
                                                         handleMarkAsRead={handleMarkAsRead}
                                                         setNotificationsOpen={setNotificationsOpen}
                                                         setCheckAcceptModal={setCheckAcceptModal}
+                                                        setCalendarModal={setCalendarModal}
                                                     />
                                                 ))}
                                             {notifications.filter((notif) => notif.isRead).length > 0 && (
@@ -356,6 +365,7 @@ const Notifications = ({
                                                         handleMarkAsRead={handleMarkAsRead}
                                                         setNotificationsOpen={setNotificationsOpen}
                                                         setCheckAcceptModal={setCheckAcceptModal}
+                                                        setCalendarModal={setCalendarModal}
                                                     />
                                                 ))}
                                         </>
@@ -366,6 +376,20 @@ const Notifications = ({
                     )}
                 </AnimatePresence>
             </div>
+            <Modal
+                isOpen={calendarModal.open}
+                setIsOpen={(val: boolean) => setCalendarModal({ open: val, showId: '', showName: '', googleSynced: false, appleSynced: false })}
+                closeOnOutsideClick={false}
+                className='max-w-md font-figtree p-7 rounded-[18px] primary-border-bold'
+            >
+                <CalendarIntegrationModal
+                    isOpen={calendarModal.open}
+                    onClose={() => setCalendarModal({ open: false, showId: '', showName: '', googleSynced: false, appleSynced: false })}
+                    showId={calendarModal.showId}
+                    showName={calendarModal.showName}
+                    alreadySynced={{ google: calendarModal.googleSynced, apple: calendarModal.appleSynced }}
+                />
+            </Modal>
         </div>
     );
 };
@@ -379,6 +403,7 @@ const Notification = ({
     handleMarkAsRead,
     setNotificationsOpen,
     setCheckAcceptModal,
+    setCalendarModal,
 }: {
     notification: any;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
@@ -388,6 +413,7 @@ const Notification = ({
     handleMarkAsRead: (notificationId: string) => void;
     setNotificationsOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void }>>;
+    setCalendarModal?: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>>;
 }) => {
     const [responseFunctions, setResponseFunctions] = useState<{ accept: () => Promise<void> | (() => void); reject: () => Promise<void> | (() => void) } | null>(null);
 
@@ -400,6 +426,15 @@ const Notification = ({
                         successToast('Show invite accepted');
                         handleMarkAsRead(notification.id);
                         setNotificationsOpen(false);
+                        if (setCalendarModal) {
+                            setCalendarModal({
+                                open: true,
+                                showId: notification.targetId,
+                                showName: res.showName || 'Show',
+                                googleSynced: res.googleSynced || false,
+                                appleSynced: res.appleSynced || false,
+                            });
+                        }
                     } else {
                         failToast('Failed to accept show invite');
                     }

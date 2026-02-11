@@ -516,24 +516,24 @@ export const JobDetailSubpage = ({
 
     const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
         e.stopPropagation();
-        // setJob((prev) => {
-        //     if (!prev) return prev;
-
-        //     return {
-        //         ...prev,
-        //         assignments: prev.assignments.map((assignment) => {
-        //             if (assignment.id !== assignmentId) return assignment;
-
-        //             const hasService = assignment.completedServiceIds.includes(serviceId);
-        //             const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
-
-        //             return { ...assignment, completedServiceIds: newServices };
-        //         }),
-        //     };
-        // });
 
         const res = await toggleServiceCompletion(assignmentId, serviceId, new Date().getTimezoneOffset());
         if (res.success) {
+            setJob((prev) => {
+                if (!prev) return prev;
+
+                return {
+                    ...prev,
+                    assignments: prev.assignments.map((assignment) => {
+                        if (assignment.id !== assignmentId) return assignment;
+
+                        const hasService = assignment.completedServiceIds.includes(serviceId);
+                        const newServices = hasService ? assignment.completedServiceIds.filter((id) => id !== serviceId) : [...assignment.completedServiceIds, serviceId];
+
+                        return { ...assignment, completedServiceIds: newServices };
+                    }),
+                };
+            });
             refresh();
         } else {
             failToast('Failed to update');

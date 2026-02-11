@@ -59,8 +59,6 @@ export async function getUnreadNotificationCount() {
 
         const total = counts.reduce((acc, curr) => acc + curr._count._all, 0);
 
-        console.log(byType);
-
         return { total, byType };
     } catch (error) {
         console.error('Get unread count error:', error);

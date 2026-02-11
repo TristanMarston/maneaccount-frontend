@@ -27,6 +27,26 @@ const Dashboard = () => {
     const [role, setRole] = useState<UserRole>('');
 
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('google_connected') === 'true') {
+            const { successToast } = require('@/app/context');
+            successToast('Google Account Connected Successfully!');
+            urlParams.delete('google_connected');
+            router.replace(window.location.pathname + '?' + urlParams.toString());
+        }
+
+        const error = urlParams.get('error');
+        if (error) {
+            const { failToast } = require('@/app/context');
+            if (error === 'OAuthAccountNotLinked') {
+                failToast('This Google account is already linked to another ManeAccount profile.');
+            } else {
+                failToast(error);
+            }
+            urlParams.delete('error');
+            router.replace(window.location.pathname + '?' + urlParams.toString());
+        }
+
         const validateConnection = async (email: string) => {
             const cookieStore = document.cookie;
             const joinValue = `; ${cookieStore}`;
@@ -43,7 +63,7 @@ const Dashboard = () => {
             else if (userRole.length > 0) setRole(userRole as UserRole);
             if (session.user?.email) validateConnection(session.user.email);
         }
-    }, [session, status]);
+    }, [session, status, router]);
 
     return session && role.length > 0 ? (
         <GradientBackground

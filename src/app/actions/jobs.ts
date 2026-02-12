@@ -249,13 +249,7 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
             assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
                 [...new Set(completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length && completedServiceIds.length > 0;
 
-        await prisma.jobAssignment.update({
-            where: { id: assignmentId },
-            data: {
-                completedServiceIds,
-                completedAt: isComplete ? new Date() : null,
-            },
-        });
+        
 
         if (isComplete) {
             const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date(), timezoneOffset);
@@ -271,9 +265,18 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
                         null,
                         timezoneOffset,
                     );
+                } else if (count >= 50) {
+                    return { error: `You have reached your limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.` }
                 }
             }
         }
+        await prisma.jobAssignment.update({
+            where: { id: assignmentId },
+            data: {
+                completedServiceIds,
+                completedAt: isComplete ? new Date() : null,
+            },
+        });
         revalidatePath('/dashboard');
         return { success: true, message: successMessage };
     } catch (error) {
@@ -402,7 +405,7 @@ export async function addAssignmentsToJob(jobId: string, assignments: { horseId:
         const timezoneOffset = new Date().getTimezoneOffset();
 
         const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date(), timezoneOffset);
-        const newHorsesCount = job.assignments.length;
+        const newHorsesCount = assignments.length;
 
         if (period !== 'unlimited' && count + newHorsesCount > limit) {
             await createNotification(

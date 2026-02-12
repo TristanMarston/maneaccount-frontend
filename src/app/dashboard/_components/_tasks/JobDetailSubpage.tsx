@@ -536,7 +536,11 @@ export const JobDetailSubpage = ({
             });
             refresh();
         } else {
-            failToast('Failed to update');
+            if (res.error?.includes('You have reached your limit')) {
+                failToast(res.error);
+            } else {
+                failToast('Failed to update');
+            }
         }
     };
 

@@ -211,14 +211,15 @@ const AddHorseToJobForm = ({
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const showDates = React.useMemo(
-        () =>
-            eachDayOfInterval({
-                start: new Date(job.show.startDate),
-                end: new Date(job.show.endDate),
-            }),
-        [job.show.startDate, job.show.endDate],
-    );
+    const showDates = React.useMemo(() => {
+        const start = parseUTCToLocal(job.show.startDate);
+        const end = parseUTCToLocal(job.show.endDate);
+        if (!start || !end) return [];
+        return eachDayOfInterval({
+            start,
+            end,
+        });
+    }, [job.show.startDate, job.show.endDate]);
 
     useEffect(() => {
         if (preSelectedDate) {

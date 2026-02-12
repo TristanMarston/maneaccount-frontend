@@ -188,10 +188,14 @@ const SubscriptionSettings = ({
     }
 
     const now = new Date();
-    const daysLeft = subscription?.trialEndsAt ? Math.ceil((new Date(subscription.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    // Safely handle dates that might be serialized as strings
+    const trialEndsAtDate = subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
+    const currentPeriodEndDate = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
+
+    const daysLeft = trialEndsAtDate ? Math.ceil((trialEndsAtDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
     const isTrial = subscription?.subscriptionStatus === 'trialing' && daysLeft > 0;
 
-    const periodDaysLeft = subscription?.currentPeriodEnd ? Math.ceil((new Date(subscription.currentPeriodEnd).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    const periodDaysLeft = currentPeriodEndDate ? Math.ceil((currentPeriodEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
     const isActive = subscription?.subscriptionStatus === 'active' && periodDaysLeft > 0;
 
     return (
@@ -240,7 +244,7 @@ const SubscriptionSettings = ({
                                 {subscription?.subscriptionTier ? subscription.subscriptionTier.charAt(0).toUpperCase() + subscription.subscriptionTier.slice(1) : 'Inactive'}
                             </h2>
                             {subscription?.hasPaymentMethod && (
-                                <div className='mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 font-bold text-xs uppercase tracking-tight'>
+                                <div className='mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 font-bold text-xs uppercase tracking-tight'>
                                     <Check size={14} strokeWidth={3} />
                                     Payment Verified
                                 </div>

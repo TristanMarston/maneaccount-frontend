@@ -248,7 +248,7 @@ const ShowDetailsModal = ({
                                                     height={32}
                                                     className='border border-primary/50 rounded-lg'
                                                 />
-                                                Added to Apple Calendar
+                                                Added to Apple Calendar (.ics)
                                             </div>
                                         )}
                                         {(!show.addedToGoogleCalendar || !show.addedToAppleCalendar) && (

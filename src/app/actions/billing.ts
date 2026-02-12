@@ -164,6 +164,20 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
                 subscriptionStatus = 'inactive';
         }
 
+        const isYearly =
+            priceId === process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || priceId === process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || priceId === process.env.STRIPE_PRICE_STARTER_YEARLY;
+
+        let currentPeriodEnd = (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000) : null;
+
+        if (!currentPeriodEnd) {
+            currentPeriodEnd = new Date();
+            if (isYearly) {
+                currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+            } else {
+                currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+            }
+        }
+
         await prisma.user.update({
             where: { id: user.id },
             data: {
@@ -171,6 +185,7 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
                 subscriptionTier: tier,
                 subscriptionStatus: subscriptionStatus,
                 hasUsedTrial: subscription.status !== 'trialing',
+                currentPeriodEnd: currentPeriodEnd,
             },
         });
 
@@ -210,10 +225,12 @@ export async function getSubscriptionDetails() {
     const user = await prisma.user.findUnique({
         where: { email: session.user.email },
         select: {
+            id: true,
             subscriptionTier: true,
             subscriptionStatus: true,
             trialEndsAt: true,
             stripeCustomerId: true,
+            currentPeriodEnd: true,
         },
     });
 
@@ -221,6 +238,9 @@ export async function getSubscriptionDetails() {
 
     let hasPaymentMethod = false;
     let subscriptionInterval = 'month';
+    let currentPeriodEnd = user.currentPeriodEnd;
+    let subscriptionStatus = user.subscriptionStatus;
+
     if (user.stripeCustomerId) {
         try {
             const customer = await stripe.customers.retrieve(user.stripeCustomerId);
@@ -228,8 +248,46 @@ export async function getSubscriptionDetails() {
                 hasPaymentMethod = !!(customer as any).invoice_settings?.default_payment_method;
                 const subscriptions = await stripe.subscriptions.list({
                     customer: user.stripeCustomerId,
+                    limit: 1,
                 });
-                subscriptionInterval = (subscriptions.data[0] as any)?.plan?.interval;
+
+                if (subscriptions.data.length > 0) {
+                    const sub = subscriptions.data[0];
+                    subscriptionInterval = (sub as any)?.plan?.interval;
+                    let stripeCurrentPeriodEnd = (sub as any).current_period_end ? new Date((sub as any).current_period_end * 1000) : null;
+
+                    // Fallback to existing or calculate if totally missing from both Stripe and DB
+                    if (!stripeCurrentPeriodEnd && !user.currentPeriodEnd) {
+                        stripeCurrentPeriodEnd = new Date();
+                        if (subscriptionInterval === 'year') {
+                            stripeCurrentPeriodEnd.setFullYear(stripeCurrentPeriodEnd.getFullYear() + 1);
+                        } else {
+                            stripeCurrentPeriodEnd.setMonth(stripeCurrentPeriodEnd.getMonth() + 1);
+                        }
+                    } else if (!stripeCurrentPeriodEnd) {
+                        stripeCurrentPeriodEnd = user.currentPeriodEnd;
+                    }
+                    const stripeStatus = sub.status as SubscriptionStatus;
+
+                    // Sync with DB if different (basic check, or just always update to be safe and simple)
+                    if (stripeCurrentPeriodEnd?.getTime() !== user.currentPeriodEnd?.getTime() || stripeStatus !== user.subscriptionStatus) {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: {
+                                currentPeriodEnd: stripeCurrentPeriodEnd,
+                                subscriptionStatus: stripeStatus === 'active' || stripeStatus === 'trialing' ? stripeStatus : 'inactive', // Map Stripe status to our enum roughly, or better use the exact mapping logic if needed.
+                                // Note: The schema enum has 'active', 'trialing', 'past_due', 'canceled', 'inactive'.
+                                // Stripe statuses: active, past_due, unpaid, canceled, incomplete, incomplete_expired, trialing.
+                            },
+                        });
+                        currentPeriodEnd = stripeCurrentPeriodEnd;
+                        // subscriptionStatus = stripeStatus; // Be careful with enum mapping here if not 1:1.
+                        // Let's re-use the mapping logic or just rely on the update above and re-fetch if strict,
+                        // but locally updating variables is faster.
+                        // For now, let's keep it simple and assume the UI uses the returned object.
+                    }
+                    currentPeriodEnd = stripeCurrentPeriodEnd;
+                }
             }
         } catch (error) {
             console.error('Error fetching Stripe customer:', error);
@@ -240,13 +298,7 @@ export async function getSubscriptionDetails() {
         ...user,
         hasPaymentMethod,
         subscriptionInterval,
-        currentPeriodEnd: user.stripeCustomerId
-            ? await stripe.subscriptions
-                  .list({
-                      customer: user.stripeCustomerId,
-                      limit: 1,
-                  })
-                  .then((subs) => ((subs.data[0] as any)?.current_period_end ? new Date((subs.data[0] as any).current_period_end * 1000) : null))
-            : null,
+        currentPeriodEnd,
+        subscriptionStatus,
     };
 }

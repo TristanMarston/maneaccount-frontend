@@ -1,5 +1,6 @@
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { render } from '@react-email/render';
+import { createEvent, EventAttributes } from 'ics';
 import ManeAccountCodeEmail from '@/app/emails/EmailCodeTemplate';
 import ManeAccountConnectionRequestEmail from '@/app/emails/EmailConnectionTemplate';
 import ManeAccountStatusChangeEmail, { ManeAccountRequestResponseEmail } from '@/app/emails/EmailRequestResponseTemplate';
@@ -105,17 +106,51 @@ export async function sendStatusChangeEmail({
     }
 }
 
+async function generateIcs(eventName: string, startDate: Date, endDate: Date, location: string, inviterName: string, description?: string): Promise<string> {
+    const start: [number, number, number] = [startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()];
+
+    // ICS end date is exclusive for all-day events, so add 1 day
+    const exclusiveEnd = new Date(endDate);
+    exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+    const end: [number, number, number] = [exclusiveEnd.getFullYear(), exclusiveEnd.getMonth() + 1, exclusiveEnd.getDate()];
+
+    const event: EventAttributes = {
+        start,
+        end,
+        title: eventName,
+        description: description || `Invitation from ${inviterName}`,
+        location,
+        url: 'https://maneaccount.com/dashboard',
+        status: 'CONFIRMED',
+        busyStatus: 'BUSY',
+        organizer: { name: 'ManeAccount', email: 'no-reply@maneaccount.com' },
+    };
+
+    return new Promise((resolve) => {
+        createEvent(event, (error, value) => {
+            if (error) {
+                console.error('Error generating ICS:', error);
+                resolve('');
+            } else {
+                resolve(value);
+            }
+        });
+    });
+}
+
 export async function sendCalendarInviteEmail({
     to,
     eventName,
-    date,
+    startDate,
+    endDate,
     location,
     inviterName,
     message,
 }: {
     to: string;
     eventName: string;
-    date: string;
+    startDate: Date;
+    endDate: Date;
     location: string;
     inviterName: string;
     message?: string;
@@ -123,18 +158,54 @@ export async function sendCalendarInviteEmail({
     if (!to) return { error: 'No email provided' };
 
     try {
-        const html = await render(ManeAccountCalendarInviteEmail({ eventName, date, location, inviterName, message }));
+        const dateStr = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+        const html = await render(ManeAccountCalendarInviteEmail({ eventName, date: dateStr, location, inviterName, message }));
+        const icsContent = await generateIcs(eventName, startDate, endDate, location, inviterName, message);
 
-        const command = new SendEmailCommand({
-            Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
-            Message: {
-                Subject: { Data: `Invitation: ${eventName}` },
-                Body: { Html: { Data: html } },
-            },
-        });
+        if (icsContent) {
+            const boundary = `__ManeAccount_Boundary_${Date.now()}__`;
+            const rawMessage = [
+                `From: ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+                `To: ${to}, tristan@ericmarston.com`,
+                `Subject: Invitation: ${eventName}`,
+                'MIME-Version: 1.0',
+                `Content-Type: multipart/mixed; boundary="${boundary}"`,
+                '',
+                `--${boundary}`,
+                'Content-Type: text/html; charset=UTF-8',
+                'Content-Transfer-Encoding: 7bit',
+                '',
+                html,
+                '',
+                `--${boundary}`,
+                'Content-Type: text/calendar; method=REQUEST; name="invite.ics"',
+                'Content-Disposition: attachment; filename="invite.ics"',
+                'Content-Transfer-Encoding: base64',
+                '',
+                Buffer.from(icsContent).toString('base64'),
+                '',
+                `--${boundary}--`,
+            ].join('\r\n');
 
-        await ses.send(command);
+            const command = new SendRawEmailCommand({
+                RawMessage: { Data: Buffer.from(rawMessage) },
+            });
+
+            const res = await ses.send(command);
+            console.log(res);
+        } else {
+            const command = new SendEmailCommand({
+                Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
+                Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+                Message: {
+                    Subject: { Data: `Invitation: ${eventName}` },
+                    Body: { Html: { Data: html } },
+                },
+            });
+            const res = await ses.send(command);
+            console.log('failed', res);
+        }
+
         return { success: true };
     } catch (error) {
         console.error('SES calendar invite email failed:', error);

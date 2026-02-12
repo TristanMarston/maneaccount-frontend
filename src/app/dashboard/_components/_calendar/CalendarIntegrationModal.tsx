@@ -182,7 +182,7 @@ const CalendarIntegrationModal = ({
                                     width={24}
                                     height={24}
                                 />
-                                <span>Apple Calendar</span>
+                                <span>Apple Calendar (.ics)</span>
                             </>
                         )}
                         {alreadySynced.apple && (

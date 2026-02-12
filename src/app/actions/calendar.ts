@@ -59,14 +59,11 @@ export async function createShow(data: CreateShowInput) {
             include: { invites: { include: { invitee: true, inviter: true } } },
         });
 
-        // Notify invitees
         if (connectedUserIds.length > 0) {
             for (const inviteeId of connectedUserIds) {
                 await createNotification(inviteeId, NotificationType.calendar_invite, `${session.user.name} invited you to ${newShow.name}`, newShow.id, user.id);
             }
         }
-
-        // await syncToGoogleCalendar(session.user.id, newShow, newShow.days);
 
         revalidatePath('/dashboard');
         return { success: true, show: newShow };

@@ -231,7 +231,8 @@ export async function createNotification(
                         await sendCalendarInviteEmail({
                             to: user.email,
                             eventName: show.name,
-                            date: `${show.startDate.toLocaleDateString()} - ${show.endDate.toLocaleDateString()}`,
+                            startDate: parseUTCToLocal(show.startDate) || show.startDate,
+                            endDate: parseUTCToLocal(show.endDate) || show.endDate,
                             location: `${show.city}, ${show.state || show.country}`,
                             inviterName,
                             message,

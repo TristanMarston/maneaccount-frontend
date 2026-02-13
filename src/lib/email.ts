@@ -191,8 +191,7 @@ export async function sendCalendarInviteEmail({
                 RawMessage: { Data: Buffer.from(rawMessage) },
             });
 
-            const res = await ses.send(command);
-            console.log(res);
+            await ses.send(command);
         } else {
             const command = new SendEmailCommand({
                 Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
@@ -202,8 +201,8 @@ export async function sendCalendarInviteEmail({
                     Body: { Html: { Data: html } },
                 },
             });
-            const res = await ses.send(command);
-            console.log('failed', res);
+            
+            await ses.send(command);
         }
 
         return { success: true };

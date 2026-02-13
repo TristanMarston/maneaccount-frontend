@@ -830,25 +830,31 @@ const JobCard = ({
                                 statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 || role === 'subcontractor' ? 'accepted' : job.status],
                             )}
                         >
-                            {job.assignments.every((a) => a.paidAt)
-                                ? 'paid'
-                                : job.status === 'editing'
-                                  ? 'drafting'
-                                  : isJobPending
-                                    ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                    : isJobAccepted && horsesCompleted === 0 && role !== 'subcontractor'
-                                      ? 'all accepted'
-                                      : isJobAccepted && horsesCompleted === 0 && role === 'subcontractor'
-                                        ? `${job.assignments.filter((a) => a.subcontractor && a.status === 'pending').length}/${job.assignments.filter((a) => a.subcontractor).length} horses completed`
-                                        : horsesCompleted > 0
-                                          ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                          : isJobDenied
-                                            ? 'denied'
-                                            : isJobCanceled
-                                              ? 'canceled'
-                                              : job.status === 'submitted'
-                                                ? 'all completed'
-                                                : job.status}
+                            {role !== 'subcontractor'
+                                ? job.assignments.every((a) => a.paidAt)
+                                    ? 'paid'
+                                    : job.status === 'editing'
+                                      ? 'drafting'
+                                      : isJobPending
+                                        ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
+                                        : isJobAccepted && horsesCompleted === 0
+                                          ? 'all accepted'
+                                          : horsesCompleted > 0
+                                            ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                            : isJobDenied
+                                              ? 'denied'
+                                              : isJobCanceled
+                                                ? 'canceled'
+                                                : job.status === 'submitted'
+                                                  ? 'all completed'
+                                                  : job.status
+                                : job.assignments.every((a) => a.paidAt)
+                                  ? 'paid'
+                                  : isJobDenied
+                                    ? 'denied'
+                                    : isJobCanceled
+                                      ? 'canceled'
+                                      : `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.subcontractor?.email === userEmail).length} horses completed`}
                         </span>
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>

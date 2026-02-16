@@ -125,7 +125,7 @@ const Relations = ({
         const result = await removeRelation(connectionID, isPending);
 
         if (result.success) {
-            successToast(isPending ? 'Request denied' : 'Connection removed');
+            successToast(isPending ? 'Request removed' : 'Connection removed');
             if (isPending) {
                 setPending((prev) => ({
                     incoming: prev.incoming.filter((m) => m.connectionID !== connectionID),

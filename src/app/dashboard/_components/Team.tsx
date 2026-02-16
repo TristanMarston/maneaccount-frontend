@@ -169,7 +169,7 @@ const Team = ({
                             className='font-figtree w-full @min-[490px]/team:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/team:text-lg @min-[650px]/team:text-[19px] @min-[735px]/team:text-lg text-nowrap rounded-[14px] @min-[490px]/team:rounded-[20px] @min-[650px]/team:rounded-[14px] @min-[735px]/team:rounded-[10px] py-2 px-6 @min-[490px]/team:p-3 @min-[650px]/team:py-2 @min-[650px]/team:px-6 bg-primary-light text-background primary-border-hover'
                         >
                             <PlusCircle className='w-6 h-6 @min-[490px]/team:w-7 @min-[490px]/team:h-7 @min-[650px]/team:w-6 @min-[650px]/team:h-6' strokeWidth={2.5} />
-                            <span className='block @min-[490px]/team:hidden @min-[650px]/team:block'>Invite Member</span>
+                            <span className='block @min-[490px]/team:hidden @min-[650px]/team:block'>{role === 'braider' ? 'Invite Member' : 'Add Braider'}</span>
                         </button>
                     </div>
                 </header>

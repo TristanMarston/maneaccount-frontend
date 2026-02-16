@@ -8,6 +8,7 @@ import SubcontractorDashboard from './_components/_subcontractor/SubcontractorDa
 import BarnDashboard from './_components/_owner/BarnDashboard';
 import { GradientBackground } from '../_components/GradientBackground';
 import { establishConnection } from '../actions/join';
+import { failToast, successToast } from '../context';
 
 export type UserRole = 'barn' | 'subcontractor' | 'braider' | 'admin' | '';
 
@@ -53,7 +54,14 @@ const Dashboard = () => {
             const joinCookie = joinValue.split(`; ${'join_request_user'}`);
             const targetPublicID = joinCookie.length === 2 ? joinCookie.pop()?.split(';').shift() : undefined;
 
-            if (targetPublicID) establishConnection(email);
+            if (targetPublicID) {
+                const res = await establishConnection(email);
+                if (res && res.success) {
+                    successToast('User invited successfully!');
+                } else if (res && res.error !== 'Existing connection') {
+                    failToast('Failed to invite user');
+                }
+            }
         };
 
         if (status === 'authenticated' && session) {

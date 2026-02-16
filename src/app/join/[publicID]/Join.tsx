@@ -17,6 +17,7 @@ type Inviter = {
     image: string | null;
     role: string;
     publicID: string | null;
+    subscriptionTier: 'starter' | 'professional' | 'enterprise';
 };
 
 const Join = ({ inviterID }: { inviterID: string }) => {
@@ -67,7 +68,7 @@ const Join = ({ inviterID }: { inviterID: string }) => {
         return (
             <div className='flex items-center justify-center min-h-screen bg-stone-50 font-figtree'>
                 <div className='text-center font-figtree'>
-                    <h1 className='text-2xl font-bold text-gray-900'>Link Expired or Invalid</h1>
+                    <h1 className='text-2xl font-bold text-gray-900'>Link Invalid</h1>
                     <p className='text-gray-500 mt-2'>We couldn't find the user you're looking for.</p>
                     <a href='/' className='mt-4 inline-block text-primary font-bold hover:underline'>
                         Go Home
@@ -93,6 +94,18 @@ const Join = ({ inviterID }: { inviterID: string }) => {
                 <div className='text-center font-figtree'>
                     <h1 className='text-2xl font-bold text-gray-900'>Cannot Add Yourself</h1>
                     <p className='text-gray-500 mt-2'>It appears that you&apos;re trying to add youself.</p>
+                    <a href='/dashboard' className='mt-4 inline-block text-primary font-bold hover:underline'>
+                        Go to Dashboard
+                    </a>
+                </div>
+            </div>
+        );
+    } else if (inviter && inviter.role === 'braider' && inviter.subscriptionTier === 'starter' && session?.user.role === 'subcontractor') {
+        return (
+            <div className='flex items-center justify-center min-h-screen bg-stone-50 font-figtree'>
+                <div className='text-center font-figtree'>
+                    <h1 className='text-2xl font-bold text-gray-900'>Braider Can&apos;t Add Subcontractors</h1>
+                    <p className='text-gray-500 mt-2'>This braider&apos;s subscription tier does not allow them to add subcontractors.</p>
                     <a href='/dashboard' className='mt-4 inline-block text-primary font-bold hover:underline'>
                         Go to Dashboard
                     </a>
@@ -188,7 +201,7 @@ const Join = ({ inviterID }: { inviterID: string }) => {
                             </p>
 
                             <p className='text-gray-600 font-figtree text-lg leading-relaxed mb-8 max-w-sm'>
-                                You've been invited to {roleInfo.action} on <strong>ManeAccount</strong>.
+                                You may {roleInfo.action} on <strong>ManeAccount</strong>.
                             </p>
 
                             {session ? (
@@ -213,7 +226,7 @@ const Join = ({ inviterID }: { inviterID: string }) => {
                                         disabled={loading}
                                         className='w-full cursor-pointer bg-primary flex gap-2 justify-center items-center font-figtree text-white font-bold py-2 lg:py-2.5 rounded-xl shadow-md hover:brightness-110 active:scale-[0.98] transition-all mt-2 disabled:opacity-70 disabled:cursor-not-allowed'
                                     >
-                                        {loading ? 'Connecting...' : 'Accept Invitation'} <ArrowRight size={18} />
+                                        {loading ? 'Connecting...' : 'Invite User'} <ArrowRight size={18} />
                                     </button>
 
                                     <span className='text-xs text-gray-400 mt-4'>

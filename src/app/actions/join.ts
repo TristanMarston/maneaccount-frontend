@@ -15,6 +15,7 @@ export async function getUserByPublicID(publicID: string) {
                 image: true,
                 role: true,
                 publicID: true,
+                subscriptionTier: true,
             },
         });
 
@@ -149,7 +150,7 @@ export async function establishConnection(email: string) {
                             where: { id: existing.success.id },
                             data: { status: 'accepted' },
                         });
-                    }
+                    } else if (existing.success.status === 'pending') return { error: 'Existing connection' }
 
                     cookieStore.delete('join_request_user');
                     return { success: true };

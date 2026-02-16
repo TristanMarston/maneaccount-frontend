@@ -57,7 +57,7 @@ export const ManeAccountRequestResponseEmail = ({ message, connection, image, li
                         <Img style={{ ...profileImage, border: image && image.length > 0 ? '2px solid #3f6559' : 'none' }} src={image || (accepted ? 'https://maneaccount.com/email-badge-check.png' : 'https://maneaccount.com/email-badge-user-x.png')}></Img>
 
                         <Text style={textBlock}>
-                            <Text style={bold}>{name}</Text>{' '}
+                            <Text style={bold}>{name}&nbsp;</Text>
                             {connection ? (
                                 <Text style={normal}>
                                     {action}

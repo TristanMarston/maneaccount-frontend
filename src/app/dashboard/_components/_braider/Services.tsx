@@ -141,60 +141,72 @@ const Services = ({ userEmail }: { userEmail: string }) => {
                     </div>
                 ) : (
                     <div className='grid @min-[550px]/services:grid-cols-2 @4xl/services:grid-cols-3 gap-4'>
-                        {services.map((service, i) => (
-                            <div key={service.id} className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm group relative'>
-                                <div className='flex justify-between items-start mb-4'>
-                                    <span className='inline-flex rounded-full items-center font-figtree gap-1 px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600'>
-                                        <Tag size={12} />
-                                        {service.category}
-                                    </span>
-                                    <span className='flex gap-2'>
-                                        <button
-                                            onClick={() => {
-                                                setPreviousData({ name: service.name, category: service.category, priceUSD: service.priceUSD.toString(), duration: service.duration });
-                                                setEditModal({
-                                                    open: true,
-                                                    id: service.id,
-                                                });
-                                                setEditModalData({ name: service.name, category: service.category, priceUSD: service.priceUSD.toString(), duration: service.duration });
-                                            }}
-                                            className='text-gray-300 cursor-pointer hover:text-primary transition-colors p-1'
-                                        >
-                                            <Pencil className='w-5 h-5' />
-                                        </button>
-                                        <button
-                                            onClick={() => setCheckModal({ open: true, id: service.id, name: service.name })}
-                                            className='text-gray-300 cursor-pointer hover:text-red-500 transition-colors p-1'
-                                        >
-                                            <Trash2 className='w-5 h-5' />
-                                        </button>
-                                    </span>
-                                </div>
-
-                                <h3 className='font-figtree text-2xl font-bold text-gray-800 mb-1'>{service.name}</h3>
-
-                                <div className='flex items-center gap-4 mt-4 pt-4 border-t border-gray-50 font-figtree'>
-                                    <div className='flex items-center gap-1 text-background font-medium bg-green-600 shadow-sm px-3 py-0.5 rounded-full'>
-                                        <DollarSign className='text-background w-4 h-4' />
-
-                                        {service.priceUSD.toString().indexOf('.') === -1
-                                            ? `${service.priceUSD}.00`
-                                            : service.priceUSD.toString().indexOf('.') !== -1 && service.priceUSD.toString().split('.')[1].length === 1
-                                              ? `${service.priceUSD}0`
-                                              : service.priceUSD.toString()}
+                        {services
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((service) => (
+                                <div key={service.id} className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm group relative'>
+                                    <div className='flex justify-between items-start mb-4'>
+                                        <span className='inline-flex rounded-full items-center font-figtree gap-1 px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600'>
+                                            <Tag size={12} />
+                                            {service.category}
+                                        </span>
+                                        <span className='flex gap-2'>
+                                            <button
+                                                onClick={() => {
+                                                    setPreviousData({
+                                                        name: service.name,
+                                                        category: service.category,
+                                                        priceUSD: service.priceUSD.toString(),
+                                                        duration: service.duration,
+                                                    });
+                                                    setEditModal({
+                                                        open: true,
+                                                        id: service.id,
+                                                    });
+                                                    setEditModalData({
+                                                        name: service.name,
+                                                        category: service.category,
+                                                        priceUSD: service.priceUSD.toString(),
+                                                        duration: service.duration,
+                                                    });
+                                                }}
+                                                className='text-gray-300 cursor-pointer hover:text-primary transition-colors p-1'
+                                            >
+                                                <Pencil className='w-5 h-5' />
+                                            </button>
+                                            <button
+                                                onClick={() => setCheckModal({ open: true, id: service.id, name: service.name })}
+                                                className='text-gray-300 cursor-pointer hover:text-red-500 transition-colors p-1'
+                                            >
+                                                <Trash2 className='w-5 h-5' />
+                                            </button>
+                                        </span>
                                     </div>
-                                    {service.duration && (
-                                        <>
-                                            <div className='w-px h-4 bg-gray-200' />
-                                            <div className='flex items-center gap-1.5 text-gray-500 text-sm'>
-                                                <Clock size={16} />
-                                                {service.duration} min
-                                            </div>
-                                        </>
-                                    )}
+
+                                    <h3 className='font-figtree text-2xl font-bold text-gray-800 mb-1'>{service.name}</h3>
+
+                                    <div className='flex items-center gap-4 mt-4 pt-4 border-t border-gray-50 font-figtree'>
+                                        <div className='flex items-center gap-1 text-background font-medium bg-green-600 shadow-sm px-3 py-0.5 rounded-full'>
+                                            <DollarSign className='text-background w-4 h-4' />
+
+                                            {service.priceUSD.toString().indexOf('.') === -1
+                                                ? `${service.priceUSD}.00`
+                                                : service.priceUSD.toString().indexOf('.') !== -1 && service.priceUSD.toString().split('.')[1].length === 1
+                                                  ? `${service.priceUSD}0`
+                                                  : service.priceUSD.toString()}
+                                        </div>
+                                        {service.duration && (
+                                            <>
+                                                <div className='w-px h-4 bg-gray-200' />
+                                                <div className='flex items-center gap-1.5 text-gray-500 text-sm'>
+                                                    <Clock size={16} />
+                                                    {service.duration} min
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                     </div>
                 )}
             </div>

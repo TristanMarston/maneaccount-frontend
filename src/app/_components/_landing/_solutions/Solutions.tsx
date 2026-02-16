@@ -27,7 +27,7 @@ const Solutions = () => {
 
     return (
         <div className='relative w-full'>
-            <div className='absolute -top-20' id='solutions'></div>
+            <div className='absolute -top-30' id='solutions'></div>
             <div className='w-full relative flex flex-col items-center'>
                 <div className='flex flex-col items-center justify-center text-center mt-4 7xl:mt-0 mb-10'>
                     <h2 className='font-lusitana leading-[1.1] text-primary mb-4 text-[28px] xs:text-[32px] cm:text-[38px] min-[450px]:text-[43.5px] lg:text-5xl min-[540px]:text-[54px] 3xl:text-5xl min-[880px]:text-[54px] 5xl:text-6xl'>

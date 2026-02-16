@@ -106,13 +106,13 @@ const NavbarLinks = ({ links }: { links: NavLink[] }) => {
 
 const navLinks: NavLink[] = [
     {
-        name: 'Features',
-        href: '#features',
+        name: 'Solutions',
+        href: '#solutions',
         scroll: true,
     },
     {
-        name: 'Solutions',
-        href: '#solutions',
+        name: 'Features',
+        href: '#features',
         scroll: true,
     },
     {

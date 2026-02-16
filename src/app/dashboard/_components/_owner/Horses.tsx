@@ -242,7 +242,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                                     <div key={client.id} className='flex flex-col gap-4'>
                                         <div className='flex items-center justify-between gap-3 pb-2 border-b border-[#edeef0]'>
                                             <div className='flex items-center gap-3 min-w-0'>
-                                                <div className='min-w-12 h-12 rounded-full bg-primary/10 flex items-center text-lg justify-center text-primary font-bold font-figtree'>
+                                                <div className='min-w-12 h-12 rounded-full bg-primary/80 text-background flex items-center justify-center text-[19px] font-bold font-figtree'>
                                                     {client.name.substring(0, 1).toUpperCase()}
                                                 </div>
                                                 <div className='min-w-0'>
@@ -284,31 +284,33 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
 
                                         {client.horses && client.horses.length > 0 ? (
                                             <div className='grid grid-cols-1 @min-[825px]/horses:grid-cols-2 @min-[1250px]/horses:grid-cols-3 gap-6'>
-                                                {client.horses.sort((a, b) => a.barnName.localeCompare(b.barnName)).map((horse) => (
-                                                    <HorseCard
-                                                        key={horse.id}
-                                                        horse={horse}
-                                                        onDelete={() => setCheckModal({ open: true, id: horse.id, name: horse.barnName })}
-                                                        onEdit={() => {
-                                                            const data = {
-                                                                showName: horse.showName,
-                                                                barnName: horse.barnName,
-                                                                gender: horse.gender ? `${horse.gender[0].toUpperCase()}${horse.gender.substring(1)}` : null,
-                                                                color: horse.color === null || horse.color === undefined ? '' : horse.color,
-                                                                notes: horse.notes === null || horse.notes === undefined ? '' : horse.notes,
-                                                                clientId: horse.clientId || '',
-                                                            };
-                                                            setPreviousData(data);
-                                                            setEditModalData(data);
-                                                            setEditModal({
-                                                                open: true,
-                                                                id: horse.id,
-                                                                profileImage: horse.profileImage === null || horse.profileImage === undefined ? '' : horse.profileImage,
-                                                                croppedBlob: null,
-                                                            });
-                                                        }}
-                                                    />
-                                                ))}
+                                                {client.horses
+                                                    .sort((a, b) => a.barnName.localeCompare(b.barnName))
+                                                    .map((horse) => (
+                                                        <HorseCard
+                                                            key={horse.id}
+                                                            horse={horse}
+                                                            onDelete={() => setCheckModal({ open: true, id: horse.id, name: horse.barnName })}
+                                                            onEdit={() => {
+                                                                const data = {
+                                                                    showName: horse.showName,
+                                                                    barnName: horse.barnName,
+                                                                    gender: horse.gender ? `${horse.gender[0].toUpperCase()}${horse.gender.substring(1)}` : null,
+                                                                    color: horse.color === null || horse.color === undefined ? '' : horse.color,
+                                                                    notes: horse.notes === null || horse.notes === undefined ? '' : horse.notes,
+                                                                    clientId: horse.clientId || '',
+                                                                };
+                                                                setPreviousData(data);
+                                                                setEditModalData(data);
+                                                                setEditModal({
+                                                                    open: true,
+                                                                    id: horse.id,
+                                                                    profileImage: horse.profileImage === null || horse.profileImage === undefined ? '' : horse.profileImage,
+                                                                    croppedBlob: null,
+                                                                });
+                                                            }}
+                                                        />
+                                                    ))}
                                             </div>
                                         ) : (
                                             <p className='text-gray-400 font-figtree text-sm italic pl-14'>No horses assigned.</p>

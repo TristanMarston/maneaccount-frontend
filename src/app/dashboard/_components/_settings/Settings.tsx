@@ -343,7 +343,7 @@ const Settings = ({
             return;
         }
 
-        if (thanksMessage.length > 150) {
+        if (thanksMessageWords > 150) {
             failToast('Thank you message must be less than 150 words');
             return;
         }
@@ -483,7 +483,7 @@ const Settings = ({
                                                     {imagePreview && imagePreview.length > 0 ? (
                                                         <Image src={imagePreview} alt='Profile' fill className='object-cover rounded-full' />
                                                     ) : (
-                                                        <div className='w-full h-full flex items-center justify-center bg-primary/10 text-primary text-3xl font-bold'>
+                                                        <div className='w-full h-full bg-primary/80 text-background flex items-center justify-center text-4xl font-bold'>
                                                             {name.charAt(0).toUpperCase()}
                                                         </div>
                                                     )}
@@ -1633,7 +1633,7 @@ const notificationTypes: NotificationMap[] = [
     {
         text: 'Job Notes',
         type: NotificationType.new_message,
-        visibility: ['subcontractor', 'barn'],
+        visibility: ['subcontractor', 'barn', 'braider'],
     },
     {
         text: 'Approaching Horse Limit',

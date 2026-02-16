@@ -17,7 +17,7 @@ import { NotificationType } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
-const getInitials = (name: string) => (name ? name.substring(0, 2).toUpperCase() : '??');
+const getInitials = (name: string) => (name ? name.substring(0, 1).toUpperCase() : '?');
 
 type RelationMember = {
     id: string;
@@ -188,7 +188,7 @@ const Relations = ({
                                             className='bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4 @min-[330px]/relations:gap-0 @min-[330px]/relations:flex-row @min-[330px]/relations:items-center justify-between font-figtree'
                                         >
                                             <div className='flex items-center gap-3 min-w-0'>
-                                                <div className='w-11 h-11 rounded-full bg-primary/5 flex items-center justify-center text-primary font-bold text-sm shrink-0 font-figtree'>
+                                                <div className='w-11 h-11 rounded-full bg-primary/80 text-background flex items-center justify-center text-lg font-bold shrink-0 font-figtree'>
                                                     {req.image ? (
                                                         <Image src={req.image} alt={req.name || ''} width={44} height={44} className='rounded-full object-cover w-full h-full' />
                                                     ) : (
@@ -231,7 +231,7 @@ const Relations = ({
                                             className='bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4 @min-[330px]/relations:gap-0 @min-[330px]/relations:flex-row @min-[330px]/relations:items-center justify-between font-figtree'
                                         >
                                             <div className='flex items-center gap-3 min-w-0'>
-                                                <div className='w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm shrink-0 font-figtree'>
+                                                <div className='w-11 h-11 rounded-full bg-primary/80 text-background flex items-center justify-center text-lg font-bold shrink-0 font-figtree'>
                                                     {req.image ? (
                                                         <Image src={req.image} alt={req.name || ''} width={44} height={44} className='rounded-full object-cover w-full h-full' />
                                                     ) : (
@@ -310,7 +310,7 @@ const Relations = ({
                                                 {member.image ? (
                                                     <Image src={member.image} alt={member.name || ''} fill className='object-cover' />
                                                 ) : (
-                                                    <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-lg font-figtree'>
+                                                    <div className='w-full h-full bg-primary/80 text-background flex items-center justify-center text-xl font-bold font-figtree'>
                                                         {getInitials(member.name || '')}
                                                     </div>
                                                 )}
@@ -676,7 +676,7 @@ const InviteModal = ({
                                                 {invitedUser.image.length > 0 ? (
                                                     <Image src={invitedUser.image} alt={invitedUser.name || ''} fill className='object-cover' />
                                                 ) : (
-                                                    <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-lg font-figtree'>
+                                                    <div className='w-full h-full bg-primary/80 text-background flex items-center justify-center text-xl font-bold font-figtree'>
                                                         {getInitials(invitedUser.name || '')}
                                                     </div>
                                                 )}

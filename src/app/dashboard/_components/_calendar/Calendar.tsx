@@ -862,7 +862,7 @@ const Notifications = ({
                                                             {invite.show.user.image ? (
                                                                 <Image src={invite.show.user.image} alt={invite.show.user.name} fill className='rounded-full object-cover' />
                                                             ) : (
-                                                                <div className='rounded-full bg-primary-extra-light w-9 h-9 flex items-center justify-center text-primary font-bold text-[13px]'>
+                                                                <div className='rounded-full w-9 h-9 bg-primary/80 text-background flex items-center justify-center text-sm font-bold'>
                                                                     {invite.show.user.name.substring(0, 1).toUpperCase()}
                                                                 </div>
                                                             )}

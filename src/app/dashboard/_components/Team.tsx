@@ -16,7 +16,7 @@ import { NotificationType } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
-const getInitials = (name: string) => (name ? name.substring(0, 2).toUpperCase() : '??');
+const getInitials = (name: string) => (name ? name.substring(0, 1).toUpperCase() : '?');
 
 type TeamMember = {
     id: string;
@@ -198,7 +198,7 @@ const Team = ({
                                                 {req.image ? (
                                                     <Image className='w-11 h-11 rounded-full' src={req.image} alt='profile' width={50} height={50} />
                                                 ) : (
-                                                    <div className='w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm shrink-0 font-figtree'>
+                                                    <div className='w-11 h-11 rounded-full bg-primary/80 text-background flex items-center justify-center text-lg font-bold shrink-0 font-figtree'>
                                                         {getInitials(req.name || '')}
                                                     </div>
                                                 )}
@@ -246,7 +246,7 @@ const Team = ({
                                                 {req.image ? (
                                                     <Image className='w-11 h-11 rounded-full' src={req.image} alt='profile' width={50} height={50} />
                                                 ) : (
-                                                    <div className='w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm shrink-0 font-figtree'>
+                                                    <div className='w-11 h-11 rounded-full bg-primary/80 text-background flex items-center justify-center text-lg font-bold shrink-0 font-figtree'>
                                                         {getInitials(req.name || '')}
                                                     </div>
                                                 )}
@@ -322,7 +322,7 @@ const Team = ({
                                                 {member.image ? (
                                                     <Image src={member.image} alt={member.name || ''} fill className='object-cover' />
                                                 ) : (
-                                                    <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-lg font-figtree'>
+                                                    <div className='bg-primary/80 text-background flex items-center justify-center text-xl font-bold w-full h-full font-figtree'>
                                                         {getInitials(member.name || '')}
                                                     </div>
                                                 )}
@@ -679,7 +679,7 @@ const InviteModal = ({
                                                 {invitedUser.image.length > 0 ? (
                                                     <Image src={invitedUser.image} alt={invitedUser.name || ''} fill className='object-cover' />
                                                 ) : (
-                                                    <div className='w-full h-full flex items-center justify-center bg-primary/5 text-primary font-bold text-lg font-figtree'>
+                                                    <div className='w-full h-full bg-primary/80 text-background flex items-center justify-center text-xl font-bold font-figtree'>
                                                         {getInitials(invitedUser.name || '')}
                                                     </div>
                                                 )}

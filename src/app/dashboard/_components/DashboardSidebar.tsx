@@ -212,7 +212,7 @@ const DashboardSidebar = ({
                                         {image && image.length > 0 ? (
                                             <Image className='w-12 h-12 rounded-full border border-white shadow-sm' src={image} alt='profile' width={50} height={50} />
                                         ) : (
-                                            <div className='h-12 w-12 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm'>
+                                            <div className='h-12 w-12 rounded-full bg-primary/80 text-background flex items-center justify-center text-lg font-bold shadow-sm'>
                                                 {name ? name.charAt(0).toUpperCase() : ''}
                                             </div>
                                         )}

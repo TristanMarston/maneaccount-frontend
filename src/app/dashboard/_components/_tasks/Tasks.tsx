@@ -32,6 +32,7 @@ import {
     BadgeDollarSign,
     Send,
     Loader2,
+    Loader,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
@@ -1009,12 +1010,12 @@ const JobCard = ({
                         job.braider?.image ? (
                             <Image src={job.braider.image} alt='Braider' width={48} height={48} className='rounded-full object-cover w-full h-full' />
                         ) : (
-                            <div className='w-full h-full bg-primary/20 rounded-full flex items-center justify-center text-primary text-lg font-bold'>{job.braider.name[0]}</div>
+                            <div className='w-full h-full bg-primary/80 text-background flex items-center justify-center text-xl font-bold rounded-full'>{job.braider.name[0]}</div>
                         )
                     ) : job.barn?.image ? (
                         <Image src={job.barn.image} alt='Barn' width={48} height={48} className='rounded-full object-cover w-full h-full' />
                     ) : (
-                        <div className='w-full h-full bg-primary/20 rounded-full flex items-center justify-center text-primary text-lg font-bold'>
+                        <div className='w-full h-full bg-primary/80 text-background flex items-center justify-center text-xl font-bold rounded-full'>
                             {job.barn?.name?.charAt(0) || '?'}
                         </div>
                     )}
@@ -1301,7 +1302,7 @@ const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string
                         disabled={loading || !note}
                         className='p-2.5 rounded-xl cursor-pointer shadow-sm bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:pointer-events-none transition-all font-bold'
                     >
-                        <Check size={18} />
+                        {loading ? <Loader size={18} className='animate-spin' /> : <Check size={18} />}
                     </button>
                 </div>
             </div>

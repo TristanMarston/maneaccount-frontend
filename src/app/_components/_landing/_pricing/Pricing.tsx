@@ -5,6 +5,7 @@ import { motion, Variants } from 'motion/react';
 import FAQ from './FAQ';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export const pricingPlans = [
     {
@@ -174,13 +175,19 @@ const Pricing = () => {
                                         </div>
 
                                         {plan.popular ? (
-                                            <button className='w-full rounded-[10px] px-4 py-2 font-figtree font-semibold bg-primary-light text-background primary-border-hover text-[15px] xs:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
+                                            <Link
+                                                href='/login?mode=signup'
+                                                className='w-full rounded-[10px] flex justify-center items-center px-4 py-2 font-figtree font-semibold bg-primary-light text-background primary-border-hover text-[15px] xs:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'
+                                            >
                                                 Start Free Trial
-                                            </button>
+                                            </Link>
                                         ) : (
-                                            <button className='w-full rounded-[10px] px-4 py-2 font-figtree font-semibold bg-background text-primary primary-border-hover text-[15px] xs:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'>
+                                            <Link
+                                                href='/login?mode=signup'
+                                                className='w-full rounded-[10px] flex justify-center items-center px-4 py-2 font-figtree font-semibold bg-background text-primary primary-border-hover text-[15px] xs:text-base min-[430px]:text-[17px] 4xl:text-lg cursor-pointer'
+                                            >
                                                 Start Free Trial
-                                            </button>
+                                            </Link>
                                         )}
                                     </div>
                                 ))}

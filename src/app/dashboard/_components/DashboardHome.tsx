@@ -208,12 +208,13 @@ const Notifications = ({
     const [notifications, setNotifications] = useState<any[]>([]);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [isWrapped, setIsWrapped] = useState(false);
-    const [calendarModal, setCalendarModal] = useState<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>({
+    const [calendarModal, setCalendarModal] = useState<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean; outlookSynced: boolean }>({
         open: false,
         showId: '',
         showName: '',
         googleSynced: false,
         appleSynced: false,
+        outlookSynced: false,
     });
     const bellRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(bellRef, [], () => setNotificationsOpen(false));
@@ -378,16 +379,16 @@ const Notifications = ({
             </div>
             <Modal
                 isOpen={calendarModal.open}
-                setIsOpen={(val: boolean) => setCalendarModal({ open: val, showId: '', showName: '', googleSynced: false, appleSynced: false })}
+                setIsOpen={(val: boolean) => setCalendarModal({ open: val, showId: '', showName: '', googleSynced: false, appleSynced: false, outlookSynced: false })}
                 closeOnOutsideClick={false}
                 className='max-w-md font-figtree p-7 rounded-[18px] primary-border-bold'
             >
                 <CalendarIntegrationModal
                     isOpen={calendarModal.open}
-                    onClose={() => setCalendarModal({ open: false, showId: '', showName: '', googleSynced: false, appleSynced: false })}
+                    onClose={() => setCalendarModal({ open: false, showId: '', showName: '', googleSynced: false, appleSynced: false, outlookSynced: false })}
                     showId={calendarModal.showId}
                     showName={calendarModal.showName}
-                    alreadySynced={{ google: calendarModal.googleSynced, apple: calendarModal.appleSynced }}
+                    alreadySynced={{ google: calendarModal.googleSynced, apple: calendarModal.appleSynced, outlook: calendarModal.outlookSynced }}
                 />
             </Modal>
         </div>
@@ -413,7 +414,7 @@ const Notification = ({
     handleMarkAsRead: (notificationId: string) => void;
     setNotificationsOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void }>>;
-    setCalendarModal?: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>>;
+    setCalendarModal?: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean; outlookSynced: boolean; }>>;
 }) => {
     const [responseFunctions, setResponseFunctions] = useState<{ accept: () => Promise<void> | (() => void); reject: () => Promise<void> | (() => void) } | null>(null);
 
@@ -433,6 +434,7 @@ const Notification = ({
                                 showName: res.showName || 'Show',
                                 googleSynced: res.googleSynced || false,
                                 appleSynced: res.appleSynced || false,
+                                outlookSynced: res.outlookSynced || false,
                             });
                         }
                     } else {

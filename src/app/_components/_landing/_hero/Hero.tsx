@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect } from 'react';
+import Solutions from '../_solutions/Solutions';
 
 const Hero = () => {
     const videoSections = [
@@ -64,28 +65,7 @@ const Hero = () => {
             </div>
 
             <div className='w-full mt-24'>
-                <div className='grid grid-cols-1 xl:grid-cols-2 min-[950px]:grid-cols-3 gap-8'>
-                    {videoSections.map((section, index) => (
-                        <div key={index} className={cn('flex flex-col gap-3', section.wideMobile ? 'xl:col-span-2 min-[950px]:col-span-1' : '')}>
-                            <div className='w-full aspect-video bg-gray-200 rounded-xl flex items-center justify-center relative group cursor-pointer overflow-hidden border border-gray-300'>
-                                <div className='w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform'>
-                                    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor' className='w-6 h-6 text-primary ml-1'>
-                                        <path
-                                            fillRule='evenodd'
-                                            d='M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z'
-                                            clipRule='evenodd'
-                                        />
-                                    </svg>
-                                </div>
-                                <span className='absolute bottom-3 font-figtree right-3 bg-black/60 text-white text-xs px-2 py-1 rounded'>1:30</span>
-                            </div>
-                            <div className='text-left px-2'>
-                                <h4 className='font-lusitana text-2xl xs:text-[26px] 2xl:text-3xl min-[950px]:text-2xl 7xl:text-[26px] text-primary font-light'>{section.title}</h4>
-                                <p className='font-figtree text-gray-600 text-sm xs:text-[15px] 2xl:text-base min-[950px]:text-sm 7xl:text-[15px] mt-1'>{section.description}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <Solutions />
             </div>
         </div>
     );

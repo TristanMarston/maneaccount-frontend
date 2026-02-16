@@ -1,4 +1,4 @@
-import { Lusitana, Figtree, Lustria, Reenie_Beanie } from 'next/font/google';
+import { Lusitana, Figtree, Lustria } from 'next/font/google';
 import type { Metadata } from 'next';
 import './globals.css';
 
@@ -22,13 +22,6 @@ const lustria = Lustria({
     weight: ['400'],
 });
 
-const reenieBeanie = Reenie_Beanie({
-    subsets: ['latin'],
-    display: 'swap',
-    variable: '--font-reenie-beanie',
-    weight: ['400'],
-});
-
 export const metadata: Metadata = {
     title: 'ManeAccount',
     description: 'Organize your braiding business.',
@@ -48,7 +41,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang='en' className={`${figtree.variable} ${lusitana.variable} ${lustria.variable} ${reenieBeanie.variable}`}>
+        <html lang='en' className={`${figtree.variable} ${lusitana.variable} ${lustria.variable}`}>
             <body className={`overflow-x-hidden h-dvh w-dvw p-0 bg-background`}>{children}</body>
         </html>
     );

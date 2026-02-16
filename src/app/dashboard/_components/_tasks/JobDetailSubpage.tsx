@@ -328,9 +328,7 @@ export const JobDetailSubpage = ({
         React.SetStateAction<{
             open: boolean;
             id: string;
-            earnings: number;
-            horses: number;
-            services: number;
+            assignments: any[];
         }>
     >;
     canMarkCompleted?: boolean;
@@ -1057,7 +1055,7 @@ export const JobDetailSubpage = ({
                                                                                                                 )}
                                                                                                             >
                                                                                                                 {isCompleted ? (
-                                                                                                                    <CheckSquare size={14} strokeWidth={3} />
+                                                                                                                    <CheckSquare size={14} strokeWidth={3} className='text-white' />
                                                                                                                 ) : loadingServiceIds.some(
                                                                                                                       ({ horseId, date, id }) =>
                                                                                                                           id === service.id &&
@@ -1292,15 +1290,7 @@ export const JobDetailSubpage = ({
                                     setCheckMarkedCompleted({
                                         id: job.id,
                                         open: true,
-                                        earnings: job.assignments.reduce((acc: number, a: any) => {
-                                            const servicesTotal = a.services
-                                                .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
-                                                .reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
-                                            const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
-                                            return a.canceledAt ? acc : acc + servicesTotal + customTotal;
-                                        }, 0),
-                                        horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
-                                        services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
+                                        assignments: job.assignments,
                                     });
                                 }}
                                 className='w-full flex justify-center items-center gap-2 font-figtree font-bold text-background bg-primary-light rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'
@@ -1450,6 +1440,7 @@ export const JobDetailSubpage = ({
 };
 
 const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: { job: Job; horses: any[]; braiderServices: any[]; onClose: () => void; refresh: () => void }) => {
+    const [assignments, setAssignments] = useState<{ horseId: string; clientName: string; serviceIds: string[]; date: Date }[]>([]);
     const [selectedHorseId, setSelectedHorseId] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
@@ -1460,30 +1451,75 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
         end: parseUTCToLocal(new Date(job.show.endDate)) || new Date(job.show.endDate),
     });
 
-    const handleAdd = async () => {
+    const handleAddToList = () => {
         if (!selectedHorseId || !selectedDate || selectedServiceIds.length === 0) return;
-        setLoading(true);
-        const res = await addAssignmentsToJob(job.id, [
+        const horse = horses.find((h) => h.id === selectedHorseId);
+        if (!horse) return;
+
+        setAssignments((prev) => [
+            ...prev,
             {
                 horseId: selectedHorseId,
-                date: selectedDate,
+                clientName: horse.client?.name || 'No Client',
                 serviceIds: selectedServiceIds,
+                date: selectedDate,
             },
         ]);
+
+        setSelectedHorseId('');
+        setSelectedServiceIds([]);
+    };
+
+    const handleRemoveAssignment = (index: number) => {
+        setAssignments((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleConfirm = async () => {
+        if (assignments.length === 0) return;
+        setLoading(true);
+        const res = await addAssignmentsToJob(
+            job.id,
+            assignments.map((a) => ({
+                horseId: a.horseId,
+                date: a.date,
+                serviceIds: a.serviceIds,
+            })),
+        );
         if (res.success) {
-            successToast('Horse added to request');
+            successToast(`${assignments.length} Horse${assignments.length === 1 ? '' : 's'} added to request`);
             refresh();
             onClose();
         } else {
-            failToast(res.error || 'Failed to add horse');
+            failToast(res.error || `Failed to add horse${assignments.length === 1 ? '' : 's'}`);
         }
         setLoading(false);
     };
 
+    const groupedAssignments = React.useMemo(() => {
+        const groups: Record<string, Record<string, typeof assignments>> = {};
+        assignments.forEach((a) => {
+            const dateKey = format(parseUTCToLocal(a.date) || a.date, 'yyyy-MM-dd HH:mm:ss');
+            if (!groups[dateKey]) groups[dateKey] = {};
+            if (!groups[dateKey][a.clientName]) groups[dateKey][a.clientName] = [];
+            groups[dateKey][a.clientName].push(a);
+        });
+        return groups;
+    }, [assignments]);
+
+    const totalCost = React.useMemo(() => {
+        return assignments.reduce((acc, a) => {
+            const serviceCost = a.serviceIds.reduce((sum, sId) => {
+                const service = braiderServices.find((s) => s.id === sId);
+                return sum + (service?.priceUSD || 0);
+            }, 0);
+            return acc + serviceCost;
+        }, 0);
+    }, [assignments, braiderServices]);
+
     return (
         <div className='flex flex-col max-h-[90vh] font-figtree'>
             <div className='px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white'>
-                <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horse to Request</h3>
+                <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horse to Job</h3>
                 <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600'>
                     <X size={20} />
                 </button>
@@ -1537,7 +1573,8 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                                     !selectedDate ||
                                         job.assignments
                                             .filter((a) => isSameDay(parseUTCToLocal(a.assignmentDate) || a.assignmentDate, selectedDate))
-                                            .some((a) => a.horse.id === horse.id)
+                                            .some((a) => a.horse.id === horse.id) ||
+                                        assignments.some((a) => a.horseId === horse.id)
                                         ? 'opacity-20 pointer-events-none'
                                         : '',
                                 )}
@@ -1587,16 +1624,139 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                         })}
                     </div>
                 </div>
+
+                <div className='mt-6'>
+                    <button
+                        onClick={handleAddToList}
+                        disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
+                        className='bg-background primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
+                    >
+                        <Plus size={18} />
+                        Add to List
+                    </button>
+                </div>
+
+                {assignments.length > 0 && (
+                    <div className='space-y-4 mt-8'>
+                        <h3 className='font-bold text-gray-900 text-2xl flex justify-between items-center'>
+                            <span>Summary</span>
+                            <span className='text-primary font-lusitana text-2xl'>
+                                {new Intl.NumberFormat('en-US', {
+                                    style: 'currency',
+                                    currency: 'USD',
+                                }).format(totalCost)}
+                            </span>
+                        </h3>
+
+                        <div className='space-y-6'>
+                            {Object.entries(groupedAssignments)
+                                .sort()
+                                .map(([dateKey, group]) => (
+                                    <div key={dateKey} className='bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden'>
+                                        <div className='bg-white px-4 py-2 border-b border-gray-100 flex items-center gap-2'>
+                                            <Calendar size={16} className='text-gray-400' />
+                                            <span className='font-bold text-gray-700 font-figtree'>{format(new Date(dateKey), 'EEEE, MMMM do')}</span>
+                                            <span className='text-gray-400 text-sm'>
+                                                ({Object.values(group).reduce((acc, a) => acc + a.length, 0)} horse
+                                                {Object.values(group).reduce((acc, a) => acc + a.length, 0) !== 1 ? 's' : ''})
+                                            </span>
+                                        </div>
+                                        <div className='divide-y divide-gray-100'>
+                                            {Object.entries(group)
+                                                .sort(([aKey, _], [bKey]) => aKey.localeCompare(bKey))
+                                                .map(([clientName, horseAssignments]) => (
+                                                    <div key={clientName} className='mt-2'>
+                                                        <span className='font-lusitana ml-4 text-lg text-gray-600 border-b border-gray-300'>{`${clientName} • ${new Intl.NumberFormat(
+                                                            'en-US',
+                                                            {
+                                                                style: 'currency',
+                                                                currency: 'USD',
+                                                            },
+                                                        ).format(
+                                                            horseAssignments.reduce(
+                                                                (acc, a) => acc + a.serviceIds.reduce((acc, sid) => acc + (braiderServices.find((s) => s.id === sid)?.priceUSD || 0), 0),
+                                                                0,
+                                                            ),
+                                                        )}`}</span>
+
+                                                        {horseAssignments.map((a, i) => {
+                                                            const horse = horses.find((h) => h.id === a.horseId);
+                                                            const aServices = a.serviceIds.map((sid) => braiderServices.find((s) => s.id === sid)).filter(Boolean);
+                                                            const originalIndex = assignments.findIndex((orig) => orig === a);
+
+                                                            return (
+                                                                <div key={i} className='ml-3 p-4 flex gap-4 items-start group'>
+                                                                    <div className='w-18 h-18 rounded-xl bg-gray-200 overflow-hidden relative shrink-0'>
+                                                                        {horse?.profileImage ? (
+                                                                            <Image src={horse.profileImage} alt={horse.barnName} fill className='object-cover' />
+                                                                        ) : (
+                                                                            <div className='w-full h-full flex items-center justify-center text-gray-500 font-bold'>
+                                                                                {horse?.barnName?.[0]}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className='absolute opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out flex justify-center items-center bg-black/50 w-18 h-18 rounded-xl top-0 left-0 text-white font-bold text-sm'>
+                                                                            {new Intl.NumberFormat('en-US', {
+                                                                                style: 'currency',
+                                                                                currency: 'USD',
+                                                                            }).format(aServices.reduce((acc, s) => acc + (s?.priceUSD || 0), 0))}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className='flex-1 min-w-0'>
+                                                                        <div className='flex justify-between items-start'>
+                                                                            <div>
+                                                                                <p className='font-bold text-gray-900'>{horse?.barnName}</p>
+                                                                                <p className='text-xs text-gray-500'>{horse?.showName}</p>
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={() => handleRemoveAssignment(originalIndex)}
+                                                                                className='text-gray-300 hover:text-red-500 group-hover:opacity-100 opacity-0 transition-all cursor-pointer'
+                                                                            >
+                                                                                <Trash2 size={24} />
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className='flex flex-wrap gap-2 mt-2'>
+                                                                            {aServices.map((s) => (
+                                                                                <span
+                                                                                    key={s?.id}
+                                                                                    className='text-xs font-medium px-2 py-0.5 rounded-full bg-primary-extra-light text-primary-dark border border-primary/10'
+                                                                                >
+                                                                                    {s?.name} (
+                                                                                    {new Intl.NumberFormat('en-US', {
+                                                                                        style: 'currency',
+                                                                                        currency: 'USD',
+                                                                                    }).format(s?.priceUSD)}
+                                                                                    )
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className='p-6 bg-gray-50 border-t border-gray-100'>
                 <button
-                    onClick={handleAdd}
-                    disabled={loading || !selectedHorseId || !selectedDate || selectedServiceIds.length === 0}
+                    onClick={handleConfirm}
+                    disabled={loading || assignments.length === 0}
                     className='w-full py-2.5 cursor-pointer bg-primary-light text-white rounded-[10px] font-bold text-lg primary-border-hover disabled:opacity-50'
                 >
-                    {loading ? <Loader className='animate-spin inline mr-2' size={20} /> : <Plus size={20} className='inline mr-2' />}
-                    Confirm Addition
+                    {loading ? (
+                        <div className='w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto' />
+                    ) : (
+                        <div className='flex items-center justify-center gap-2'>
+                            <Plus size={20} />
+                            Confirm Additions ({assignments.length})
+                        </div>
+                    )}
                 </button>
             </div>
         </div>

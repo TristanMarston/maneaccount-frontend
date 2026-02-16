@@ -32,8 +32,10 @@ export async function updateProfile(formData: any) {
     const zelle = formData.zelle as 'email' | 'phone' | 'disabled' | null;
     const venmoEnabled = formData.venmoEnabled as boolean | null;
     const allowedNotifications = formData.allowedNotifications as any[] | null;
+    const thanksMessage = formData.thanksMessage as string | null;
 
-    if (!name && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications) return { error: 'Update at least one field' };
+    if (!name && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications && !thanksMessage)
+        return { error: 'Update at least one field' };
 
     const updateData: any = {};
     if (name) updateData.name = name;
@@ -41,6 +43,7 @@ export async function updateProfile(formData: any) {
     if (venmo !== null) updateData.venmo = venmo;
     if (zelle !== null) updateData.zelle = zelle;
     if (venmoEnabled !== null) updateData.venmoEnabled = venmoEnabled;
+    if (thanksMessage !== null) updateData.thanksMessage = thanksMessage;
     if (allowedNotifications) updateData.allowedNotifications = allowedNotifications;
 
     if (publicID) {
@@ -109,6 +112,7 @@ export async function getUserSettings() {
             venmo: true,
             zelle: true,
             venmoEnabled: true,
+            thanksMessage: true,
             allowedNotifications: true,
         },
     });
@@ -232,5 +236,20 @@ export async function switchAccountRole() {
     } catch (error) {
         console.error('Switch role error:', error);
         return { error: 'Failed to switch role' };
+    }
+}
+
+export async function changeThanksMessage(message: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        await prisma.user.update({ where: { email: session.user.email }, data: { thanksMessage: message } });
+
+        revalidatePath('/dashboard');
+        return { success: true, message }
+    } catch (error) {
+        console.error('Rewrite thanks message error:', error);
+        return { error: 'Failed to set thank-you message' };
     }
 }

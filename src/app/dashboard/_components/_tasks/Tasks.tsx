@@ -30,6 +30,8 @@ import {
     Phone,
     Copy,
     BadgeDollarSign,
+    Send,
+    Loader2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
@@ -67,6 +69,7 @@ import { formatPhoneNumber } from '../_settings/Settings';
 import RequestWorkSubpage from './RequestWorkSubpage';
 import { parseUTCToLocal } from '@/lib/date-utils';
 import { Tab } from '../_braider/BraiderDashboard';
+import { changeThanksMessage } from '@/app/actions/settings';
 
 export type Job = {
     id: string;
@@ -123,6 +126,7 @@ const Tasks = ({
     selectedBraider,
     setSelectedBraider,
     setSettingsOpen,
+    setUnsavedRequest,
 }: {
     role: string;
     userEmail: string;
@@ -133,6 +137,7 @@ const Tasks = ({
     selectedBraider?: any;
     setSelectedBraider?: React.Dispatch<React.SetStateAction<any>>;
     setSettingsOpen?: (page: Tab) => void;
+    setUnsavedRequest?: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
@@ -142,7 +147,7 @@ const Tasks = ({
     const [cancelJobModal, setCancelJobModal] = useState(false);
     const [showCanceledEvents, setShowCanceledEvents] = useState(false);
     const [showCompletedEvents, setShowCompletedEvents] = useState(false);
-    const [checkMarkedCompleted, setCheckMarkedCompleted] = useState({ open: false, id: '', earnings: 0, horses: 0, services: 0 });
+    const [checkMarkedCompleted, setCheckMarkedCompleted] = useState<{ open: boolean; id: string; assignments: any[] }>({ open: false, id: '', assignments: [] });
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
     const [exactTime, setExactTime] = useState(new Date());
     const [braiderUsage, setBraiderUsage] = useState<{ count: number; limit: number; period: string } | null>(null);
@@ -240,8 +245,8 @@ const Tasks = ({
         }
     };
 
-    const handleMarkJobCompleted = async (jobID: string) => {
-        const res = await markJobCompleted(jobID);
+    const handleMarkJobCompleted = async (jobID: string, thanksMessage: string) => {
+        const res = await markJobCompleted(jobID, thanksMessage);
         if (res.success) {
             successToast('Invoice sent!');
             setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
@@ -367,6 +372,19 @@ const Tasks = ({
                                                 !j.assignments.every((a) => a.paidAt) &&
                                                 (j.assignments.length === 0 || !j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied')),
                                         )
+                                        .sort(
+                                            (a, b) =>
+                                                Math.min(
+                                                    ...a.assignments.map(
+                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                    ),
+                                                ) -
+                                                Math.min(
+                                                    ...b.assignments.map(
+                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                    ),
+                                                ),
+                                        )
                                         .map((job) => (
                                             <JobCard
                                                 key={job.id}
@@ -385,7 +403,21 @@ const Tasks = ({
                                     {jobs.filter((j) => j.assignments.every((a) => a.paidAt)).length > 0 && jobs.filter((j) => !j.assignments.every((a) => a.paidAt)).length > 0 && (
                                         <div className='h-[0.5px] bg-gray-200 rounded-full' />
                                     )}
-                                    {jobs.filter((j) => j.assignments.every((a) => a.paidAt)).length > 0 && (
+                                    {jobs
+                                        .sort(
+                                            (a, b) =>
+                                                Math.min(
+                                                    ...b.assignments.map(
+                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                    ),
+                                                ) -
+                                                Math.min(
+                                                    ...a.assignments.map(
+                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                    ),
+                                                ),
+                                        )
+                                        .filter((j) => j.assignments.every((a) => a.paidAt)).length > 0 && (
                                         <>
                                             <span
                                                 onClick={() => setShowCompletedEvents((prev) => !prev)}
@@ -420,6 +452,21 @@ const Tasks = ({
                                                     >
                                                         {jobs
                                                             .filter((j) => j.assignments.every((a) => a.paidAt))
+                                                            .sort(
+                                                                (a, b) =>
+                                                                    Math.min(
+                                                                        ...a.assignments.map(
+                                                                            (assignment) =>
+                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                                        ),
+                                                                    ) -
+                                                                    Math.min(
+                                                                        ...b.assignments.map(
+                                                                            (assignment) =>
+                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                                        ),
+                                                                    ),
+                                                            )
                                                             .map((job) => (
                                                                 <JobCard
                                                                     key={job.id}
@@ -475,6 +522,21 @@ const Tasks = ({
                                                     >
                                                         {jobs
                                                             .filter((j) => j.assignments.length > 0 && j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied'))
+                                                            .sort(
+                                                                (a, b) =>
+                                                                    Math.min(
+                                                                        ...a.assignments.map(
+                                                                            (assignment) =>
+                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                                        ),
+                                                                    ) -
+                                                                    Math.min(
+                                                                        ...b.assignments.map(
+                                                                            (assignment) =>
+                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
+                                                                        ),
+                                                                    ),
+                                                            )
                                                             .map((job) => (
                                                                 <JobCard
                                                                     key={job.id}
@@ -503,7 +565,8 @@ const Tasks = ({
                       requestingJob !== undefined &&
                       setRequestingJob !== undefined &&
                       selectedBraider !== undefined &&
-                      setSelectedBraider !== undefined ? (
+                      setSelectedBraider !== undefined &&
+                      setUnsavedRequest !== undefined ? (
                         <motion.div
                             key='requesting'
                             initial={{ x: 100, opacity: 0 }}
@@ -521,6 +584,7 @@ const Tasks = ({
                                 refresh={refreshJobs}
                                 selectedBraider={selectedBraider}
                                 setSelectedBraider={setSelectedBraider}
+                                setUnsavedRequest={setUnsavedRequest}
                             />
                         </motion.div>
                     ) : (
@@ -616,6 +680,35 @@ const Tasks = ({
     );
 };
 
+const getInvoiceInfo = (assignments: any[]) => {
+    return {
+        earnings: assignments.reduce((acc: number, a: any) => {
+            const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
+            const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
+            return a.canceledAt ? acc : acc + servicesTotal + customTotal;
+        }, 0),
+        horses: assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
+        // @ts-ignore
+        services: assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
+        clientBreakdown: assignments.reduce((acc: any, a: any) => {
+            const clientId = a.horse.clientId || 'barn';
+            const clientName = a.horse.client?.name || 'Barn / No Client';
+
+            if (!acc[clientId]) {
+                acc[clientId] = {
+                    id: clientId,
+                    name: clientName,
+                    assignments: [],
+                    isPaid: true,
+                };
+            }
+            acc[clientId].assignments.push(a);
+            if (!a.paidAt) acc[clientId].isPaid = false;
+            return acc;
+        }, {}),
+    };
+};
+
 const CheckMarkedCompletedModal = ({
     checkMarkedCompleted,
     setCheckMarkedCompleted,
@@ -628,19 +721,26 @@ const CheckMarkedCompletedModal = ({
     checkMarkedCompleted: {
         open: boolean;
         id: string;
-        earnings: number;
-        horses: number;
-        services: number;
+        assignments: any[];
     };
-    setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; earnings: number; horses: number; services: number }) => void;
+    setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; assignments: any[] }) => void;
     role: string;
-    handleMarkJobCompleted: (id: string) => void;
+    handleMarkJobCompleted: (id: string, thanksMessage: string) => void;
     exactTime: Date;
     userEmail: string;
     setSettingsOpen: (page: Tab) => void;
 }) => {
     // @ts-ignore
     if (!checkMarkedCompleted.id) setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
+    const [invoiceInfo, setInvoiceInfo] = useState(getInvoiceInfo(checkMarkedCompleted.assignments));
+    const originalThanksMessage = useRef('');
+    const [thanksMessage, setThanksMessage] = useState('');
+    const [loadingThanksMessage, setLoadingThanksMessage] = useState(true);
+    const [thanksMessageWords, setThanksMessageWords] = useState(0);
+
+    useEffect(() => {
+        setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
+    }, [checkMarkedCompleted.open]);
 
     const [loadingDetails, setLoadingDetails] = useState(true);
     const [hasPayoutInfo, setHasPayoutInfo] = useState(false);
@@ -654,8 +754,34 @@ const CheckMarkedCompletedModal = ({
             setLoadingDetails(false);
         };
 
+        const getThanksMessage = async () => {
+            setLoadingThanksMessage(true);
+            const user = await getUserByEmail(userEmail);
+            if (user && user.thanksMessage) {
+                originalThanksMessage.current = user.thanksMessage;
+                setThanksMessage(user.thanksMessage);
+                setThanksMessageWords(user.thanksMessage.split(' ').filter((s) => s.trim().length > 0).length);
+            }
+            setLoadingThanksMessage(false);
+        };
+
         getPayoutInfo();
+        getThanksMessage();
     }, [checkMarkedCompleted.id]);
+
+    const setNewThanksMessage = async () => {
+        setLoadingThanksMessage(true);
+        const result = await changeThanksMessage(thanksMessage);
+
+        if (result.success) {
+            setLoadingThanksMessage(false);
+            successToast('Default thank-you message saved!');
+            originalThanksMessage.current = result.message;
+        } else {
+            setLoadingThanksMessage(false);
+            failToast('Failed to save thank-you message.');
+        }
+    };
 
     return loadingDetails ? (
         <div className='w-full h-48 flex items-center justify-center'>
@@ -675,24 +801,92 @@ const CheckMarkedCompletedModal = ({
             </div>
             <div className='flex flex-col gap-2 mt-4'>
                 <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
-                <div className='p-4 w-full flex-wrap font-figtree flex items-center gap-3 bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
-                    <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
-                        {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                        }).format(checkMarkedCompleted.earnings)}
-                    </div>
-                    <div className='font-figtree font-normal text-sm'>
-                        <div className='flex items-center gap-2 font-semibold text-[15px]'>
-                            <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
-                            {format(exactTime, 'Pp')}
+                <div className='p-4 w-full font-figtree bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
+                    <div className='flex items-center gap-3 flex-wrap'>
+                        <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
+                            {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                            }).format(invoiceInfo.earnings)}
                         </div>
-                        <span>
-                            {checkMarkedCompleted.horses} Horse{checkMarkedCompleted.horses === 1 ? '' : 's'}
-                        </span>{' '}
-                        •{' '}
-                        <span>
-                            {checkMarkedCompleted.services} Service{checkMarkedCompleted.services === 1 ? '' : 's'}
+                        <div className='font-figtree font-normal text-sm'>
+                            <div className='flex items-center gap-2 font-semibold text-[15px]'>
+                                <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
+                                {format(exactTime, 'Pp')}
+                            </div>
+                            <span>
+                                {invoiceInfo.horses} Horse{invoiceInfo.horses === 1 ? '' : 's'}
+                            </span>{' '}
+                            •{' '}
+                            <span>
+                                {invoiceInfo.services} Service{invoiceInfo.services === 1 ? '' : 's'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className='ml-1'>
+                        <p className='font-figtree text-purple-600 font-bold tracking-wide uppercase text-sm mt-3'>Client Breakdown</p>
+                        {Object.values(invoiceInfo.clientBreakdown)
+                            .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
+                            .map((group: any) => {
+                                const groupTotal = group.assignments.reduce((acc: number, a: any) => {
+                                    const servicesTotal = a.services
+                                        .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
+                                        .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+                                    const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+                                    return acc + servicesTotal + customTotal;
+                                }, 0);
+
+                                if (groupTotal === 0) return null;
+
+                                return (
+                                    <div key={group.id} className='flex items-center gap-2 p-3 rounded-lg'>
+                                        <div className='font-lusitana text-2xl py-1.5 px-3.5 bg-purple-200 border border-purple-400 text-purple-600 shadow-sm rounded-[14px]'>
+                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}
+                                        </div>
+                                        <div>
+                                            <p className='font-semibold text-[15px] text-purple-600'>{group.name}</p>
+                                            <p className='text-[13px] font-normal text-purple-600'>{group.assignments.length} Horses</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                    </div>
+                    <div className='ml-1'>
+                        <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-1'>Thank-you Message (optional)</p>
+                        <p className='font-figtree text-primary font-semibold text-[13px] mt-0.5'>Write a custom thank-you message for your clients to see in the invoice.</p>
+                        <textarea
+                            value={loadingThanksMessage ? 'Loading...' : thanksMessage}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                const words = value.split(' ').filter((s) => s.trim().length > 0).length;
+                                if (words > 150) return;
+                                setThanksMessage(e.target.value);
+                                setThanksMessageWords(words);
+                            }}
+                            className='w-full mt-2 font-medium text-primary-dark bg-primary/15 focus:bg-primary/5 outline-none shadow-sm border h-[90px] max-h-[90px] min-h-[42px] overflow-y-auto border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                            placeholder={`e.g. "Thanks for doing business with me!"`}
+                            autoCorrect='on'
+                            autoComplete='on'
+                            spellCheck={true}
+                            required
+                        />
+                        <span className='inline-flex items-start mt-1 justify-between w-full'>
+                            <p className={cn('text-xs ml-1 pb-2 text-primary', thanksMessageWords === 150 ? 'text-red-400' : '')}>{thanksMessageWords} / 150 words</p>
+                            <AnimatePresence>
+                                {originalThanksMessage.current.length > 0 && originalThanksMessage.current.trim() !== thanksMessage.trim() && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        onClick={() => setNewThanksMessage()}
+                                        className='text-sm uppercase ml-1 flex items-center gap-1 bg-primary/10 py-0.5 px-2 rounded-full hover:bg-primary/5 transition-colors cursor-pointer'
+                                    >
+                                        {loadingThanksMessage ? <Loader2 className='animate-spin text-primary w-4 h-4' /> : <></>}
+                                        {loadingThanksMessage ? 'Loading...' : 'Set as Default'}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </span>
                     </div>
                 </div>
@@ -706,7 +900,7 @@ const CheckMarkedCompletedModal = ({
                     Cancel
                 </button>
                 <button
-                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id)}
+                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage)}
                     className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                 >
                     Send Invoice
@@ -724,7 +918,7 @@ const CheckMarkedCompletedModal = ({
                     You have no payout information added, so clients will have no way of paying you. Go to{' '}
                     <button
                         onClick={() => {
-                            setSettingsOpen('payments');
+                            setSettingsOpen('invoicing');
                         }}
                         className='text-primary hover:text-primary-light transition-all font-semibold cursor-pointer'
                     >
@@ -760,7 +954,7 @@ const JobCard = ({
     completed?: boolean;
     refresh: () => void;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
-    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; earnings: number; horses: number; services: number }>>;
+    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; assignments: any[] }>>;
     unreadCount: number;
     setRequestingJob?: (j: Job | 'creating' | null) => void;
 }) => {
@@ -773,22 +967,26 @@ const JobCard = ({
     const horsesCompleted = job.assignments
         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
         .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length).length;
-    const isJobCompleted =
-        job.assignments.length > 0 && job.assignments.every((a) => a.status === 'completed' || (a.status === 'accepted' && a.completedServiceIds.length === a.services.length));
 
     const handleMarkCompleted = (e: React.MouseEvent) => {
         e.stopPropagation();
         setCheckMarkedCompleted({
             open: true,
             id: job.id,
-            earnings: job.assignments.reduce((acc: number, a: any) => {
-                const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
-                const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
-                return a.canceledAt ? acc : acc + servicesTotal + customTotal;
-            }, 0),
-            horses: job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
-            services: job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
+            assignments: job.assignments,
         });
+    };
+
+    const sendRequest = async () => {
+        if (job.status !== 'editing' || setRequestingJob === undefined) return;
+
+        const submitRes = await submitJob(job.id, new Date().getTimezoneOffset());
+        if (submitRes.success) {
+            successToast('Request submitted successfully');
+            refresh();
+        } else {
+            failToast(submitRes.error || 'Failed to submit request');
+        }
     };
 
     return (
@@ -923,12 +1121,24 @@ const JobCard = ({
                             job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) && (
                             <button
                                 onClick={handleMarkCompleted}
-                                className='p-2 rounded-full cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
+                                className='p-2 rounded-full flex justify-center items-center cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
                                 title='Send Invoice'
                             >
                                 <CheckCircle2 size={28} />
                             </button>
                         )}
+                    {job.status === 'editing' && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                sendRequest();
+                            }}
+                            title='Submit Request'
+                            className='pt-2.5 pr-2.5 pb-1.5 pl-1.5 rounded-full flex justify-center items-center cursor-pointer hover:bg-primary-extra-light text-gray-400 hover:text-primary border border-transparent hover:border-[#dae3de] transition-all relative'
+                        >
+                            <Send size={28} />
+                        </button>
+                    )}
                     {!completed && !canceled && job.status !== 'editing' && (
                         <button
                             onClick={(e) => {
@@ -936,7 +1146,7 @@ const JobCard = ({
                                 setNotesJob(job);
                             }}
                             title='Open Notes'
-                            className='p-2 rounded-full cursor-pointer hover:bg-primary-extra-light text-gray-400 hover:text-primary border border-transparent hover:border-[#dae3de] transition-all relative'
+                            className='p-2 rounded-full flex justify-center items-center cursor-pointer hover:bg-primary-extra-light text-gray-400 hover:text-primary border border-transparent hover:border-[#dae3de] transition-all relative'
                         >
                             <MessageCircle size={28} />
                             {unreadCount > 0 && <span className='absolute top-1.5 right-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white' />}

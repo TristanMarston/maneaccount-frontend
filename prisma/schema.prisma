@@ -150,6 +150,7 @@ model User {
   subcontractorJobs           Job[] @relation("SubcontractorJobs")
   subcontractorAssignments    JobAssignment[] @relation("SubcontractorAssignments")
   notes                       Note[]
+  thanksMessage               String?
   
   sentShowInvites      ShowInvite[] @relation("ShowInviter")
   receivedShowInvites  ShowInvite[] @relation("ShowInvitee")
@@ -215,7 +216,8 @@ model Show {
   endDate     DateTime
 
 
-  addedToAppleCalendar Boolean @default(false)
+  addedToAppleCalendar  Boolean @default(false)
+  addedToOutlook        Boolean @default(false)
   addedToGoogleCalendar Boolean @default(false)
   googleEventId         String?
 
@@ -239,7 +241,9 @@ model ShowInvite {
   inviterId   String
   inviteeId   String
   status      ShowInviteStatus  @default(pending)
-  addedToAppleCalendar Boolean @default(false)
+
+  addedToAppleCalendar  Boolean @default(false)
+  addedToOutlook        Boolean @default(false)
   addedToGoogleCalendar Boolean @default(false)
   googleEventId         String?
 
@@ -271,6 +275,7 @@ model Job {
   
   assignedAt      DateTime  @default(now())
   invoiceSentAt   DateTime?
+  thanksMessage   String?
 
   paymentPlatform    String?
   

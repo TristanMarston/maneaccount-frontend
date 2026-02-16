@@ -332,7 +332,9 @@ export async function createNotification(
                             }[]
                         > = {};
 
-                        const validAssignments = job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length);
+                        const validAssignments = job.assignments
+                            .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length)
+                            .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
 
                         for (const horse of validAssignments) {
                             const dateKey = format(parseUTCToLocal(horse.assignmentDate) || horse.assignmentDate, 'yyyy-MM-dd');
@@ -368,18 +370,17 @@ export async function createNotification(
                         if (job.braider.zelle && job.braider.zelle !== 'disabled')
                             paymentInformation.zelle = job.braider.zelle === 'email' ? job.braider.email || '' : job.braider.phoneNumber || '';
 
-                        if (user.allowedNotifications.includes('job_completed')) {
-                            await sendJobCompletedEmail({
-                                to: user.email,
-                                braiderName: job.braider.name || 'Braider',
-                                showName: job.show.name,
-                                horseName: 'your horses',
-                                isClient: false,
-                                image: image || '',
-                                paymentInformation,
-                                serviceDetails: [mainServiceDetails],
-                            });
-                        }
+                        await sendJobCompletedEmail({
+                            to: user.email,
+                            braiderName: job.braider.name || 'Braider',
+                            showName: job.show.name,
+                            horseName: 'your horses',
+                            thanksMessage: job.thanksMessage || '',
+                            isClient: false,
+                            image: image || '',
+                            paymentInformation,
+                            serviceDetails: [mainServiceDetails],
+                        });
 
                         const notifiedClientIds = new Set<string>();
                         for (const assignment of job.assignments) {
@@ -402,6 +403,7 @@ export async function createNotification(
                                         braiderName: job.braider.name || 'Braider',
                                         showName: job.show.name,
                                         horseName: assignment.horse.showName,
+                                        thanksMessage: job.thanksMessage || '',
                                         isClient: true,
                                         paymentInformation,
                                         serviceDetails: [clientServiceDetails],

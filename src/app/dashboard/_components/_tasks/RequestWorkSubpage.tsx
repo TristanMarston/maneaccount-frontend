@@ -25,6 +25,7 @@ const RequestWorkSubpage = ({
     refresh,
     selectedBraider,
     setSelectedBraider,
+    setUnsavedRequest,
 }: {
     job: Job | 'creating';
     role: string;
@@ -34,6 +35,7 @@ const RequestWorkSubpage = ({
     refresh: () => void;
     selectedBraider: any;
     setSelectedBraider: React.Dispatch<React.SetStateAction<any | null>>;
+    setUnsavedRequest: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
     const isEditing = initialJob !== 'creating';
 
@@ -108,7 +110,7 @@ const RequestWorkSubpage = ({
     }, [selectedBraider, isEditing]);
 
     useEffect(() => {
-        const determineCheck = (e: BeforeUnloadEvent) => {
+        const determineCheck = (e?: BeforeUnloadEvent) => {
             let changesMade = false;
 
             if (initialJob === 'creating') changesMade = assignments.length > 0;
@@ -119,8 +121,6 @@ const RequestWorkSubpage = ({
 
                 if (previousAssignments.length !== currentAssignments.length) {
                     changesMade = true;
-                } else if (selectedBraider?.id !== job.braider.id || selectedShow?.id !== job.show.id) {
-                    changesMade = true;
                 } else {
                     changesMade = currentAssignments.some((curr, i) => {
                         const prev = previousAssignments[i];
@@ -129,7 +129,7 @@ const RequestWorkSubpage = ({
 
                         return (
                             curr.horseId !== prev.horse.id ||
-                            new Date(curr.date).getTime() !== new Date(prev.assignmentDate).getTime() ||
+                            new Date(curr.date).getTime() !== (parseUTCToLocal(new Date(prev.assignmentDate)) || new Date(prev.assignmentDate)).getTime() ||
                             prevServiceIds.length !== currServiceIds.length ||
                             currServiceIds.some((id, idx) => id !== prevServiceIds[idx])
                         );
@@ -137,12 +137,41 @@ const RequestWorkSubpage = ({
                 }
             }
 
-            if (changesMade) e.preventDefault();
+            if (changesMade) {
+                if (e) e.preventDefault();
+                else setUnsavedRequest(true);
+            } else {
+                setUnsavedRequest(false);
+            }
         };
 
+        determineCheck();
         window.addEventListener('beforeunload', determineCheck);
         return () => window.removeEventListener('beforeunload', determineCheck);
     }, [initialJob, assignments, selectedBraider, selectedShow]);
+
+    useEffect(() => {
+        const setUnsavedRequestValue = () => {
+            if (initialJob === 'creating' && assignments.length > 0) setUnsavedRequest(true);
+            else if (initialJob !== 'creating') {
+                const previousAssignments = (initialJob as Job).assignments.sort((a, b) => a.horse.id.localeCompare(b.horse.id));
+                const currentAssignments = assignments.sort((a, b) => a.horseId.localeCompare(b.horseId));
+
+                if (previousAssignments.length !== currentAssignments.length) {
+                    setUnsavedRequest(true);
+                } else {
+                    for (let i = 0; i < previousAssignments.length; i++) {
+                        if (previousAssignments[i].horse.id !== currentAssignments[i].horseId) {
+                            setUnsavedRequest(true);
+                            break;
+                        }
+                    }
+                }
+            }
+        };
+
+        setUnsavedRequestValue();
+    }, [assignments, initialJob]);
 
     const showDates = useMemo(() => {
         if (!selectedShow) return [];
@@ -158,7 +187,11 @@ const RequestWorkSubpage = ({
     const handleAddAssignment = () => {
         if (!selectedDate || !selectedHorseId || selectedServiceIds.length === 0) return;
 
-        const existingAssignment = assignments.filter((a) => a.horseId === selectedHorseId && a.date === selectedDate).length !== 0;
+        const existingAssignment = assignments.some((a) => a.horseId === selectedHorseId && isSameDay(a.date, selectedDate));
+        if (existingAssignment) {
+            failToast('Horse already added for this date');
+            return;
+        }
 
         setAssignments((prev) =>
             existingAssignment
@@ -174,12 +207,9 @@ const RequestWorkSubpage = ({
                   ],
         );
 
-        if (existingAssignment) failToast('Horse already added for this date');
-        else {
-            setSelectedHorseId('');
-            setSelectedServiceIds([]);
-            setSelectedHorse(null);
-        }
+        setSelectedHorseId('');
+        setSelectedServiceIds([]);
+        setSelectedHorse(null);
     };
 
     const sortedAssignments = useMemo(() => {
@@ -268,11 +298,9 @@ const RequestWorkSubpage = ({
             let jobId = isEditing ? (initialJob as Job).id : '';
 
             if (isEditing) {
-                // Update first
                 const updateRes = await updateJobDraft(jobId, assignmentData);
                 if (!updateRes.success) throw new Error(updateRes.error);
             } else {
-                // Create
                 if (!selectedBraider || !selectedShow) return;
                 const createRes = await createJob({
                     braiderId: selectedBraider.id,
@@ -571,7 +599,7 @@ const RequestWorkSubpage = ({
                                                     selectedHorseId === h.id
                                                         ? 'bg-primary-extra-light border-primary'
                                                         : 'bg-white border-gray-200 hover:shadow-md hover:border-primary/50',
-                                                    assignments.some((a) => isSameDay(selectedDate || new Date(), a.date) && h.id === a.horseId)
+                                                    assignments.some((a) => isSameDay(selectedDate || new Date(), a.date) && h.id === a.horseId) || !selectedDate
                                                         ? 'opacity-30 pointer-events-none'
                                                         : 'opacity-100',
                                                 )}
@@ -631,15 +659,25 @@ const RequestWorkSubpage = ({
                                 </div>
                             </div>
 
-                            <div className='mt-6'>
+                            <div className='mt-6 flex gap-3'>
                                 <button
                                     onClick={handleAddAssignment}
                                     disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
-                                    className='bg-background primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
+                                    className='bg-background text-[17px] primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
                                 >
                                     <Plus size={18} />
                                     Add to List
                                 </button>
+                                <span className={cn(loading || assignments.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer')}>
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={loading || assignments.length === 0}
+                                        className='px-6 py-2 rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2 text-[17px]'
+                                    >
+                                        {loading && <Loader2 size={18} className='animate-spin' />}
+                                        Submit Request
+                                    </button>
+                                </span>
                             </div>
                         </div>
 
@@ -664,7 +702,8 @@ const RequestWorkSubpage = ({
                                                     <CalendarIcon size={16} className='text-gray-400' />
                                                     <span className='font-bold text-gray-700'>{format(new Date(dateKey), 'EEEE, MMMM do')}</span>
                                                     <span className='text-gray-400 text-sm'>
-                                                        ({Object.keys(group).length} horse{Object.keys(group).length !== 1 ? 's' : ''})
+                                                        ({Object.values(group).reduce((acc, a) => acc + a.length, 0)} horse
+                                                        {Object.values(group).reduce((acc, a) => acc + a.length, 0) !== 1 ? 's' : ''})
                                                     </span>
                                                 </div>
                                                 <div className='divide-y divide-gray-100'>
@@ -752,14 +791,6 @@ const RequestWorkSubpage = ({
                                 </div>
                             )}
                         </div>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading || assignments.length === 0}
-                            className='w-full py-2 rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 flex justify-center items-center gap-2 text-lg'
-                        >
-                            {loading && <Loader2 size={18} className='animate-spin' />}
-                            Submit Request
-                        </button>
                     </motion.div>
                 )}
             </div>

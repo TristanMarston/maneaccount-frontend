@@ -73,6 +73,7 @@ const DashboardSidebar = ({
     activeTab,
     setActiveTab,
     subscriptionTier,
+    unsavedRequest,
 }: {
     dashboard: string;
     session: Session | null;
@@ -86,12 +87,13 @@ const DashboardSidebar = ({
     activeTab: Tab;
     setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
     subscriptionTier?: SubscriptionTier | null;
+    unsavedRequest?: boolean;
 }) => {
     const { unreadCounts, refreshCounts } = useNotifications();
     const [open, setOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
+    const [unsavedModalOpen, setUnsavedModalOpen] = useState<{ open: boolean; type: 'settings' | 'request' }>({ open: false, type: 'settings' });
     const [pendingPage, setPendingPage] = useState<string | null>(null);
 
     useEffect(() => {
@@ -106,7 +108,10 @@ const DashboardSidebar = ({
 
         if (unsavedChanges) {
             setPendingPage(title);
-            setUnsavedModalOpen(true);
+            setUnsavedModalOpen({ open: true, type: 'settings' });
+        } else if (unsavedRequest) {
+            setPendingPage(title);
+            setUnsavedModalOpen({ open: true, type: 'request' });
         } else {
             setSelectedPage(title);
             setMobileMenuOpen(false);
@@ -118,7 +123,7 @@ const DashboardSidebar = ({
             setSelectedPage(pendingPage);
             setPendingPage(null);
         }
-        setUnsavedModalOpen(false);
+        setUnsavedModalOpen({ open: false, type: 'settings' });
         setMobileMenuOpen(false);
     };
 
@@ -277,9 +282,9 @@ const DashboardSidebar = ({
                                         {dashboard === 'braider' && (
                                             <MobileDrawerItem
                                                 icon={CreditCard}
-                                                title='Payments'
+                                                title='Invoicing'
                                                 onClick={() => {
-                                                    setActiveTab('payments');
+                                                    setActiveTab('invoicing');
                                                     handlePageChange('Settings');
                                                 }}
                                             />
@@ -317,21 +322,29 @@ const DashboardSidebar = ({
                             index={3}
                             title='More'
                             selected={mobileMenuOpen}
-                            notifs={mobileSecondaryPages.some((p) => getPageNotifs(p) > 0) ? 1 : 0} // Show a dot if any secondary page has notifs
+                            notifs={mobileSecondaryPages.some((p) => getPageNotifs(p) > 0) ? 1 : 0}
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                         />
                     </div>
                 </div>
-                <Modal isOpen={unsavedModalOpen} setIsOpen={setUnsavedModalOpen} className='max-w-3xl p-7 rounded-[18px] relative primary-border-bold'>
+                <Modal
+                    isOpen={unsavedModalOpen.open}
+                    setIsOpen={(open: boolean) => setUnsavedModalOpen({ open, type: unsavedModalOpen.type })}
+                    className='max-w-3xl p-7 rounded-[18px] relative primary-border-bold'
+                >
                     <div className='@container/unsaved-changes'>
                         <h1 className='text-[27px] @min-[240px]/unsaved-changes:text-3xl @min-[265px]/unsaved-changes:text-[33px] @min-[285px]/unsaved-changes:text-4xl leading-[1.1] font-lusitana font-bold text-gray-900'>
-                            Unsaved Changes
+                            {unsavedModalOpen.type === 'settings' ? 'Unsaved Changes' : 'Are you sure?'}
                         </h1>
-                        <p className='text-gray-800 text-[17px] font-figtree mt-2'>You have unsaved changes. Are you sure you want to leave?</p>
+                        <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                            {unsavedModalOpen.type === 'settings'
+                                ? 'You have unsaved changes. Are you sure you want to leave?'
+                                : 'This action will discard all the assignments you have added.'}
+                        </p>
                         <div className='grid grid-cols-1 @min-[380px]/unsaved-changes:grid-cols-2 mt-6 gap-3'>
                             <button
                                 onClick={() => {
-                                    setUnsavedModalOpen(false);
+                                    setUnsavedModalOpen({ open: false, type: unsavedModalOpen.type });
                                     setPendingPage(null);
                                 }}
                                 className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
@@ -527,14 +540,22 @@ const DashboardSidebar = ({
                 </div>
             </motion.nav>
 
-            <Modal isOpen={unsavedModalOpen} setIsOpen={setUnsavedModalOpen} className='max-w-3xl p-7 rounded-[18px] relative primary-border-bold'>
+            <Modal
+                isOpen={unsavedModalOpen.open}
+                setIsOpen={(open: boolean) => setUnsavedModalOpen({ open, type: unsavedModalOpen.type })}
+                className='max-w-3xl p-7 rounded-[18px] relative primary-border-bold'
+            >
                 <div className='@container/unsaved-changes'>
-                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Unsaved Changes</h1>
-                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>You have unsaved changes. Are you sure you want to leave?</p>
+                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{unsavedModalOpen.type === 'settings' ? 'Unsaved Changes' : 'Are you sure?'}</h1>
+                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                        {unsavedModalOpen.type === 'settings'
+                            ? 'You have unsaved changes. Are you sure you want to leave?'
+                            : 'This action will discard all the assignments you have added.'}
+                    </p>
                     <div className='grid grid-cols-1 @min-[285px]/unsaved-changes:grid-cols-2 mt-6 gap-3'>
                         <button
                             onClick={() => {
-                                setUnsavedModalOpen(false);
+                                setUnsavedModalOpen({ open: false, type: unsavedModalOpen.type });
                                 setPendingPage(null);
                             }}
                             className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'

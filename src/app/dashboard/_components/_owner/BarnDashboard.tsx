@@ -24,6 +24,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
     const [unsavedChanges, setUnsavedChanges] = useState(false);
     const [activeTab, setActiveTab] = useState<Tab>('profile');
     const [requestingJob, setRequestingJob] = useState<Job | null | 'creating'>(null);
+    const [unsavedRequest, setUnsavedRequest] = useState(false);
     const [selectedBraider, setSelectedBraider] = useState<any>(null);
 
     useEffect(() => {
@@ -43,6 +44,10 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
         setRequestingJob('creating');
         setSelectedBraider(braider);
     };
+
+    useEffect(() => {
+        console.log(unsavedRequest);
+    }, [unsavedRequest]);
 
     const renderContent = () => {
         switch (selectedPage) {
@@ -75,6 +80,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
                         setRequestingJob={setRequestingJob}
                         selectedBraider={selectedBraider}
                         setSelectedBraider={setSelectedBraider}
+                        setUnsavedRequest={setUnsavedRequest}
                     />
                 );
             case 'Settings':
@@ -116,6 +122,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
                 unsavedChanges={unsavedChanges}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
+                unsavedRequest={unsavedRequest}
             />
 
             <main className='flex-1 h-full overflow-y-auto hide-scrollbar bg-stone-50 dashboard-sm:rounded-r-[18px] @container/content'>{renderContent()}</main>

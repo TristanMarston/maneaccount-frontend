@@ -249,8 +249,6 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
             assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
                 [...new Set(completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length && completedServiceIds.length > 0;
 
-        
-
         if (isComplete) {
             const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date(), timezoneOffset);
 
@@ -266,7 +264,7 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
                         timezoneOffset,
                     );
                 } else if (count >= 50) {
-                    return { error: `You have reached your limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.` }
+                    return { error: `You have reached your limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.` };
                 }
             }
         }
@@ -314,23 +312,17 @@ export async function addNote(jobId: string, content: string) {
         return { error: 'Failed to add note' };
     }
 }
-export async function markJobCompleted(jobId: string) {
+export async function markJobCompleted(jobId: string, thanksMessage?: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
+        const data: any = { status: 'completed', invoiceSentAt: new Date() };
+        if (thanksMessage) data.thanksMessage = thanksMessage;
+
         const job = await prisma.job.update({
             where: { id: jobId },
-            data: {
-                status: 'completed',
-                invoiceSentAt: new Date(),
-                assignments: {
-                    updateMany: {
-                        where: { completedAt: null, canceledAt: null },
-                        data: { completedAt: new Date() },
-                    },
-                },
-            },
+            data,
             include: { braider: true },
         });
 
@@ -487,6 +479,7 @@ export async function getUserByEmail(email: string) {
             venmo: true,
             zelle: true,
             venmoEnabled: true,
+            thanksMessage: true,
             allowedNotifications: true,
         },
     });

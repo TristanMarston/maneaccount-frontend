@@ -11,7 +11,6 @@ export async function getFullDashboardData(role: string) {
     const email = session.user.email;
 
     try {
-        // Fetch User with Shows and Received Invites
         const user = await prisma.user.findUnique({
             where: { email },
             include: {
@@ -82,6 +81,7 @@ export async function getFullDashboardData(role: string) {
             inviterName: invite.show.user.name,
             addedToGoogleCalendar: invite.addedToGoogleCalendar,
             addedToAppleCalendar: invite.addedToAppleCalendar,
+            addedToOutlook: invite.addedToOutlook,
         }));
 
         const showsData = [...ownedShows, ...invitedShows].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());

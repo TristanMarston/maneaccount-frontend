@@ -18,7 +18,7 @@ import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
 import { getSubscriptionDetails, startFreeTrial } from '@/app/actions/billing';
 import { cn } from '@/lib/utils';
 
-export type Tab = 'profile' | 'account' | 'payments' | 'notifications' | 'subscription';
+export type Tab = 'profile' | 'account' | 'invoicing' | 'notifications' | 'subscription';
 
 const BraiderDashboard = ({
     session,

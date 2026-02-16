@@ -16,7 +16,6 @@ const page = () => {
                     <Navbar />
                     <Hero />
                     <Features />
-                    <Solutions />
                     <Pricing />
                     <Footer />
                 </SessionProvider>

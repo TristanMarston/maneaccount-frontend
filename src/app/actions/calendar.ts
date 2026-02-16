@@ -249,6 +249,7 @@ export async function getShows(email: string) {
             inviterName: invite.show.user.name,
             addedToAppleCalendar: invite.addedToAppleCalendar,
             addedToGoogleCalendar: invite.addedToGoogleCalendar,
+            addedToOutlook: invite.addedToOutlook,
             googleEventId: invite.googleEventId,
         }));
 
@@ -397,7 +398,7 @@ export async function respondToShowInvite(showId: string, status: 'accepted' | '
             });
 
             revalidatePath('/dashboard');
-            return { success: true, showName: show?.name || 'Show', googleSynced: false, appleSynced: false };
+            return { success: true, showName: show?.name || 'Show', googleSynced: false, appleSynced: false, outlookSynced: false };
         }
     } catch (error) {
         console.error('Respond invite error:', error);

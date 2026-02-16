@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { createEvents, EventAttributes } from 'ics';
 import { revalidatePath } from 'next/cache';
 
-export async function generateShowICS(showId: string) {
+export async function generateShowICS(showId: string, calendar: 'apple' | 'outlook') {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -32,12 +32,12 @@ export async function generateShowICS(showId: string) {
         if (isOwner) {
             await prisma.show.update({
                 where: { id: showId },
-                data: { addedToAppleCalendar: true },
+                data: calendar === 'apple' ? { addedToAppleCalendar: true } : { addedToOutlook: true },
             });
         } else if (invite) {
             await prisma.showInvite.update({
                 where: { id: invite.id },
-                data: { addedToAppleCalendar: true },
+                data: calendar === 'apple' ? { addedToAppleCalendar: true } : { addedToOutlook: true },
             });
         }
 

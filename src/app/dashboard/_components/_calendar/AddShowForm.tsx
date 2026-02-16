@@ -1,7 +1,7 @@
 'use client';
 
 import { updateShow, createShow } from '@/app/actions/calendar';
-import { generateShowICS } from '@/app/actions/apple-calendar';
+import { generateShowICS } from '@/app/actions/ics-calendar';
 import { failToast, successToast, usaStates } from '@/app/context';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ const AddShowForm = ({
     onClose: () => void;
     onSuccess: () => void;
     initialData?: Show;
-    setCalendarModal: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>>;
+    setCalendarModal: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean; outlookSynced: boolean }>>;
 }) => {
     const [formData, setFormData] = useState({
         name: initialData?.name || '',
@@ -81,7 +81,7 @@ const AddShowForm = ({
 
             if (res.success && res.show) {
                 onSuccess();
-                setCalendarModal({ open: true, showId: res.show.id, showName: res.show.name, googleSynced: false, appleSynced: false });
+                setCalendarModal({ open: true, showId: res.show.id, showName: res.show.name, googleSynced: false, appleSynced: false, outlookSynced: false });
             } else {
                 failToast(res.error || 'Failed to create show');
             }

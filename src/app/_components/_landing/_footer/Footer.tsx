@@ -8,7 +8,7 @@ const Footer = () => {
 
     return (
         <div className='relative w-full'>
-            <div className='w-full absolute -top-15 md:-top-25 overflow-hidden leading-none z-10 rotate-180'>
+            <div className='w-full absolute -top-14.5 md:-top-24.5 overflow-hidden leading-none z-10 rotate-180'>
                 <svg
                     className='relative block w-[calc(100%+1.3px)] h-[60px] md:h-[100px]'
                     data-name='Layer 1'

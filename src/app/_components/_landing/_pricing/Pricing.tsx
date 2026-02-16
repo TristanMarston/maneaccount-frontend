@@ -60,8 +60,8 @@ const Pricing = () => {
     return (
         <div className='relative w-full'>
             <div className='absolute -top-30' id='pricing'></div>
-            <div className='w-full relative bg-stone-50 pb-24 flex flex-col items-center'>
-                <div className='w-full absolute overflow-hidden leading-none z-10'>
+            <div className='w-full relative bg-white pb-24 flex flex-col items-center'>
+                <div className='w-full absolute -top-14 lg:-top-24 overflow-hidden rotate-180 leading-none z-10'>
                     <svg
                         className='relative block w-[calc(100%+1.3px)] h-[60px] lg:h-[100px]'
                         data-name='Layer 1'
@@ -77,7 +77,7 @@ const Pricing = () => {
                 </div>
 
                 <div className='w-full max-w-max-width'>
-                    <section className='w-full pt-20 lg:pt-28 pb-24 px-8'>
+                    <section className='w-full pt-12 lg:pt-16 pb-24 px-8'>
                         <div className='w-full max-w-max-width flex flex-col items-center mx-auto'>
                             <div className='flex flex-col items-center justify-center text-center mt-4 7xl:mt-0 mb-8'>
                                 <h2 className='font-lusitana leading-[1.1] text-primary mb-4 text-[30px] min-[340px]:text-[33px] sm:text-4xl md:text-[43px] lg:text-4xl min-[540px]:text-[40px] min-[580px]:text-[44px] min-[630px]:text-5xl min-[720px]:text-[54px] 3xl:text-6xl'>

@@ -200,9 +200,11 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                         </div>
                     ) : (
                         <div className='space-y-3'>
-                            {jobsWithPending.map((job) => (
-                                <InvoiceCard key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
-                            ))}
+                            {jobsWithPending
+                                .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                .map((job) => (
+                                    <InvoiceCard key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
+                                ))}
                         </div>
                     )}
                 </section>
@@ -226,9 +228,11 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                                     exit={{ opacity: 0, height: 0 }}
                                     className='space-y-3 overflow-hidden pb-0.5 px-0.5'
                                 >
-                                    {fullyPaidJobs.map((job) => (
-                                        <InvoiceCard key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
-                                    ))}
+                                    {fullyPaidJobs
+                                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                        .map((job) => (
+                                            <InvoiceCard key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
+                                        ))}
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -396,7 +400,7 @@ const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: (
                                     <button
                                         onClick={() => {
                                             onClose();
-                                            setSettingsOpen('payments');
+                                            setSettingsOpen('invoicing');
                                         }}
                                         className='text-primary font-bold text-sm mt-2 hover:text-primary-light transition-all cursor-pointer'
                                     >
@@ -446,7 +450,7 @@ const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: (
                                     <button
                                         onClick={() => {
                                             onClose();
-                                            setSettingsOpen('payments');
+                                            setSettingsOpen('invoicing');
                                         }}
                                         className='text-primary font-bold text-sm mt-2 hover:text-primary-light transition-all cursor-pointer'
                                     >
@@ -485,7 +489,7 @@ const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: (
                                                     className='text-primary hover:text-primary-light underline cursor-pointer transition-all'
                                                     onClick={() => {
                                                         onClose();
-                                                        setSettingsOpen('payments');
+                                                        setSettingsOpen('invoicing');
                                                     }}
                                                 >
                                                     go to settings
@@ -617,7 +621,7 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
                                                         loadingClient === group.id && !group.isPaid ? 'text-primary' : '',
                                                     )}
                                                 >
-                                                    {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin' /> : <CheckSquare size={14} strokeWidth={3} />}
+                                                    {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin text-primary' /> : <CheckSquare size={14} strokeWidth={3} className='text-white' />}
                                                 </button>
                                                 <div>
                                                     <p className='font-bold text-sm text-gray-900'>{group.name}</p>

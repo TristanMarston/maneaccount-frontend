@@ -41,7 +41,7 @@ import {
     isEqual,
 } from 'date-fns';
 import { deleteShow, getInvites, getShows, respondToShowInvite } from '@/app/actions/calendar';
-import { generateShowICS } from '@/app/actions/apple-calendar';
+import { generateShowICS } from '@/app/actions/ics-calendar';
 import { parseUTCToLocal } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
@@ -79,6 +79,7 @@ export interface Show {
     inviteId?: string;
     addedToAppleCalendar?: boolean;
     addedToGoogleCalendar?: boolean;
+    addedToOutlook?: boolean;
     googleEventId?: string | null;
 }
 
@@ -225,7 +226,7 @@ const ShowDetailsModal = ({
                             )}
                             <div className='bg-gray-200 w-full h-px my-3 rounded-full' />
                             <div className=''>
-                                {show.addedToGoogleCalendar || show.addedToAppleCalendar ? (
+                                {show.addedToGoogleCalendar || show.addedToAppleCalendar || show.addedToOutlook ? (
                                     <div className='flex flex-col gap-2'>
                                         {show.addedToGoogleCalendar && (
                                             <div className='flex items-center gap-2.5 px-3 py-2 bg-primary-extra-light/50 text-primary border border-primary/10 rounded-lg text-sm font-bold'>
@@ -251,7 +252,19 @@ const ShowDetailsModal = ({
                                                 Added to Apple Calendar (.ics)
                                             </div>
                                         )}
-                                        {(!show.addedToGoogleCalendar || !show.addedToAppleCalendar) && (
+                                        {show.addedToOutlook && (
+                                            <div className='flex items-center gap-2.5 px-3 py-2 bg-primary-extra-light/50 text-primary border border-primary/10 rounded-lg text-sm font-bold'>
+                                                <Image
+                                                    src='https://img.icons8.com/color/512/microsoft-outlook-2025.png'
+                                                    alt='Outlook'
+                                                    width={32}
+                                                    height={32}
+                                                    className='border border-primary/50 rounded-lg'
+                                                />
+                                                Added to Outlook (.ics)
+                                            </div>
+                                        )}
+                                        {(!show.addedToGoogleCalendar || !show.addedToAppleCalendar || !show.addedToOutlook) && (
                                             <button
                                                 onClick={() => {
                                                     onClose();
@@ -381,15 +394,17 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
     const [isDeleting, setIsDeleting] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
     const [editingShow, setEditingShow] = useState<Show | null>(null);
     const [selectedJob, setSelectedJob] = useState<any | null>(null);
+    const [jobForDate, setJobForDate] = useState(false);
     const [viewingJobDate, setViewingJobDate] = useState<Date | null>(null);
     const [viewingShow, setViewingShow] = useState<Show | null>(null);
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
-    const [calendarModal, setCalendarModal] = useState<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean }>({
+    const [calendarModal, setCalendarModal] = useState<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean; outlookSynced: boolean }>({
         open: false,
         showId: '',
         showName: '',
         googleSynced: false,
         appleSynced: false,
+        outlookSynced: false,
     });
     const showDetailsRef = useRef<HTMLDivElement>(null);
 
@@ -459,9 +474,16 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
               )
             : null;
 
+        const jobForShow = date ? mappedJobShows.find((s) => s.type === 'job' && s.jobData.showId === show.id) : null;
+
         if (jobForDate) {
             setSelectedJob(jobForDate.jobData);
             setViewingJobDate(date!);
+            setJobForDate(true);
+        } else if (jobForShow) {
+            setSelectedJob(jobForShow.jobData);
+            setViewingJobDate(date!);
+            setJobForDate(false);
         } else {
             setViewingShow(show);
         }
@@ -476,7 +498,14 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
             loadShows(true);
 
             if (status === 'accepted') {
-                setCalendarModal({ open: true, showId, showName: res.showName || 'Show', googleSynced: res.googleSynced || false, appleSynced: res.appleSynced || false });
+                setCalendarModal({
+                    open: true,
+                    showId,
+                    showName: res.showName || 'Show',
+                    googleSynced: res.googleSynced || false,
+                    appleSynced: res.appleSynced || false,
+                    outlookSynced: res.outlookSynced || false,
+                });
             }
         } else {
             failToast(status === 'accepted' ? 'Failed to accept invitation' : 'Failed to decline invitation');
@@ -679,9 +708,11 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                         role={role}
                         userEmail={userEmail}
                         setViewingShow={setViewingShow}
+                        jobForDate={jobForDate}
                         onClose={() => {
                             setSelectedJob(null);
                             setViewingJobDate(null);
+                            setJobForDate(false);
                         }}
                         refresh={() => loadShows(true)}
                     />
@@ -706,24 +737,25 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                         showName: show.name,
                         googleSynced: show.addedToGoogleCalendar || false,
                         appleSynced: show.addedToAppleCalendar || false,
+                        outlookSynced: show.addedToOutlook || false,
                     })
                 }
             />
             <Modal
                 isOpen={calendarModal.open}
-                setIsOpen={(val: boolean) => setCalendarModal({ open: val, showId: '', showName: '', googleSynced: false, appleSynced: false })}
+                setIsOpen={(val: boolean) => setCalendarModal({ open: val, showId: '', showName: '', googleSynced: false, appleSynced: false, outlookSynced: false })}
                 closeOnOutsideClick={false}
                 className='max-w-md font-figtree p-7 rounded-[18px] primary-border-bold'
             >
                 <CalendarIntegrationModal
                     isOpen={calendarModal.open}
                     onClose={() => {
-                        setCalendarModal({ open: false, showId: '', showName: '', googleSynced: false, appleSynced: false });
+                        setCalendarModal({ open: false, showId: '', showName: '', googleSynced: false, appleSynced: false, outlookSynced: false });
                         loadShows(false);
                     }}
                     showId={calendarModal.showId}
                     showName={calendarModal.showName}
-                    alreadySynced={{ google: calendarModal.googleSynced, apple: calendarModal.appleSynced }}
+                    alreadySynced={{ google: calendarModal.googleSynced, apple: calendarModal.appleSynced, outlook: calendarModal.outlookSynced }}
                 />
             </Modal>
 
@@ -826,11 +858,11 @@ const Notifications = ({
                                                 <div className='w-full rounded-full h-[0.4px] bg-gray-200 px-2 my-3' />
                                                 <div className='flex flex-col gap-2 @min-[320px]/calendar-invites:gap-0 @min-[320px]/calendar-invites:flex-row @min-[320px]/calendar-invites:justify-between @min-[320px]/calendar-invites:items-center'>
                                                     <div className='flex items-center gap-3 min-w-0'>
-                                                        <div className='min-w-9 h-9 relative'>
+                                                        <div className='min-w-9 min-h-9 relative'>
                                                             {invite.show.user.image ? (
                                                                 <Image src={invite.show.user.image} alt={invite.show.user.name} fill className='rounded-full object-cover' />
                                                             ) : (
-                                                                <div className='rounded-full bg-primary-extra-light flex items-center justify-center text-primary font-bold text-[13px]'>
+                                                                <div className='rounded-full bg-primary-extra-light w-9 h-9 flex items-center justify-center text-primary font-bold text-[13px]'>
                                                                     {invite.show.user.name.substring(0, 1).toUpperCase()}
                                                                 </div>
                                                             )}

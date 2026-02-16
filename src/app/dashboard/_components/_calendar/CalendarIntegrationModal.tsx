@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { X, Calendar as CalendarIcon, Check, Loader2, CircleAlert, Link as LinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { addToGoogleCalendar } from '@/app/actions/google-calendar';
-import { generateShowICS } from '@/app/actions/apple-calendar';
+import { generateShowICS } from '@/app/actions/ics-calendar';
 import { failToast, successToast } from '@/app/context';
 import Image from 'next/image';
 import Modal from '../../Modal';
@@ -18,22 +18,18 @@ const CalendarIntegrationModal = ({
     onClose,
     showId,
     showName,
-    onAppleClick,
     alreadySynced,
 }: {
     isOpen: boolean;
     onClose: () => void;
     showId: string;
     showName: string;
-    onAppleClick?: () => void;
-    alreadySynced: { google: boolean; apple: boolean };
+    alreadySynced: { google: boolean; apple: boolean; outlook: boolean };
 }) => {
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [isAppleLoading, setIsAppleLoading] = useState(false);
-    const [appleWarningHover, setAppleWarningHover] = useState(false);
+    const [isOutlookLoading, setIsOutlookLoading] = useState(false);
     const [googleAuthState, setGoogleAuthState] = useState<'idle' | 'require_connect' | 'require_reconnect'>('idle');
-    const warningRef = useRef<HTMLDivElement>(null);
-    useOnClickOutside(warningRef, [], () => setAppleWarningHover(false));
 
     const handleGoogleClick = async () => {
         if (googleAuthState === 'require_connect' || googleAuthState === 'require_reconnect') {
@@ -64,16 +60,11 @@ const CalendarIntegrationModal = ({
         }
     };
 
-    const handleAppleClick = async () => {
-        if (onAppleClick) {
-            onAppleClick();
-            onClose();
-            return;
-        }
-
-        setIsAppleLoading(true);
+    const handleICSClick = async (calendar: 'apple' | 'outlook') => {
+        if (calendar === 'apple') setIsAppleLoading(true);
+        else setIsOutlookLoading(true);
         try {
-            const res = await generateShowICS(showId);
+            const res = await generateShowICS(showId, calendar);
             if (res.success && res.icsData) {
                 const blob = new Blob([res.icsData], { type: 'text/calendar;charset=utf-8' });
                 const url = window.URL.createObjectURL(blob);
@@ -91,7 +82,8 @@ const CalendarIntegrationModal = ({
         } catch (error) {
             failToast('Failed to download calendar file');
         } finally {
-            setIsAppleLoading(false);
+            if (calendar === 'apple') setIsAppleLoading(false);
+            else setIsOutlookLoading(false);
         }
     };
 
@@ -117,7 +109,7 @@ const CalendarIntegrationModal = ({
                 <div className='space-y-2'>
                     <button
                         onClick={handleGoogleClick}
-                        disabled={isGoogleLoading || isAppleLoading}
+                        disabled={isGoogleLoading || isAppleLoading || isOutlookLoading}
                         className={cn(
                             'w-full flex items-center relative cursor-pointer justify-center gap-3 px-4 py-3 border border-gray-200 shadow-sm rounded-[14px] transition-all disabled:cursor-not-allowed group font-semibold',
                             googleAuthState !== 'idle' || alreadySynced.google
@@ -163,10 +155,10 @@ const CalendarIntegrationModal = ({
                     )}
                 </div>
 
-                <div className={cn('relative', alreadySynced.apple && !alreadySynced.google ? 'mt-5' : '')}>
+                <div className={cn('relative', alreadySynced.apple ? 'mt-5' : '')}>
                     <button
-                        onClick={handleAppleClick}
-                        disabled={isGoogleLoading || isAppleLoading}
+                        onClick={() => handleICSClick('apple')}
+                        disabled={isGoogleLoading || isAppleLoading || isOutlookLoading}
                         className={cn(
                             'w-full relative flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 shadow-sm rounded-[14px] text-gray-700 cursor-pointer font-semibold hover:bg-gray-50 transition-all disabled:cursor-not-allowed group',
                             alreadySynced.apple ? 'bg-primary-extra-light text-primary border-primary/20 pointer-events-none' : '',
@@ -191,7 +183,7 @@ const CalendarIntegrationModal = ({
                             </span>
                         )}
                     </button>
-                    <div
+                    {/* <div
                         onMouseOver={() => setAppleWarningHover(true)}
                         onMouseLeave={() => setAppleWarningHover(false)}
                         onClick={(e) => {
@@ -215,7 +207,31 @@ const CalendarIntegrationModal = ({
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                    </div>
+                    </div> */}
+                </div>
+                <div className={cn('relative', alreadySynced.outlook ? 'mt-5' : '')}>
+                    <button
+                        onClick={() => handleICSClick('outlook')}
+                        disabled={isGoogleLoading || isAppleLoading || isOutlookLoading}
+                        className={cn(
+                            'w-full relative flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 shadow-sm rounded-[14px] text-gray-700 cursor-pointer font-semibold hover:bg-gray-50 transition-all disabled:cursor-not-allowed group',
+                            alreadySynced.outlook ? 'bg-primary-extra-light text-primary border-primary/20 pointer-events-none' : '',
+                        )}
+                    >
+                        {isOutlookLoading ? (
+                            <Loader2 className='w-5 h-5 animate-spin text-gray-500' />
+                        ) : (
+                            <>
+                                <Image src='https://img.icons8.com/color/512/microsoft-outlook-2025.png' alt='Outlook Calendar' width={24} height={24} />
+                                <span>Outlook Calendar (.ics)</span>
+                            </>
+                        )}
+                        {alreadySynced.outlook && (
+                            <span className='absolute border border-amber-200 -top-3.5 text-nowrap -translate-x-1/2 left-1/2 py-0.5 px-2 bg-amber-100 text-amber-700 rounded-full text-[11px] uppercase font-figtree font-bold'>
+                                Already Added
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 

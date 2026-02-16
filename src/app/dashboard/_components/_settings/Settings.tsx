@@ -38,6 +38,7 @@ import { signOut } from 'next-auth/react';
 import { requestPasswordReset, requestVerificationEmail, resetPassword, verifyResetCode, verifyToken } from '../../../actions/verification';
 import SubscriptionSettings from './SubscriptionSettings';
 import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
+import { Tab } from '../_braider/BraiderDashboard';
 
 enum NotificationType {
     calendar_invite = 'calendar_invite',
@@ -79,7 +80,6 @@ export const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-type Tab = 'profile' | 'account' | 'payments' | 'notifications' | 'subscription';
 type ZelleOption = 'email' | 'phone' | 'disabled';
 type ZelleUpsetOption = 'phone' | 'email';
 
@@ -129,6 +129,8 @@ const Settings = ({
     const [venmoUpset, setVenmoUpset] = useState(false);
     const [zelle, setZelle] = useState<ZelleOption>('disabled');
     const [zelleUpset, setZelleUpset] = useState<ZelleUpsetOption[]>([]);
+    const [thanksMessage, setThanksMessage] = useState('');
+    const [thanksMessageWords, setThanksMessageWords] = useState(0);
 
     const [allowedNotifications, setAllowedNotifications] = useState<NotificationType[]>([]);
 
@@ -143,6 +145,7 @@ const Settings = ({
         image: string;
         phoneNumber: string;
         role: string;
+        thanksMessage: string;
         venmo: string;
         zelle: ZelleOption;
         venmoEnabled: boolean;
@@ -154,6 +157,7 @@ const Settings = ({
         phoneNumber: '',
         role: '',
         venmo: '',
+        thanksMessage: '',
         zelle: 'disabled',
         venmoEnabled: false,
         allowedNotifications: [],
@@ -189,6 +193,7 @@ const Settings = ({
                     phoneNumber: formattedPhone,
                     role: data.role,
                     venmo: data.venmo || '',
+                    thanksMessage: data.thanksMessage || '',
                     zelle: data.zelle || 'disabled',
                     venmoEnabled: data.venmoEnabled,
                     allowedNotifications: (data.allowedNotifications as NotificationType[]) || [],
@@ -196,6 +201,8 @@ const Settings = ({
 
                 setName(data.name || '');
                 setPublicID(data.publicID || '');
+                setThanksMessage(data.thanksMessage || '');
+                setThanksMessageWords(data.thanksMessage ? data.thanksMessage.split(' ').filter((s) => s.trim().length > 0).length : 0);
 
                 setEmailVerified(data.emailVerified);
                 setEmail(data.email || '');
@@ -241,6 +248,7 @@ const Settings = ({
         originalInfo.current.phoneNumber !== phoneNumber ||
         originalInfo.current.image !== imagePreview ||
         originalInfo.current.role !== role ||
+        (role === 'braider' && originalInfo.current.thanksMessage !== thanksMessage) ||
         (role === 'braider' && (originalInfo.current.venmo !== venmoLink || originalInfo.current.zelle !== zelle || originalInfo.current.venmoEnabled !== venmoEnabled)) ||
         JSON.stringify(originalInfo.current.allowedNotifications.sort()) !== JSON.stringify(allowedNotifications.sort());
 
@@ -335,6 +343,11 @@ const Settings = ({
             return;
         }
 
+        if (thanksMessage.length > 150) {
+            failToast('Thank you message must be less than 150 words');
+            return;
+        }
+
         setIsSaving(true);
         let switchResult = null;
 
@@ -345,6 +358,7 @@ const Settings = ({
         if (venmoLink !== originalInfo.current.venmo) formData.venmo = venmoLink;
         if (zelle !== originalInfo.current.zelle) formData.zelle = zelle;
         if (venmoEnabled !== originalInfo.current.venmoEnabled) formData.venmoEnabled = venmoEnabled;
+        if (thanksMessage !== originalInfo.current.thanksMessage) formData.thanksMessage = thanksMessage.trim();
         if (JSON.stringify(originalInfo.current.allowedNotifications.sort()) !== JSON.stringify(allowedNotifications.sort())) {
             formData.allowedNotifications = allowedNotifications;
         }
@@ -362,17 +376,17 @@ const Settings = ({
                 if (result.image && result.image.length > 0) updateData.image = result.image;
                 await update(updateData);
 
-                // Update original info to new state
                 originalInfo.current = {
                     ...originalInfo.current,
                     name: name,
                     publicID: publicID,
-                    phoneNumber: phoneNumber, // Keep formatted
+                    phoneNumber: phoneNumber,
                     image: imagePreview,
                     role: role,
                     venmo: venmoLink,
                     zelle: zelle,
                     venmoEnabled: venmoEnabled,
+                    thanksMessage: thanksMessage.trim(),
                     allowedNotifications: [...allowedNotifications],
                 };
             } else {
@@ -404,7 +418,7 @@ const Settings = ({
                         <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
                         <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
                         {propRole === 'braider' && <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />}
-                        {propRole === 'braider' && <NavTab active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={CreditCard} label='Payout Methods' />}
+                        {propRole === 'braider' && <NavTab active={activeTab === 'invoicing'} onClick={() => setActiveTab('invoicing')} icon={CreditCard} label='Invoicing' />}
                         <NavTab active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={Bell} label='Notifications' />
                         <motion.div className={cn('flex mt-1 flex-col gap-3', isDirty ? '' : 'pointer-events-none')} initial={{ opacity: 0.3 }} animate={{ opacity: isDirty ? 1 : 0.3 }}>
                             <button
@@ -670,7 +684,7 @@ const Settings = ({
                                     </motion.div>
                                 )}
 
-                                {activeTab === 'payments' && (
+                                {activeTab === 'invoicing' && (
                                     <motion.div
                                         initial={{ opacity: 0, x: 20 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -856,6 +870,33 @@ const Settings = ({
                                                         </div>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            <div className='space-y-2'>
+                                                <div className='ml-1'>
+                                                    <label className='text-sm font-bold text-gray-500 uppercase'>Thank-you Message</label>
+                                                    <p className='text-xs font-semibold text-gray-500'>Write a custom thank-you message for your clients to see in an invoice.</p>
+                                                </div>
+
+                                                <textarea
+                                                    value={thanksMessage}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        const words = value.split(' ').filter((s) => s.trim().length > 0).length;
+                                                        if (words > 150) return;
+                                                        setThanksMessage(e.target.value);
+                                                        setThanksMessageWords(words);
+                                                    }}
+                                                    className='w-full outline-none shadow-sm border h-[90px] max-h-[90px] min-h-[42px] overflow-y-auto border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                                    placeholder={`e.g. "Thanks for doing business with me!"`}
+                                                    autoCorrect='on'
+                                                    autoComplete='on'
+                                                    spellCheck={true}
+                                                    required
+                                                />
+                                                <p className={cn('text-xs -mt-1 ml-1 text-gray-500', thanksMessageWords === 150 ? 'text-red-400' : '')}>
+                                                    {thanksMessageWords} / 150 words
+                                                </p>
                                             </div>
                                         </div>
                                     </motion.div>
@@ -1544,11 +1585,6 @@ const notificationTypes: NotificationMap[] = [
     {
         text: 'Job Invitation Responses',
         type: NotificationType.job_status_change,
-        visibility: ['barn'],
-    },
-    {
-        text: 'Job Completions',
-        type: NotificationType.job_completed,
         visibility: ['barn'],
     },
 

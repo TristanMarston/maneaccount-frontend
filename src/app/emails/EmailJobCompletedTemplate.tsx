@@ -6,6 +6,7 @@ interface ManeAccountEmailProps {
     braiderName: string;
     showName: string;
     horseName: string;
+    thanksMessage: string;
     isClient: boolean;
     image?: string;
     paymentInformation: { venmo?: string; zelle?: string };
@@ -38,7 +39,7 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails }: ManeAccountEmailProps) => {
+export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, thanksMessage }: ManeAccountEmailProps) => {
     return (
         <Html>
             <Head />
@@ -51,14 +52,24 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
 
                     <Section style={content}>
                         <Heading style={h1}>Services Completed</Heading>
-                        <Img style={{ ...profileImage, border: image ? '2px solid #3f6559' : 'none' }} src={image || 'https://maneaccount.com/email-badge-user.png'}></Img>
+                        <Img style={{ ...profileImage, border: image ? '2px solid #3f6559' : 'none' }} src={image || 'https://maneaccount.com/email-badge-check.png'}></Img>
 
                         <Text style={textBlock}>
-                            <Text style={bold}>{braiderName}</Text>
-                            <Text style={normal}>&nbsp;{isClient ? 'has completed braiding services for you at' : 'has completed braiding services for your clients at'} &nbsp;</Text>
-                            <Text style={bold}>{showName}</Text>
-                            <Text style={normal}>.</Text>
+                            <Text style={{ ...bold, display: 'inline' }}>{braiderName}</Text>
+                            <Text style={{ ...normal, display: 'inline' }}>
+                                &nbsp;{isClient ? 'has completed braiding services for you at' : 'has completed braiding services for your clients at'}&nbsp;
+                            </Text>
+                            <Text style={{ ...bold, display: 'inline' }}>{showName}.</Text>
                         </Text>
+
+                        {thanksMessage && thanksMessage.length > 0 && (
+                            <>
+                                <Text style={{ ...normal, fontSize: '16px', textAlign: 'left' as const }}>From {braiderName}:</Text>
+                                <Section style={messageContainer}>
+                                    <Text style={messageText}>"{thanksMessage}"</Text>
+                                </Section>
+                            </>
+                        )}
 
                         <Section style={detailsParent}>
                             <Section style={detailsContainer}>
@@ -116,7 +127,7 @@ export const ManeAccountJobCompletedEmail = ({ braiderName, showName, horseName,
 
                         {paymentInformation.venmo || paymentInformation.zelle ? (
                             <Section>
-                                <Text style={{ ...bold, fontSize: '20px' }}>Select a payment method:</Text>
+                                <Text style={{ ...bold, fontSize: '20px', margin: '8px 0 0 0' }}>Select a payment method:</Text>
                                 <Text style={{ ...italic, margin: '0 0 4px 0' }}>
                                     {isClient ? `Pay ${braiderName} or defer payment to your barn.` : `Pay ${braiderName} or defer payment to your clients.`}
                                 </Text>
@@ -283,6 +294,23 @@ const italic = {
     display: 'inline-block',
     fontWeight: 'normal',
     margin: '4px 0',
+    fontStyle: 'italic',
+};
+
+const messageContainer = {
+    backgroundColor: '#f9fafb',
+    padding: '16px',
+    borderRadius: '8px',
+    margin: '10px auto 20px auto',
+    textAlign: 'left' as const,
+    borderLeft: '4px solid #538475',
+};
+
+const messageText = {
+    color: '#444',
+    fontSize: '16px',
+    lineHeight: '24px',
+    fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
     fontStyle: 'italic',
 };
 

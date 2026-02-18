@@ -892,18 +892,19 @@ export const JobDetailSubpage = ({
                                                                                                     </button>
                                                                                                 </div>
                                                                                             ) : (
-                                                                                                <button
-                                                                                                    onClick={() => handleCancelAssignment(assignment.id)}
-                                                                                                    className={cn(
-                                                                                                        'p-1 hidden @min-[490px]/job-subpage:block transition-colors text-sm cursor-pointer font-bold uppercase px-2 py-1.5 rounded-[10px] text-nowrap',
-                                                                                                        isGrayed
-                                                                                                            ? 'text-primary hover:text-primary-dark border border-primary/20 hover:bg-primary-extra-light'
-                                                                                                            : 'text-red-500 red-border-hover',
-                                                                                                        isJobCompleted ? 'pointer-events-none' : '',
-                                                                                                    )}
-                                                                                                >
-                                                                                                    {isGrayed ? 'Restore' : 'Cancel Horse'}
-                                                                                                </button>
+                                                                                                !job.invoiceSentAt && (
+                                                                                                    <button
+                                                                                                        onClick={() => handleCancelAssignment(assignment.id)}
+                                                                                                        className={cn(
+                                                                                                            'p-1 hidden @min-[490px]/job-subpage:block transition-colors text-sm cursor-pointer font-bold uppercase px-2 py-1.5 rounded-[10px] text-nowrap',
+                                                                                                            isGrayed
+                                                                                                                ? 'text-primary hover:text-primary-dark border border-primary/20 hover:bg-primary-extra-light'
+                                                                                                                : 'text-red-500 red-border-hover',
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {isGrayed ? 'Restore' : 'Cancel Horse'}
+                                                                                                    </button>
+                                                                                                )
                                                                                             )}
                                                                                         </>
                                                                                     )}
@@ -980,18 +981,19 @@ export const JobDetailSubpage = ({
                                                                                 </button>
                                                                             </div>
                                                                         ) : (
-                                                                            <button
-                                                                                onClick={() => handleCancelAssignment(assignment.id)}
-                                                                                className={cn(
-                                                                                    'p-1 block @min-[490px]/job-subpage:hidden w-full transition-colors text-sm cursor-pointer font-bold uppercase px-2 py-1.5 rounded-[10px] text-nowrap',
-                                                                                    isGrayed
-                                                                                        ? 'text-primary hover:text-primary-dark border border-primary/20 hover:bg-primary-extra-light'
-                                                                                        : 'text-red-500 red-border-hover',
-                                                                                    isJobCompleted ? 'pointer-events-none' : '',
-                                                                                )}
-                                                                            >
-                                                                                {isGrayed ? 'Restore' : 'Cancel Horse'}
-                                                                            </button>
+                                                                            !job.invoiceSentAt && (
+                                                                                <button
+                                                                                    onClick={() => handleCancelAssignment(assignment.id)}
+                                                                                    className={cn(
+                                                                                        'p-1 block @min-[490px]/job-subpage:hidden w-full transition-colors text-sm cursor-pointer font-bold uppercase px-2 py-1.5 rounded-[10px] text-nowrap',
+                                                                                        isGrayed
+                                                                                            ? 'text-primary hover:text-primary-dark border border-primary/20 hover:bg-primary-extra-light'
+                                                                                            : 'text-red-500 red-border-hover',
+                                                                                    )}
+                                                                                >
+                                                                                    {isGrayed ? 'Restore' : 'Cancel Horse'}
+                                                                                </button>
+                                                                            )
                                                                         )}
 
                                                                         {!isGrayed && (

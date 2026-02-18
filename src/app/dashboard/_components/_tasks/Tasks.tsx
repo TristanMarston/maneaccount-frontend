@@ -840,11 +840,11 @@ const CheckMarkedCompletedModal = ({
                                 if (groupTotal === 0) return null;
 
                                 return (
-                                    <div key={group.id} className='flex items-center gap-2 p-3 rounded-lg'>
+                                    <div key={group.id} className='flex items-center py-2 pl-1 @min-[380px]/check-completed:p-3 gap-1 rounded-lg flex-wrap'>
                                         <div className='font-lusitana text-2xl py-1.5 px-3.5 bg-purple-200 border border-purple-400 text-purple-600 shadow-sm rounded-[14px]'>
                                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}
                                         </div>
-                                        <div>
+                                        <div className='pl-1 w-[101%] @min-[315px]/check-completed:w-fit'>
                                             <p className='font-semibold text-[15px] text-purple-600'>{group.name}</p>
                                             <p className='text-[13px] font-normal text-purple-600'>{group.assignments.length} Horses</p>
                                         </div>
@@ -871,7 +871,7 @@ const CheckMarkedCompletedModal = ({
                             spellCheck={true}
                             required
                         />
-                        <span className='inline-flex items-start mt-1 justify-between w-full'>
+                        <span className='inline-flex items-start mt-1 flex-col @min-[270px]/check-completed:flex-row @min-[270px]/check-completed:justify-between w-full'>
                             <p className={cn('text-xs ml-1 pb-2 text-primary', thanksMessageWords === 150 ? 'text-red-400' : '')}>{thanksMessageWords} / 150 words</p>
                             <AnimatePresence>
                                 {originalThanksMessage.current.length > 0 && originalThanksMessage.current.trim() !== thanksMessage.trim() && (

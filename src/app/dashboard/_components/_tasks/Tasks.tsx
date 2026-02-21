@@ -1001,7 +1001,7 @@ const JobCard = ({
             }}
             className={cn(
                 'bg-white p-5 @min-[450px]/tasks:p-6 relative rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col @min-[600px]/tasks:flex-row gap-4 justify-between items-start @min-[600px]/tasks:items-center @container/job-card',
-                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : job.status === 'editing' ? 'opacity-80' : '',
+                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : job.status === 'editing' ? 'opacity-70 border-red-200' : '',
             )}
         >
             <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>

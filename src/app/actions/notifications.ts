@@ -443,7 +443,7 @@ export async function createNotification(
 
                 await sendLimitEmail({
                     to: user.email,
-                    count: count,
+                    count: count + 1,
                     limit: limit,
                     period: period,
                     type: 'approaching',

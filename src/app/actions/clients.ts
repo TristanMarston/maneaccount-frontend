@@ -35,7 +35,7 @@ export async function addClient(formData: any) {
     }
 
     try {
-        await prisma.client.create({
+        const client = await prisma.client.create({
             data: {
                 barn: { connect: { email: session.user.email } },
                 name,
@@ -45,7 +45,7 @@ export async function addClient(formData: any) {
         });
 
         revalidatePath('/dashboard');
-        return { success: true };
+        return { success: true, id: client.id };
     } catch (error) {
         console.error('Failed to add client:', error);
         return { error: 'Failed to add client' };

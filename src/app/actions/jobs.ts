@@ -251,19 +251,20 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
 
         if (isComplete) {
             const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date(), timezoneOffset);
+            const newCount = successMessage === 'Marked as incomplete' ? count - 1 : successMessage === 'Marked as complete' ? count + 1 : count;
 
             if (period !== 'unlimited') {
-                if (count === 48) {
+                if (newCount === 48) {
                     await createNotification(
                         assignment.job.braiderId,
                         NotificationType.limit_approaching,
-                        `You have serviced ${count} horses out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
+                        `You have serviced ${newCount} horses out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
                         null,
                         null,
                         null,
                         timezoneOffset,
                     );
-                } else if (count >= 50) {
+                } else if (newCount > 50) {
                     return { error: `You have reached your limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.` };
                 }
             }

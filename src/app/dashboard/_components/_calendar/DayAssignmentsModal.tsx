@@ -19,7 +19,9 @@ import {
     Trash2,
     Calendar as CalendarIcon,
     BadgeCheck,
+    Icon,
 } from 'lucide-react';
+import { horseHead } from '@lucide/lab';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { formatPhoneNumber } from '../_settings/Settings';
@@ -209,14 +211,16 @@ export const DayAssignmentsModal = ({
                                                             ) : (
                                                                 <></>
                                                             )}
-                                                            <span className={cn(isComplete ? 'text-primary-dark' : 'text-gray-700')}>{service.name}</span>
+                                                            <span className={cn(assignment.completedServiceIds.includes(service.id) ? 'text-primary-dark' : 'text-gray-700')}>
+                                                                {service.name}
+                                                            </span>
                                                         </span>
                                                         <span
                                                             className={cn(
                                                                 'font-bold',
                                                                 assignment.canceledServiceIds.includes(service.id)
                                                                     ? 'text-gray-400'
-                                                                    : isComplete
+                                                                    : assignment.completedServiceIds.includes(service.id)
                                                                       ? 'text-primary-dark'
                                                                       : 'text-gray-900',
                                                             )}
@@ -346,11 +350,11 @@ const AddHorseToJobForm = ({
             })),
         );
         if (res.success) {
-            successToast('Horses added to request');
+            successToast(`${assignments.length} horse${assignments.length === 1 ? '' : 's'} added to request`);
             refresh();
             onClose();
         } else {
-            failToast(res.error || 'Failed to add horses');
+            failToast(res.error || `Failed to add horse${assignments.length === 1 ? '' : 's'}`);
         }
         setLoading(false);
     };
@@ -380,7 +384,7 @@ const AddHorseToJobForm = ({
         <div className='flex flex-col max-h-[90vh] font-figtree'>
             <div className='px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white'>
                 <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horse to Request</h3>
-                <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600'>
+                <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600 transition-all cursor-pointer'>
                     <X size={20} />
                 </button>
             </div>
@@ -418,7 +422,7 @@ const AddHorseToJobForm = ({
 
                 <div className='space-y-4'>
                     <label className='text-xs font-bold text-gray-400 uppercase flex items-center gap-2'>
-                        <User size={14} /> Select Horse
+                        <Icon iconNode={horseHead} size={14} /> Select Horse
                     </label>
                     <div className='grid grid-cols-2 dashboard-sm:grid-cols-3 gap-3'>
                         {horses.map((horse) => (
@@ -434,7 +438,7 @@ const AddHorseToJobForm = ({
                                         job.assignments
                                             .filter((a) => isSameDay(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), selectedDate))
                                             .some((a) => a.horse.id === horse.id) ||
-                                        assignments.some((a) => a.horseId === horse.id)
+                                        assignments.some((a) => a.horseId === horse.id && isSameDay(a.date, selectedDate))
                                         ? 'opacity-20 pointer-events-none'
                                         : '',
                                 )}

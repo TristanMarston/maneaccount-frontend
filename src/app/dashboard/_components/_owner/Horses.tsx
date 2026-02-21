@@ -81,7 +81,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [horseModalOpen, setHorseModalOpen] = useState(false);
+    const [horseModalOpen, setHorseModalOpen] = useState<{ open: boolean; clientId: string }>({ open: false, clientId: '' });
 
     useEffect(() => {
         const loadHorses = async () => {
@@ -132,7 +132,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
 
             if (result && !result.error) {
                 successToast(`${formData.showName} added to the stable`);
-                setHorseModalOpen(false);
+                setHorseModalOpen({ open: false, clientId: '' });
                 resetForm();
 
                 const updated = await getClients(userEmail);
@@ -208,7 +208,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                             <span className='block @min-[550px]/horses:hidden @min-[670px]/horses:block'>Add Owner</span>
                         </button>
                         <button
-                            onClick={() => setHorseModalOpen((prev) => !prev)}
+                            onClick={() => setHorseModalOpen({ open: true, clientId: '' })}
                             className='font-figtree w-full @min-[550px]/horses:w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-lg @min-[550px]/horses:text-[19px] @min-[670px]/horses:text-lg text-nowrap rounded-[14px] py-2 @min-[550px]/horses:py-[9.25px] @min-[670px]/horses:py-2 @min-[550px]/horses:rounded-[14px] px-6 @min-[670px]/horses:rounded-[10px] @min-[670px]/horses:py-2 @min-[670px]/horses:px-6 bg-primary-light text-background primary-border-hover'
                         >
                             <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
@@ -226,7 +226,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                 ) : clients.length === 0 ? (
                     <div className='hidden @sm/horses:grid grid-cols-1 @min-[825px]/horses:grid-cols-2 @min-[1250px]/horses:grid-cols-3'>
                         <div
-                            onClick={() => setHorseModalOpen(true)}
+                            onClick={() => setHorseModalOpen({ open: true, clientId: '' })}
                             className='grid place-items-center text-center py-8 bg-gray-50 rounded-3xl border border-dashed group border-gray-400 hover:border-primary hover:bg-primary/5 cursor-pointer transition-all'
                         >
                             <PlusCircle className='text-gray-500 group-hover:text-primary w-20 h-20' strokeWidth={1.5} />
@@ -246,12 +246,21 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                                                     {client.name.substring(0, 1).toUpperCase()}
                                                 </div>
                                                 <div className='min-w-0'>
-                                                    <h2 className='text-xl font-bold font-lusitana text-gray-900 truncate'>{client.name}</h2>
-                                                    <p className='text-sm text-gray-500 font-figtree truncate'>{client.email}</p>
-                                                    {client.phoneNumber && <p className='text-sm text-gray-500 font-figtree truncate'>{formatPhoneNumber(client.phoneNumber)}</p>}
+                                                    <h2 title={client.name} className='text-xl font-bold font-lusitana text-gray-900 truncate'>{client.name}</h2>
+                                                    <p title={client.email} className='text-sm text-gray-500 font-figtree truncate'>{client.email}</p>
+                                                    {client.phoneNumber && <p title={formatPhoneNumber(client.phoneNumber)} className='text-sm text-gray-500 font-figtree truncate'>{formatPhoneNumber(client.phoneNumber)}</p>}
                                                 </div>
                                             </div>
                                             <div className='flex items-center gap-2'>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setHorseModalOpen({ open: true, clientId: client.id });
+                                                    }}
+                                                    className='text-gray-300 cursor-pointer hover:text-primary transition-colors p-1'
+                                                >
+                                                    <PlusCircle className='w-5 h-5' />
+                                                </button>
                                                 <button
                                                     onClick={() => {
                                                         setClientEditData({
@@ -400,7 +409,16 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                     </div>
                 </div>
             </Modal>
-            <Modal isOpen={horseModalOpen} setIsOpen={setHorseModalOpen} className='max-w-4xl p-7 rounded-[18px] primary-border-bold relative'>
+            <Modal
+                isOpen={horseModalOpen.open}
+                setIsOpen={(open: boolean) => {
+                    setHorseModalOpen({ open, clientId: '' });
+                    if (formData.showName === '' && formData.barnName === '' && (!formData.gender || formData.gender === '') && formData.color === '' && formData.notes === '') {
+                        setFormData((prev) => ({ ...prev, clientId: '' }));
+                    }
+                }}
+                className='max-w-4xl p-7 rounded-[18px] primary-border-bold relative'
+            >
                 <HorseModal
                     type='add'
                     handleSubmit={handleSubmit}
@@ -408,8 +426,14 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                     handleFileSelect={handleFileSelect}
                     data={formData}
                     setData={setFormData}
-                    setOpen={(open: boolean) => setHorseModalOpen(open)}
+                    setOpen={(open: boolean) => {
+                        setHorseModalOpen({ open, clientId: '' });
+                        if (formData.showName === '' && formData.barnName === '' && (!formData.gender || formData.gender === '') && formData.color === '' && formData.notes === '') {
+                            setFormData((prev) => ({ ...prev, clientId: '' }));
+                        }
+                    }}
                     clients={clients}
+                    initialClientId={horseModalOpen.clientId}
                     onAddClient={() => {
                         setClientFormData({ name: '', email: '', phoneNumber: '' });
                         setClientModalOpen(true);
@@ -427,6 +451,10 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                             setClientModalOpen(false);
                             const [clientsData] = await Promise.all([getClients(userEmail)]);
                             setClients(clientsData);
+
+                            if (horseModalOpen.open) {
+                                setHorseModalOpen({ open: true, clientId: res.id });
+                            }
                         } else {
                             failToast(res?.error || 'Failed to add client');
                         }
@@ -530,6 +558,7 @@ const HorseModal = ({
     setData,
     setOpen,
     clients = [],
+    initialClientId,
     onAddClient,
 }: {
     type: 'edit' | 'add';
@@ -540,8 +569,20 @@ const HorseModal = ({
     setData: React.Dispatch<React.SetStateAction<FormData>>;
     setOpen: (open: boolean) => void;
     clients?: Client[];
+    initialClientId?: string;
     onAddClient?: () => void;
 }) => {
+    useEffect(() => {
+        if (initialClientId && initialClientId.length > 0) {
+            setData((prev) => {
+                return {
+                    ...prev,
+                    clientId: initialClientId,
+                };
+            });
+        }
+    }, [initialClientId]);
+
     return (
         <>
             <div className='@container/horse font-figtree'>

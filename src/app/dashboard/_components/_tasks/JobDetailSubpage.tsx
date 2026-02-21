@@ -24,7 +24,9 @@ import {
     Phone,
     DollarSign,
     Loader2,
+    Icon,
 } from 'lucide-react';
+import { horseHead } from '@lucide/lab';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay } from 'date-fns';
@@ -827,7 +829,7 @@ export const JobDetailSubpage = ({
                                                                             assignment.status === 'pending' ? 'bg-white/70' : '',
                                                                         )}
                                                                     >
-                                                                        <div className='flex justify-between items-start mb-3'>
+                                                                        <div className={cn('flex justify-between', isGrayed ? 'm-0 items-center' : 'mb-3 items-start')}>
                                                                             <div
                                                                                 onClick={() => setSelectedHorse(assignment.horse)}
                                                                                 className={cn(
@@ -1104,7 +1106,7 @@ export const JobDetailSubpage = ({
                                                                                                             <button
                                                                                                                 onClick={() => handleCancelService(assignment.id, service.id)}
                                                                                                                 className={cn(
-                                                                                                                    'transition-all p-1 cursor-pointer',
+                                                                                                                    'transition-all p-0.5 cursor-pointer',
                                                                                                                     assignment.canceledServiceIds.includes(service.id)
                                                                                                                         ? 'text-primary hover:text-primary-dark font-bold text-[10px] uppercase'
                                                                                                                         : 'text-gray-300 hover:text-red-500',
@@ -1488,7 +1490,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
             })),
         );
         if (res.success) {
-            successToast(`${assignments.length} Horse${assignments.length === 1 ? '' : 's'} added to request`);
+            successToast(`${assignments.length} horse${assignments.length === 1 ? '' : 's'} added to request`);
             refresh();
             onClose();
         } else {
@@ -1522,7 +1524,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
         <div className='flex flex-col max-h-[90vh] font-figtree'>
             <div className='px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white'>
                 <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horse to Job</h3>
-                <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600'>
+                <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600 transition-all cursor-pointer'>
                     <X size={20} />
                 </button>
             </div>
@@ -1560,7 +1562,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
 
                 <div className='space-y-4'>
                     <label className='text-xs font-bold text-gray-400 uppercase flex items-center gap-2'>
-                        <User size={14} /> Select Horse
+                        <Icon iconNode={horseHead} size={14} /> Select Horse
                     </label>
                     <div className='grid grid-cols-2 dashboard-sm:grid-cols-3 gap-3'>
                         {horses.map((horse) => (
@@ -1576,7 +1578,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                                         job.assignments
                                             .filter((a) => isSameDay(parseUTCToLocal(a.assignmentDate) || a.assignmentDate, selectedDate))
                                             .some((a) => a.horse.id === horse.id) ||
-                                        assignments.some((a) => a.horseId === horse.id)
+                                        assignments.some((a) => a.horseId === horse.id && isSameDay(a.date, selectedDate))
                                         ? 'opacity-20 pointer-events-none'
                                         : '',
                                 )}

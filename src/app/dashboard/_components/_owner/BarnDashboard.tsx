@@ -45,10 +45,6 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
         setSelectedBraider(braider);
     };
 
-    useEffect(() => {
-        console.log(unsavedRequest);
-    }, [unsavedRequest]);
-
     const renderContent = () => {
         switch (selectedPage) {
             case 'Dashboard':

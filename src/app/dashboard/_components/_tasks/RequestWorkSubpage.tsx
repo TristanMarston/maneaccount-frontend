@@ -675,7 +675,7 @@ const RequestWorkSubpage = ({
                                         className='px-6 py-2 rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2 text-[17px]'
                                     >
                                         {loading && <Loader2 size={18} className='animate-spin' />}
-                                        Submit Request
+                                        Submit Request {assignments.length > 0 ? `(${assignments.length})` : ''}
                                     </button>
                                 </span>
                             </div>

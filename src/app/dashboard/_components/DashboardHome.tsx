@@ -310,7 +310,7 @@ const Notifications = ({
                             animate={notificationsOpen ? 'open' : 'closed'}
                             exit='closed'
                             className={cn(
-                                'absolute top-[calc(100%+16px)] w-[80dvw] dashboard-sm:w-[325px] dashboard-sm:@min-[350px]/home:w-xs dashboard-sm:@min-[400px]/home:w-cm dashboard-sm:@min-[450px]/home:w-[450px] dashboard-sm:@min-[500px]/home:w-lg primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40',
+                                'absolute top-[calc(100%+16px)] w-[calc(100dvw-64px)] @min-[550px]/content:w-[calc(100dvw-80px)] dashboard-sm:w-[325px]! dashboard-sm:@min-[350px]/home:w-xs! dashboard-sm:@min-[400px]/home:w-cm! dashboard-sm:@min-[450px]/home:w-[450px]! dashboard-sm:@min-[500px]/home:w-lg! primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40',
                                 isWrapped ? 'left-0 right-auto' : 'right-0 left-auto',
                             )}
                         >
@@ -328,7 +328,7 @@ const Notifications = ({
                                     {notifications.length === 0 ? (
                                         <div className='bg-gray-50/50 rounded-2xl p-4 border border-dashed border-gray-200 grid place-items-center'>
                                             <BellOff className='p-3 rounded-full text-gray-400 w-16 h-16' />
-                                            <p className='text-gray-500'>You have no notifications.</p>
+                                            <p className='text-gray-500 text-center'>You have no notifications.</p>
                                         </div>
                                     ) : (
                                         <>
@@ -349,6 +349,12 @@ const Notifications = ({
                                                         setCalendarModal={setCalendarModal}
                                                     />
                                                 ))}
+                                            {notifications.filter((notif) => !notif.isRead).length === 0 && (
+                                                <div className='bg-gray-50/50 rounded-2xl p-4 border border-dashed border-gray-200 grid place-items-center'>
+                                                    <BellOff className='p-3 rounded-full text-gray-400 w-16 h-16' />
+                                                    <p className='text-gray-500 text-center'>You have no new notifications.</p>
+                                                </div>
+                                            )}
                                             {notifications.filter((notif) => notif.isRead).length > 0 && (
                                                 <span className='font-figtree text-gray-600 uppercase font-bold tracking-wide mt-2'>Past Notifications</span>
                                             )}
@@ -414,7 +420,7 @@ const Notification = ({
     handleMarkAsRead: (notificationId: string) => void;
     setNotificationsOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCheckAcceptModal: React.Dispatch<React.SetStateAction<{ open: boolean; name: string; callback: () => void }>>;
-    setCalendarModal?: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean; outlookSynced: boolean; }>>;
+    setCalendarModal?: React.Dispatch<React.SetStateAction<{ open: boolean; showId: string; showName: string; googleSynced: boolean; appleSynced: boolean; outlookSynced: boolean }>>;
 }) => {
     const [responseFunctions, setResponseFunctions] = useState<{ accept: () => Promise<void> | (() => void); reject: () => Promise<void> | (() => void) } | null>(null);
 
@@ -552,7 +558,9 @@ const Notification = ({
                                       ? 'Team'
                                       : notification.type.startsWith('new_message')
                                         ? 'Tasks'
-                                        : '',
+                                        : notification.type.startsWith('limit')
+                                          ? 'Tasks'
+                                          : '',
                         );
                     } else if (role === 'barn') {
                         setSelectedPage(

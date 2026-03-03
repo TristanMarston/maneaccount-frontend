@@ -24,8 +24,6 @@ export async function updateProfile(formData: any) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
-    console.log(formData.emailVerified);
-
     const name = formData.name as string | null;
     const email = formData.email as string | null;
     const publicID = formData.publicID as string | null;

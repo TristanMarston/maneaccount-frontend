@@ -265,6 +265,7 @@ export async function sendJobCompletedEmail({
     image,
     paymentInformation,
     serviceDetails,
+    horseExpenses,
     horseDetails,
 }: {
     to: string;
@@ -301,11 +302,14 @@ export async function sendJobCompletedEmail({
             }
         >
     >;
+    horseExpenses?: Record<string, number>;
 }) {
     if (!to) return { error: 'No email provided' };
 
     try {
-        const html = await render(ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, horseDetails, thanksMessage }));
+        const html = await render(
+            ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, horseDetails, horseExpenses, thanksMessage }),
+        );
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,

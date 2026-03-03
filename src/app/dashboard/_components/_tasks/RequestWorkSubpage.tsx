@@ -258,6 +258,7 @@ const RequestWorkSubpage = ({
                     successToast('Draft created successfully');
                     refresh();
                     onBack();
+                    setUnsavedRequest(false);
                 } else {
                     failToast(res.error || 'Failed to create draft');
                 }
@@ -300,6 +301,7 @@ const RequestWorkSubpage = ({
             if (isEditing) {
                 const updateRes = await updateJobDraft(jobId, assignmentData);
                 if (!updateRes.success) throw new Error(updateRes.error);
+                setUnsavedRequest(false);
             } else {
                 if (!selectedBraider || !selectedShow) return;
                 const createRes = await createJob({
@@ -309,6 +311,7 @@ const RequestWorkSubpage = ({
                 });
                 if (!createRes.success || !createRes.jobId) throw new Error(createRes.error);
                 jobId = createRes.jobId;
+                setUnsavedRequest(false);
             }
 
             // Submit
@@ -317,6 +320,7 @@ const RequestWorkSubpage = ({
                 successToast('Request submitted successfully');
                 refresh();
                 onBack();
+                setUnsavedRequest(false);
             } else {
                 failToast(submitRes.error || 'Failed to submit request');
             }
@@ -428,7 +432,7 @@ const RequestWorkSubpage = ({
                             </button>
                         )}
                         <div className='flex items-center gap-2 w-full @min-[475px]/request-page:w-auto'>
-                            <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
+                            <div className='flex items-center min-w-0 gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
                                 <div className='w-5 h-5 rounded-full bg-gray-100 overflow-hidden flex justify-center items-center relative shrink-0'>
                                     {selectedBraider.image && selectedBraider.image.length > 0 ? (
                                         <Image src={selectedBraider.image || ''} alt={selectedBraider.name} fill className='object-cover' />
@@ -436,12 +440,12 @@ const RequestWorkSubpage = ({
                                         <User className='p-[3px] text-gray-400' />
                                     )}
                                 </div>
-                                <span className='font-bold text-sm text-gray-900'>{selectedBraider.name}</span>
+                                <span className='font-bold text-sm text-gray-900 truncate text-nowrap min-w-0'>{selectedBraider.name}</span>
                             </div>
                             <span className='text-gray-300 hidden @min-[475px]/request-page:block'>•</span>
-                            <div className='flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
+                            <div className='flex items-center min-w-0 gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100 w-full @min-[475px]/request-page:w-auto'>
                                 <MapPin size={14} className='text-primary' />
-                                <span className='font-bold text-sm text-gray-900'>{selectedShow.name}</span>
+                                <span className='font-bold text-sm text-gray-900 truncate text-nowrap min-w-0'>{selectedShow.name}</span>
                             </div>
                         </div>
                     </div>
@@ -659,11 +663,11 @@ const RequestWorkSubpage = ({
                                 </div>
                             </div>
 
-                            <div className='mt-6 flex gap-3'>
+                            <div className='mt-6 flex flex-col @min-[410px]/request-page:flex-row gap-3'>
                                 <button
                                     onClick={handleAddAssignment}
                                     disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
-                                    className='bg-background text-[17px] primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
+                                    className='bg-background justify-center @min-[410px]/request-page:justify-start text-[17px] primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
                                 >
                                     <Plus size={18} />
                                     Add to List
@@ -672,7 +676,7 @@ const RequestWorkSubpage = ({
                                     <button
                                         onClick={handleSubmit}
                                         disabled={loading || assignments.length === 0}
-                                        className='px-6 py-2 rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2 text-[17px]'
+                                        className='px-6 py-2 w-full @min-[410px]/request-page:w-auto rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2 text-[17px]'
                                     >
                                         {loading && <Loader2 size={18} className='animate-spin' />}
                                         Submit Request {assignments.length > 0 ? `(${assignments.length})` : ''}
@@ -755,7 +759,7 @@ const RequestWorkSubpage = ({
                                                                                     </div>
                                                                                     <button
                                                                                         onClick={() => handleRemoveAssignment(originalIndex)}
-                                                                                        className='text-gray-300 hover:text-red-500 group-hover:opacity-100 opacity-0 transition-all cursor-pointer'
+                                                                                        className='text-gray-300 hover:text-red-500 transition-all cursor-pointer'
                                                                                     >
                                                                                         <Trash2 size={24} />
                                                                                     </button>

@@ -1,6 +1,7 @@
 import { parseUTCToLocal } from '@/lib/date-utils';
 import { Body, Container, Head, Heading, Html, Preview, Section, Text, Button, Img, Hr, Link } from '@react-email/components';
 import { format } from 'date-fns';
+import { Fragment } from 'react/jsx-runtime';
 
 interface ManeAccountEmailProps {
     braiderName: string;
@@ -36,6 +37,7 @@ interface ManeAccountEmailProps {
             }
         >
     >;
+    horseExpenses?: Record<string, number>;
 }
 
 const formatPhoneNumber = (value: string) => {
@@ -58,6 +60,7 @@ export const ManeAccountJobCompletedEmail = ({
     paymentInformation,
     serviceDetails,
     horseDetails,
+    horseExpenses,
     thanksMessage,
 }: ManeAccountEmailProps) => {
     return (
@@ -97,9 +100,8 @@ export const ManeAccountJobCompletedEmail = ({
                                 {isClient && horseDetails ? (
                                     <>
                                         {Object.entries(horseDetails).map(([horseName, serviceDetails], i) => (
-                                            <>
+                                            <Fragment key={horseName + i}>
                                                 <Text
-                                                    key={horseName + i}
                                                     style={{
                                                         ...detailRow,
                                                         fontWeight: 'bold',
@@ -111,28 +113,37 @@ export const ManeAccountJobCompletedEmail = ({
                                                 >
                                                     {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
                                                 </Text>
-                                                <div key={i + horseName}>
+                                                <div>
                                                     <div style={{ marginBottom: '12px', paddingLeft: '12px', marginTop: '8px' }}>
                                                         <ul style={{ padding: '0', margin: '4px 0' }}>
                                                             {Object.entries(serviceDetails).map(([service, { days, price }], j) => (
                                                                 <li key={j + service + price} style={{ fontSize: '14px', color: '#444', marginBottom: '2px' }}>
                                                                     {service}&nbsp;-&nbsp;
                                                                     {days.map((day, k) => (
-                                                                        <span key={k + day.getTime()}>{format(parseUTCToLocal(day) || day, 'EEEE')}{k === days.length - 1 ? '' : ', '}</span>
+                                                                        <span key={k + day.getTime()}>
+                                                                            {format(parseUTCToLocal(day) || day, 'EEEE')}
+                                                                            {k === days.length - 1 ? '' : ', '}
+                                                                        </span>
                                                                     ))}{' '}
                                                                     ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)})
                                                                 </li>
                                                             ))}
+                                                            {horseExpenses !== undefined && horseExpenses[horseName] !== undefined && horseExpenses[horseName] > 0 && (
+                                                                <li style={{ color: '#d97706', fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>
+                                                                    Expenses: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(horseExpenses[horseName])}
+                                                                </li>
+                                                            )}
                                                         </ul>
                                                         <p style={{ fontSize: '14px', color: '#444', margin: '8px 0 2px 0', fontWeight: 'bold' }}>
                                                             Subtotal:{' '}
                                                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                                                                Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0),
+                                                                Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
+                                                                    (horseExpenses !== undefined && horseExpenses[horseName] !== undefined ? horseExpenses[horseName] : 0),
                                                             )}
                                                         </p>
                                                     </div>
                                                 </div>
-                                            </>
+                                            </Fragment>
                                         ))}
                                     </>
                                 ) : (

@@ -44,6 +44,7 @@ import {
     addAssignmentsToJob,
     markJobCompleted,
     acceptAllPendingAssignments,
+    respondToSubcontractorAssignment,
 } from '@/app/actions/jobs';
 import { getTeamMembers } from '@/app/actions/team';
 import { getIDByEmail } from '@/app/actions/join';
@@ -593,6 +594,16 @@ export const JobDetailSubpage = ({
         }
     };
 
+    const handleSubcontractorResponse = async (status: 'accepted' | 'denied' | 'restore', assignmentId: string) => {
+        const result = await respondToSubcontractorAssignment(status, assignmentId);
+        if (result.success) {
+            refresh();
+            if (result.disconnected) onBack();
+        } else {
+            failToast(`Failed to ${status === 'accepted' ? 'accept assignment' : status === 'denied' ? 'decline assignment' : status === 'restore' ? 'restore assignment' : 'respond'}`);
+        }
+    };
+
     return (
         <div className='font-figtree pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 w-full @container/job-subpage'>
             <div ref={containerRef} className='w-full'>
@@ -639,7 +650,15 @@ export const JobDetailSubpage = ({
                     <span
                         className={cn(
                             'text-sm absolute -top-4 right-2 font-bold px-3 py-0.5 rounded-full border uppercase tracking-wide my-1 bg-white',
-                            statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 || role === 'subcontractor' ? 'accepted' : job.status],
+                            statusColors[
+                                job.assignments.every((a) => a.paidAt)
+                                    ? 'paid'
+                                    : horsesCompleted > 0 ||
+                                        (role === 'subcontractor' &&
+                                            job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length === 0)
+                                      ? 'accepted'
+                                      : job.status
+                            ],
                         )}
                     >
                         {role !== 'subcontractor'
@@ -666,7 +685,9 @@ export const JobDetailSubpage = ({
                                 ? 'denied'
                                 : isJobCanceled
                                   ? 'canceled'
-                                  : `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.subcontractor?.email === userEmail).length} horses completed`}
+                                  : job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length > 0
+                                    ? `${job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length}/${job.assignments.filter((a) => a.subcontractor?.email === userEmail).length} horses pending`
+                                    : `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.subcontractor?.email === userEmail).length} horses completed`}
                     </span>
                 </div>
 
@@ -813,7 +834,10 @@ export const JobDetailSubpage = ({
                                                                 const activeServices = assignment.services.filter((s: any) => !assignment.canceledServiceIds.includes(s.id));
                                                                 const isAssignmentCanceled = !!assignment.canceledAt || activeServices.length === 0;
                                                                 const isAssignmentDenied = assignment.status === 'denied';
-                                                                const isGrayed = isAssignmentCanceled || isAssignmentDenied;
+                                                                const isGrayed =
+                                                                    isAssignmentCanceled ||
+                                                                    isAssignmentDenied ||
+                                                                    (role === 'subcontractor' && assignment.subcontractorStatus === 'redirected');
 
                                                                 return (
                                                                     <div
@@ -832,7 +856,9 @@ export const JobDetailSubpage = ({
                                                                                     ].length
                                                                                 ? 'bg-primary-extra-light border-primary/20'
                                                                                 : '',
-                                                                            assignment.status === 'pending' ? 'bg-white/70' : '',
+                                                                            assignment.status === 'pending' || (role === 'subcontractor' && assignment.subcontractorStatus) === 'pending'
+                                                                                ? 'bg-white/70'
+                                                                                : '',
                                                                         )}
                                                                     >
                                                                         <div className={cn('flex justify-between', isGrayed ? 'm-0 items-center' : 'mb-3 items-start')}>
@@ -840,7 +866,10 @@ export const JobDetailSubpage = ({
                                                                                 onClick={() => setSelectedHorse(assignment.horse)}
                                                                                 className={cn(
                                                                                     'flex items-center min-w-0 gap-3 cursor-pointer group flex-1',
-                                                                                    assignment.status === 'pending' ? 'opacity-70' : '',
+                                                                                    assignment.status === 'pending' ||
+                                                                                        (role === 'subcontractor' && assignment.subcontractorStatus) === 'pending'
+                                                                                        ? 'opacity-70'
+                                                                                        : '',
                                                                                 )}
                                                                             >
                                                                                 <div className='min-w-10 min-h-10 grid place-items-center rounded-full bg-gray-100 overflow-hidden relative'>
@@ -915,6 +944,42 @@ export const JobDetailSubpage = ({
                                                                                                     </button>
                                                                                                 )
                                                                                             )}
+                                                                                            {role === 'subcontractor' && assignment.subcontractorStatus === 'pending' ? (
+                                                                                                <div className='hidden @min-[490px]/job-subpage:grid grid-cols-2 items-center gap-2 mr-2'>
+                                                                                                    <button
+                                                                                                        onClick={() => handleSubcontractorResponse('accepted', assignment.id)}
+                                                                                                        className='px-2 py-1.5 transition-colors text-sm cursor-pointer font-bold uppercase text-background bg-primary-light primary-border-hover rounded-[10px]'
+                                                                                                    >
+                                                                                                        Accept
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        onClick={() => handleSubcontractorResponse('denied', assignment.id)}
+                                                                                                        className='px-2 py-1.5 transition-colors text-sm cursor-pointer font-bold uppercase text-red-400 hover:text-red-500 red-border-hover rounded-[10px]'
+                                                                                                    >
+                                                                                                        Deny
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                !job.invoiceSentAt &&
+                                                                                                role === 'subcontractor' && (
+                                                                                                    <button
+                                                                                                        onClick={() =>
+                                                                                                            handleSubcontractorResponse(
+                                                                                                                assignment.subcontractorStatus === 'redirected' ? 'accepted' : 'denied',
+                                                                                                                assignment.id,
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className={cn(
+                                                                                                            'p-1 hidden @min-[490px]/job-subpage:block transition-colors text-sm cursor-pointer font-bold uppercase px-2 py-1.5 rounded-[10px] text-nowrap',
+                                                                                                            assignment.subcontractorStatus === 'redirected'
+                                                                                                                ? 'text-primary hover:text-primary-dark border border-primary/20 hover:bg-primary-extra-light'
+                                                                                                                : 'text-red-500 red-border-hover',
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {assignment.subcontractorStatus === 'redirected' ? 'Restore' : 'Cancel Horse'}
+                                                                                                    </button>
+                                                                                                )
+                                                                                            )}
                                                                                         </>
                                                                                     )}
                                                                                 {!isGrayed && role === 'braider' && subscriptionTier !== 'starter' && (
@@ -944,7 +1009,10 @@ export const JobDetailSubpage = ({
                                                                                     onClick={() => setSelectedHorse(assignment.horse)}
                                                                                     className={cn(
                                                                                         'rounded-full p-1.5 transition-all text-gray-400 hover:bg-primary-extra-light hover:text-primary cursor-pointer',
-                                                                                        assignment.status === 'pending' ? 'opacity-70' : '',
+                                                                                        assignment.status === 'pending' ||
+                                                                                            (role === 'subcontractor' && assignment.subcontractorStatus === 'pending')
+                                                                                            ? 'opacity-70'
+                                                                                            : '',
                                                                                     )}
                                                                                 >
                                                                                     <Info size={20} />
@@ -1010,10 +1078,21 @@ export const JobDetailSubpage = ({
                                                                             <div
                                                                                 className={cn(
                                                                                     'mt-3 pt-3 border-t border-gray-100 space-y-3',
-                                                                                    assignment.status === 'pending' ? 'opacity-70 cursor-not-allowed' : '',
+                                                                                    assignment.status === 'pending' ||
+                                                                                        (role === 'subcontractor' && assignment.subcontractorStatus === 'pending')
+                                                                                        ? 'opacity-70 cursor-not-allowed'
+                                                                                        : '',
                                                                                 )}
                                                                             >
-                                                                                <div className={cn('space-y-2 pl-1', assignment.status === 'pending' ? 'pointer-events-none' : '')}>
+                                                                                <div
+                                                                                    className={cn(
+                                                                                        'space-y-2 pl-1',
+                                                                                        assignment.status === 'pending' ||
+                                                                                            (role === 'subcontractor' && assignment.subcontractorStatus === 'pending')
+                                                                                            ? 'pointer-events-none'
+                                                                                            : '',
+                                                                                    )}
+                                                                                >
                                                                                     {assignment.services.map((service: any, idx: number) => {
                                                                                         const isCompleted = assignment.completedServiceIds.includes(service.id);
                                                                                         const canEdit =
@@ -1238,7 +1317,9 @@ export const JobDetailSubpage = ({
                                                 .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
                                                 .reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
                                             const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
-                                            return a.canceledAt || !(a.status === 'accepted' || a.status === 'accepted') ? acc : acc + servicesTotal + customTotal;
+                                            return a.canceledAt || !(a.status === 'accepted' || a.status === 'accepted' || a.status === 'pending')
+                                                ? acc
+                                                : acc + servicesTotal + customTotal;
                                         }, 0),
                                 )}
                             </span>

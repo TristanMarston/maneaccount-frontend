@@ -569,6 +569,7 @@ export async function deleteJob(jobId: string) {
 export async function assignSubcontractorToAssignment(assignmentId: string, subcontractorId: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (subcontractorId.length === 0) return { error: 'Empty subcontractor id' };
 
     try {
         const currentAssignment = await prisma.jobAssignment.findUnique({
@@ -580,17 +581,15 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
 
         const assignment = await prisma.jobAssignment.update({
             where: { id: assignmentId },
-            data: { subcontractorId: subcontractorId.length > 0 ? subcontractorId : null },
+            data: { subcontractorId: subcontractorId, subcontractorStatus: 'pending' },
             include: { job: { include: { braider: true, subcontractors: true } } },
         });
 
-        if (subcontractorId.length > 0) {
-            await prisma.job.update({
-                where: { id: assignment.jobId },
-                data: { subcontractors: { connect: { id: subcontractorId } } },
-            });
-            await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
-        }
+        await prisma.job.update({
+            where: { id: assignment.jobId },
+            data: { subcontractors: { connect: { id: subcontractorId } } },
+        });
+        await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
 
         if (previousSubcontractorId && previousSubcontractorId !== subcontractorId) {
             const remainingCount = await prisma.jobAssignment.count({
@@ -613,6 +612,59 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
     } catch (error) {
         console.error('Assign sub error:', error);
         return { error: 'Failed to assign subcontractor' };
+    }
+}
+
+export async function respondToSubcontractorAssignment(status: 'accepted' | 'denied' | 'restore', assignmentId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const data: any = { subcontractorStatus: status === 'accepted' ? 'delegated' : status === 'denied' ? 'redirected' : status === 'restore' ? 'delegated' : 'delegated' };
+        if (status === 'denied') data.subcontractorId = null;
+
+        const assignment = await prisma.jobAssignment.update({
+            where: { id: assignmentId },
+            data,
+            include: { job: { include: { braider: true, show: true } }, horse: true },
+        });
+
+        let disconnected = false;
+
+        if (status === 'denied') {
+            const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+
+            if (user) {
+                const remainingCount = await prisma.jobAssignment.count({
+                    where: {
+                        jobId: assignment.jobId,
+                        subcontractorId: user.id,
+                    },
+                });
+
+                if (remainingCount === 0) {
+                    await prisma.job.update({
+                        where: { id: assignment.jobId },
+                        data: { subcontractors: { disconnect: { id: user.id } } },
+                    });
+                    disconnected = true;
+                }
+
+                await createNotification(
+                    assignment.job.braiderId,
+                    NotificationType.horse_sub_completed,
+                    `${user.name}, your subcontractor, has declined servicing ${assignment.horse.barnName} in ${assignment.job.show.name}`,
+                    null,
+                    user.id,
+                );
+            }
+        }
+
+        revalidatePath('/dashboard');
+        return { success: true, disconnected };
+    } catch (error) {
+        console.error('Subcontractor response error:', error);
+        return { error: 'Failed to respond' };
     }
 }
 

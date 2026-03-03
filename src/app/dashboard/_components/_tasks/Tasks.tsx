@@ -98,6 +98,7 @@ export type Job = {
         canceledAt?: Date;
         subcontractor: { name: string; image?: string; email: string; id: string } | null;
         status: 'pending' | 'accepted' | 'denied' | 'canceled' | 'completed';
+        subcontractorStatus: 'braider_control' | 'delegated' | 'pending' | 'redirected';
         paidAt: Date;
         assignmentDate: Date;
     }[];
@@ -1036,7 +1037,15 @@ const JobCard = ({
                         <span
                             className={cn(
                                 'text-xs font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide my-1',
-                                statusColors[job.assignments.every((a) => a.paidAt) ? 'paid' : horsesCompleted > 0 || role === 'subcontractor' ? 'accepted' : job.status],
+                                statusColors[
+                                    job.assignments.every((a) => a.paidAt)
+                                        ? 'paid'
+                                        : horsesCompleted > 0 ||
+                                            (role === 'subcontractor' &&
+                                                job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length === 0)
+                                          ? 'accepted'
+                                          : job.status
+                                ],
                             )}
                         >
                             {role !== 'subcontractor'
@@ -1063,7 +1072,9 @@ const JobCard = ({
                                     ? 'denied'
                                     : isJobCanceled
                                       ? 'canceled'
-                                      : `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.subcontractor?.email === userEmail).length} horses completed`}
+                                      : job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length > 0
+                                        ? `${job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length}/${job.assignments.filter((a) => a.subcontractor?.email === userEmail).length} horses pending`
+                                        : `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.subcontractor?.email === userEmail).length} horses completed`}
                         </span>
                     </div>
                     <p className='text-gray-500 text-sm -mt-[3px]'>{role === 'barn' ? `With ${job.braider.name}` : `Barn: ${job.barn.name}`}</p>
@@ -1098,7 +1109,9 @@ const JobCard = ({
                             .reduce(
                                 (acc, a) =>
                                     acc +
-                                    a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt).length,
+                                    a.services.filter(
+                                        (s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted' || a.status === 'pending') && !a.canceledAt,
+                                    ).length,
                                 0,
                             ) > 0 && (
                             <div
@@ -1113,7 +1126,10 @@ const JobCard = ({
                                                 (acc, a) =>
                                                     acc +
                                                     a.services.filter(
-                                                        (s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt,
+                                                        (s) =>
+                                                            !a.canceledServiceIds.includes(s.id) &&
+                                                            (a.status === 'completed' || a.status === 'accepted' || a.status === 'pending') &&
+                                                            !a.canceledAt,
                                                     ).length,
                                                 0,
                                             )
@@ -1130,8 +1146,12 @@ const JobCard = ({
                                         .reduce(
                                             (acc, a) =>
                                                 acc +
-                                                a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
-                                                    .length,
+                                                a.services.filter(
+                                                    (s) =>
+                                                        !a.canceledServiceIds.includes(s.id) &&
+                                                        (a.status === 'completed' || a.status === 'accepted' || a.status === 'pending') &&
+                                                        !a.canceledAt,
+                                                ).length,
                                             0,
                                         )} Completed`}
                                 </span>
@@ -1205,7 +1225,7 @@ const JobCard = ({
                                         .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
                                         .reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
                                     const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
-                                    return a.canceledAt || !(a.status === 'accepted' || a.status === 'accepted') ? acc : acc + servicesTotal + customTotal;
+                                    return a.canceledAt || !(a.status === 'accepted' || a.status === 'accepted' || a.status === 'pending') ? acc : acc + servicesTotal + customTotal;
                                 }, 0),
                         )}
                     </span>

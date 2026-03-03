@@ -658,7 +658,6 @@ const Notification = ({
 const BraiderView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Show[]; jobs: Show[]; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const jobShows = new Set();
     jobs.forEach((job) => jobShows.add(job.jobData.showId));
-    console.log(jobs);
 
     const addedJobIds = new Set();
 

@@ -384,7 +384,12 @@ export async function createNotification(
 
                         const notifiedClientIds = new Set<string>();
                         for (const assignment of job.assignments) {
-                            if (assignment.canceledAt || assignment.canceledServiceIds.length === assignment.services.length) continue;
+                            if (
+                                assignment.canceledAt ||
+                                !(assignment.status === 'completed' || assignment.status === 'accepted') ||
+                                assignment.canceledServiceIds.length === assignment.services.length
+                            )
+                                continue;
 
                             const client = assignment.horse.client;
                             if (client && client.email && !notifiedClientIds.has(client.id)) {
@@ -398,11 +403,14 @@ export async function createNotification(
                                 }
 
                                 const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
-                                for (const horse of validAssignments) {
-                                    if (horse.horse.client?.id === client.id) continue;
+                                const horseExpenses: Record<string, number> = {};
+                                for (const horse of validAssignments.filter((a) => a.horse.clientId === client.id)) {
                                     const showName = horse.horse.showName;
                                     const barnName = horse.horse.barnName;
                                     const nameKey = `${showName}/////(${barnName})`;
+
+                                    if (!horseExpenses[nameKey]) horseExpenses[nameKey] = 0;
+                                    if (horse.customCharges.length > 0) horseExpenses[nameKey] += horse.customCharges.reduce((acc, c) => acc + c.amount, 0);
 
                                     if (!horseDetails[nameKey]) horseDetails[nameKey] = {};
 
@@ -427,6 +435,7 @@ export async function createNotification(
                                         paymentInformation,
                                         serviceDetails: [clientServiceDetails],
                                         horseDetails: horseDetails,
+                                        horseExpenses: horseExpenses,
                                     });
                                 }
                                 notifiedClientIds.add(client.id);

@@ -319,6 +319,13 @@ enum AssignmentStatus {
   completed
 }
 
+enum SubcontractorStatus {
+  braider_control
+  delegated
+  pending
+  redirected
+}
+
 model JobAssignment {
   id        String   @id @default(cuid())
   jobId     String
@@ -330,6 +337,7 @@ model JobAssignment {
 
   subcontractorId String?
   subcontractor   User?    @relation("SubcontractorAssignments", fields: [subcontractorId], references: [id])
+  subcontractorStatus SubcontractorStatus @default(braider_control)
 
   status     AssignmentStatus @default(pending)
   assignmentDate DateTime @default(now())

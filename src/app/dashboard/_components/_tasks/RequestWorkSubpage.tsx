@@ -663,11 +663,11 @@ const RequestWorkSubpage = ({
                                 </div>
                             </div>
 
-                            <div className='mt-6 flex flex-col @min-[410px]/request-page:flex-row gap-3'>
+                            <div className='mt-6 flex flex-col @min-[450px]/request-page:flex-row gap-3'>
                                 <button
                                     onClick={handleAddAssignment}
                                     disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
-                                    className='bg-background justify-center @min-[410px]/request-page:justify-start text-[17px] primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
+                                    className='bg-background justify-center @min-[450px]/request-page:justify-start text-[17px] primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
                                 >
                                     <Plus size={18} />
                                     Add to List
@@ -676,7 +676,7 @@ const RequestWorkSubpage = ({
                                     <button
                                         onClick={handleSubmit}
                                         disabled={loading || assignments.length === 0}
-                                        className='px-6 py-2 w-full @min-[410px]/request-page:w-auto rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2 text-[17px]'
+                                        className='px-6 py-2 w-full @min-[450px]/request-page:w-auto rounded-[10px] cursor-pointer font-bold text-white bg-primary-light primary-border-hover transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2 text-[17px]'
                                     >
                                         {loading && <Loader2 size={18} className='animate-spin' />}
                                         Submit Request {assignments.length > 0 ? `(${assignments.length})` : ''}

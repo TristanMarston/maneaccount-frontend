@@ -180,6 +180,8 @@ const Settings = ({
     const [isCheckingID, setIsCheckingID] = useState(false);
     const [resetModalOpen, setResetModalOpen] = useState(false);
 
+    const [hasPassword, setHasPassword] = useState(false);
+
     useEffect(() => {
         if (venmo.length >= 5 && venmo.length <= 30) {
             setVenmoLink(`https://venmo.com/u/${venmo}`);
@@ -219,6 +221,8 @@ const Settings = ({
                     venmoEnabled: data.venmoEnabled,
                     allowedNotifications: (data.allowedNotifications as NotificationType[]) || [],
                 };
+
+                setHasPassword(data.password !== null);
 
                 setName(data.name || '');
                 setPublicID(data.publicID || '');
@@ -616,6 +620,7 @@ const Settings = ({
                                                         <div
                                                             ref={emailButtonRef}
                                                             onClick={() => {
+                                                                if (!hasPassword) return;
                                                                 if (!editingEmail) {
                                                                     setEditingEmail(true);
                                                                     setTimeout(() => {
@@ -629,9 +634,10 @@ const Settings = ({
                                                             className={cn(
                                                                 'w-11 h-11 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all',
                                                                 emailVerified ? 'bg-green-100 hover:bg-green-200 text-green-600' : 'bg-amber-100 hover:bg-amber-200 text-amber-600',
+                                                                !hasPassword ? 'pointer-events-none' : '',
                                                             )}
                                                         >
-                                                            <Pencil size={20} strokeWidth={2.25} />
+                                                            {hasPassword ? <Pencil size={20} strokeWidth={2.25} /> : <Lock size={20} strokeWidth={2.25} />}
                                                         </div>
                                                         <div className='min-w-0 flex-1'>
                                                             <input

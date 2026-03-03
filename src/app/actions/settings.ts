@@ -35,18 +35,7 @@ export async function updateProfile(formData: any) {
     const allowedNotifications = formData.allowedNotifications as any[] | null;
     const thanksMessage = formData.thanksMessage as string | null;
 
-    if (
-        !name &&
-        !email &&
-        !publicID &&
-        !imageFile &&
-        !phoneNumber &&
-        !venmo &&
-        !zelle &&
-        venmoEnabled === null &&
-        !allowedNotifications &&
-        !thanksMessage
-    )
+    if (!name && !email && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications && !thanksMessage)
         return { error: 'Update at least one field' };
 
     const updateData: any = {};
@@ -107,7 +96,16 @@ export async function updateProfile(formData: any) {
         return { success: true, image: updateData.image && updateData.image.length > 0 ? updateData.image : undefined };
     } catch (error) {
         console.error(error);
-        return { error: 'Failed to update profile' };
+
+        let emailAlreadyExists = false;
+        if (formData.email) {
+            const existingUser = await prisma.user.findUnique({
+                where: { email: formData.email },
+            });
+            if (existingUser && existingUser.email !== session.user.email) emailAlreadyExists = true;
+        }
+
+        return { error: emailAlreadyExists ? 'Email already taken' : 'Failed to update profile' };
     }
 }
 
@@ -119,6 +117,7 @@ export async function getUserSettings() {
         where: { email: session.user.email },
         select: {
             name: true,
+            password: true,
             email: true,
             image: true,
             emailVerified: true,

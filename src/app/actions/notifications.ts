@@ -333,7 +333,7 @@ export async function createNotification(
                         > = {};
 
                         const validAssignments = job.assignments
-                            .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length)
+                            .filter((a) => !a.canceledAt && (a.status === 'completed' || a.status === 'accepted') && a.services.length !== a.canceledServiceIds.length)
                             .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
 
                         for (const horse of validAssignments) {
@@ -397,6 +397,25 @@ export async function createNotification(
                                     }
                                 }
 
+                                const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
+                                for (const horse of validAssignments) {
+                                    if (horse.horse.client?.id === client.id) continue;
+                                    const showName = horse.horse.showName;
+                                    const barnName = horse.horse.barnName;
+                                    const nameKey = `${showName}/////(${barnName})`;
+
+                                    if (!horseDetails[nameKey]) horseDetails[nameKey] = {};
+
+                                    for (const service of horse.services) {
+                                        const serviceName = service.name;
+                                        if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
+
+                                        horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+                                        horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+                                        horseDetails[nameKey][serviceName].price += service.priceUSD;
+                                    }
+                                }
+
                                 if (Object.keys(clientServiceDetails).length > 0) {
                                     await sendJobCompletedEmail({
                                         to: client.email,
@@ -407,6 +426,7 @@ export async function createNotification(
                                         isClient: true,
                                         paymentInformation,
                                         serviceDetails: [clientServiceDetails],
+                                        horseDetails: horseDetails,
                                     });
                                 }
                                 notifiedClientIds.add(client.id);

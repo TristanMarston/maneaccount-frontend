@@ -393,8 +393,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
     const [isAdding, setIsAdding] = useState(false);
     const [isDeleting, setIsDeleting] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
     const [editingShow, setEditingShow] = useState<Show | null>(null);
-    const [selectedJob, setSelectedJob] = useState<any | null>(null);
-    const [jobForDate, setJobForDate] = useState(false);
+    const [selectedJobs, setSelectedJobs] = useState<any[] | null>(null);
     const [viewingJobDate, setViewingJobDate] = useState<Date | null>(null);
     const [viewingShow, setViewingShow] = useState<Show | null>(null);
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
@@ -468,22 +467,20 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
     };
 
     const handleShowClick = (show: Show, date?: Date) => {
-        const jobForDate = date
-            ? mappedJobShows.find(
+        const jobsForDate = date
+            ? mappedJobShows.filter(
                   (s) => s.type === 'job' && s.jobData.showId === show.id && isSameDay(parseUTCToLocal(new Date(s.startDate)) || new Date(s.startDate), parseUTCToLocal(date) || date),
               )
-            : null;
+            : [];
 
-        const jobForShow = date ? mappedJobShows.find((s) => s.type === 'job' && s.jobData.showId === show.id) : null;
+        const jobsForShow = date ? mappedJobShows.filter((s) => s.type === 'job' && s.jobData.showId === show.id) : [];
 
-        if (jobForDate) {
-            setSelectedJob(jobForDate.jobData);
+        if (jobsForDate.length > 0) {
+            setSelectedJobs(jobsForDate.map((j) => j.jobData));
             setViewingJobDate(date!);
-            setJobForDate(true);
-        } else if (jobForShow) {
-            setSelectedJob(jobForShow.jobData);
+        } else if (jobsForShow.length > 0) {
+            setSelectedJobs(jobsForShow.map((j) => j.jobData));
             setViewingJobDate(date!);
-            setJobForDate(false);
         } else {
             setViewingShow(show);
         }
@@ -694,25 +691,23 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                 </div>
             </Modal>
             <Modal
-                isOpen={!!selectedJob}
+                isOpen={selectedJobs !== null && selectedJobs.length > 0}
                 setIsOpen={() => {
-                    setSelectedJob(null);
+                    setSelectedJobs(null);
                     setViewingJobDate(null);
                 }}
                 className='max-w-2xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'
             >
-                {selectedJob && (
+                {selectedJobs && selectedJobs.length > 0 && (
                     <DayAssignmentsModal
-                        job={selectedJob}
-                        date={viewingJobDate || new Date(selectedJob.assignments[0]?.assignmentDate || selectedJob.createdAt)}
+                        jobs={selectedJobs}
+                        date={viewingJobDate || new Date(selectedJobs[0].assignments[0]?.assignmentDate || selectedJobs[0].createdAt)}
                         role={role}
                         userEmail={userEmail}
                         setViewingShow={setViewingShow}
-                        jobForDate={jobForDate}
                         onClose={() => {
-                            setSelectedJob(null);
+                            setSelectedJobs(null);
                             setViewingJobDate(null);
-                            setJobForDate(false);
                         }}
                         refresh={() => loadShows(true)}
                     />

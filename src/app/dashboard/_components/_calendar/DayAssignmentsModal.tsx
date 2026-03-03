@@ -33,26 +33,43 @@ import { Show } from './Calendar';
 import { parseUTCToLocal } from '@/lib/date-utils';
 
 export const DayAssignmentsModal = ({
-    job,
+    jobs,
     date,
     role,
     userEmail,
     setViewingShow,
-    jobForDate,
     onClose,
     refresh,
 }: {
-    job: Job;
+    jobs: Job[];
     date: Date;
     role: string;
     userEmail: string;
     setViewingShow: React.Dispatch<React.SetStateAction<Show | null>>;
-    jobForDate: boolean;
     onClose: () => void;
     refresh: () => void;
 }) => {
     const [showAddHorseModal, setShowAddHorseModal] = useState(false);
     const [horsesRef, setHorsesRef] = useState<any[]>([]);
+    const jobInfo = jobs.map((job) => {
+        const dateAssignments = job.assignments.filter((a) => {
+            const aDate = format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd');
+            const targetDate = format(date, 'yyyy-MM-dd');
+            return aDate === targetDate && (role !== 'subcontractor' || a.subcontractor?.email === userEmail);
+        });
+
+        const groupedAssignments = dateAssignments.reduce((acc: any, a) => {
+            const clientKey = a.horse.client?.name || 'No Client';
+            if (!acc[clientKey]) acc[clientKey] = [];
+            acc[clientKey].push(a);
+            return acc;
+        }, {});
+
+        const sortedClients = Object.entries(groupedAssignments).sort(([nameA], [nameB]) => nameA.localeCompare(nameB));
+        const canAddHorse = role === 'barn' && new Date(date).setHours(23, 59, 59, 999) >= new Date().setHours(0, 0, 0, 0) && !job.invoiceSentAt;
+
+        return { sortedClients, canAddHorse, barn: job.barn.name };
+    });
 
     useEffect(() => {
         const fetchHorses = async () => {
@@ -63,22 +80,6 @@ export const DayAssignmentsModal = ({
         if (showAddHorseModal) fetchHorses();
     }, [showAddHorseModal, userEmail]);
 
-    const dateAssignments = job.assignments.filter((a) => {
-        const aDate = format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd');
-        const targetDate = format(date, 'yyyy-MM-dd');
-        return aDate === targetDate && (role !== 'subcontractor' || a.subcontractor?.email === userEmail);
-    });
-
-    const groupedAssignments = dateAssignments.reduce((acc: any, a) => {
-        const clientKey = a.horse.client?.name || 'No Client';
-        if (!acc[clientKey]) acc[clientKey] = [];
-        acc[clientKey].push(a);
-        return acc;
-    }, {});
-
-    const sortedClients = Object.entries(groupedAssignments).sort(([nameA], [nameB]) => nameA.localeCompare(nameB));
-    const canAddHorse = role === 'barn' && new Date(date).setHours(23, 59, 59, 999) >= new Date().setHours(0, 0, 0, 0) && !job.invoiceSentAt;
-
     return (
         <div className='bg-white w-full max-w-2xl overflow-hidden rounded-[18px] max-h-[90dvh] overflow-y-auto font-figtree flex flex-col'>
             <div className='p-5 pb-2 border-b border-gray-100 flex justify-between items-center bg-gray-50/50'>
@@ -88,17 +89,17 @@ export const DayAssignmentsModal = ({
                         <span
                             onClick={() => {
                                 onClose();
-                                setViewingShow({ ...job.show, isOwner: role === 'braider' });
+                                setViewingShow({ ...jobs[0].show, isOwner: role === 'braider' });
                             }}
                             className='font-bold text-primary flex items-center gap-1 hover:text-primary-light transition-all cursor-pointer'
                         >
-                            <p>{job.show.name}</p>
+                            <p>{jobs[0].show.name}</p>
                             <ArrowUpRight className='w-4 h-4' />
                         </span>
 
                         <span className='truncate flex items-center gap-1'>
                             <MapPin size={14} className='text-gray-400' />
-                            {job.show.city}, {job.show.state}
+                            {jobs[0].show.city}, {jobs[0].show.state}
                         </span>
                     </div>
                 </div>
@@ -115,140 +116,157 @@ export const DayAssignmentsModal = ({
                         </div>
                         <div>
                             <p className='text-xs font-bold text-primary uppercase tracking-wide'>Braider</p>
-                            <p className='text-sm font-medium text-gray-900'>{job.braider.name || 'Unknown'}</p>
+                            <p className='text-sm font-medium text-gray-900'>{jobs[0].braider.name || 'Unknown'}</p>
                         </div>
                     </div>
                 )}
-                {sortedClients.length === 0 ? (
-                    <div className='text-center py-10 text-gray-400 italic'>No assignments for this day.</div>
-                ) : (
-                    sortedClients.map(([clientName, assignments]: [string, any]) => (
-                        <div key={clientName} className='space-y-3'>
-                            <div>
-                                <div className='flex items-center gap-2'>
-                                    <h4 className='font-bold text-lg text-gray-800 font-lusitana'>{clientName}</h4>
-                                    <div className='text-sm font-semibold text-primary-light bg-primary-extra-light rounded-full py-0.5 px-2'>
-                                        {new Intl.NumberFormat('en-US', {
-                                            style: 'currency',
-                                            currency: 'USD',
-                                        }).format(
-                                            assignments.reduce(
-                                                (aAcc: number, assignment: any) =>
-                                                    aAcc +
-                                                    (!assignment.canceledAt
-                                                        ? assignment.services
-                                                              .filter((s: any) => !assignment.canceledServiceIds.includes(s.id))
-                                                              .reduce((acc: number, s: any) => acc + s.priceUSD, 0) +
-                                                          assignment.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0)
-                                                        : 0),
-                                                0,
-                                            ),
-                                        )}
-                                    </div>
-                                </div>
-                                <div className='flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500'>
-                                    <p className='flex items-center gap-1'>
-                                        <Mail size={12} />
-                                        {assignments[0].horse.client?.email || 'No email'}
-                                    </p>
-                                    {assignments[0].horse.client?.phoneNumber && (
-                                        <p className='flex items-center gap-1'>
-                                            <Phone size={12} />
-                                            {formatPhoneNumber(assignments[0].horse.client?.phoneNumber)}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className='grid gap-3 font-figtree'>
-                                {assignments.map((assignment: any) => {
-                                    const activeServices = assignment.services.filter((s: any) => !assignment.canceledServiceIds.includes(s.id));
-                                    const isComplete =
-                                        assignment.status !== 'denied' &&
-                                        !assignment.canceledAt &&
-                                        activeServices.length > 0 &&
-                                        activeServices.length === [...new Set(assignment.completedServiceIds.filter((id: any) => !assignment.canceledServiceIds.includes(id)))].length;
-
-                                    return (
-                                        <div
-                                            key={assignment.id}
-                                            className={cn(
-                                                'bg-white border border-gray-200 rounded-xl p-3 shadow-sm overflow-x-hidden',
-                                                !!assignment.canceledAt || assignment.status === 'denied' || activeServices.length === 0 ? 'opacity-30' : '',
-                                                isComplete ? 'bg-primary-extra-light/90 border-primary/30' : '',
-                                            )}
-                                        >
-                                            <div className='flex items-center justify-between gap-3 mb-2'>
-                                                <div className='flex items-center gap-3 min-w-0 flex-1'>
-                                                    <div className='min-w-10 h-10 rounded-full bg-gray-100 overflow-hidden relative'>
-                                                        {assignment.horse.profileImage ? (
-                                                            <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover' />
-                                                        ) : (
-                                                            <div className='w-full h-full flex items-center justify-center font-bold text-primary bg-primary/5'>
-                                                                {assignment.horse.barnName[0]}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className='min-w-0'>
-                                                        <p className='font-bold text-gray-900 truncate'>{assignment.horse.barnName}</p>
-                                                        <p className='text-xs text-gray-500 italic truncate'>{assignment.horse.showName}</p>
-                                                    </div>
+                {jobInfo.map(({ sortedClients, barn }) =>
+                    !jobInfo.some((job) => job.sortedClients.length > 0) ? (
+                        <div className='text-center py-10 text-gray-400 italic'>No assignments for this day.</div>
+                    ) : (
+                        sortedClients.length > 0 && (
+                            <>
+                                {jobInfo.length > 0 && role === 'braider' && (
+                                    <h4 className='text-lg font-semibold mb-4 text-primary-light bg-primary-extra-light rounded-[10px] py-0.5 px-2'>{barn}</h4>
+                                )}
+                                {sortedClients.map(([clientName, assignments]: [string, any]) => (
+                                    <div key={clientName} className={cn('space-y-3', jobInfo.length > 0 && role === 'braider' && 'pl-5 border-l border-gray-200')}>
+                                        <div>
+                                            <div className='flex items-center gap-2'>
+                                                <h4 className='font-bold text-lg text-gray-800 font-lusitana truncate min-w-0 text-nowrap'>{clientName}</h4>
+                                                <div className='text-sm font-semibold text-primary-light bg-primary-extra-light rounded-full py-0.5 px-2'>
+                                                    {new Intl.NumberFormat('en-US', {
+                                                        style: 'currency',
+                                                        currency: 'USD',
+                                                    }).format(
+                                                        assignments.reduce(
+                                                            (aAcc: number, assignment: any) =>
+                                                                aAcc +
+                                                                (!assignment.canceledAt
+                                                                    ? assignment.services
+                                                                          .filter((s: any) => !assignment.canceledServiceIds.includes(s.id))
+                                                                          .reduce((acc: number, s: any) => acc + s.priceUSD, 0) +
+                                                                      assignment.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0)
+                                                                    : 0),
+                                                            0,
+                                                        ),
+                                                    )}
                                                 </div>
-                                                {isComplete ? <BadgeCheck className='text-primary-light w-8 h-8' strokeWidth={2.25} /> : <></>}
                                             </div>
-                                            <div className='space-y-1 pl-1 border-t border-gray-100 pt-2'>
-                                                {assignment.services.map((service: any) => (
-                                                    <div
-                                                        key={service.id}
-                                                        className={cn(
-                                                            'flex justify-between text-sm',
-                                                            assignment.canceledServiceIds.includes(service.id) ? 'text-gray-400 line-through' : '',
-                                                        )}
-                                                    >
-                                                        <span className='flex items-center gap-1'>
-                                                            {assignment.completedServiceIds.includes(service.id) ? (
-                                                                <BadgeCheck className='text-primary-light w-4.5 h-4.5' strokeWidth={2.25} />
-                                                            ) : (
-                                                                <></>
-                                                            )}
-                                                            <span className={cn(assignment.completedServiceIds.includes(service.id) ? 'text-primary-dark' : 'text-gray-700')}>
-                                                                {service.name}
-                                                            </span>
-                                                        </span>
-                                                        <span
-                                                            className={cn(
-                                                                'font-bold',
-                                                                assignment.canceledServiceIds.includes(service.id)
-                                                                    ? 'text-gray-400'
-                                                                    : assignment.completedServiceIds.includes(service.id)
-                                                                      ? 'text-primary-dark'
-                                                                      : 'text-gray-900',
-                                                            )}
-                                                        >
-                                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(service.priceUSD)}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                                {assignment.customCharges?.map((charge: any) => (
-                                                    <div key={charge.id} className='flex justify-between text-sm font-bold text-amber-700'>
-                                                        <span className='flex items-center gap-1'>
-                                                            <PlusCircle className='w-4 h-4' />
-                                                            <span>{charge.name}</span>
-                                                        </span>
-                                                        <span className='font-bold'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(charge.amount)}</span>
-                                                    </div>
-                                                ))}
+                                            <div className='flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500'>
+                                                <p className='flex items-center gap-1'>
+                                                    <Mail size={12} />
+                                                    {assignments[0].horse.client?.email || 'No email'}
+                                                </p>
+                                                {assignments[0].horse.client?.phoneNumber && (
+                                                    <p className='flex items-center gap-1'>
+                                                        <Phone size={12} />
+                                                        {formatPhoneNumber(assignments[0].horse.client?.phoneNumber)}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ))
+
+                                        <div className='grid gap-3 font-figtree'>
+                                            {assignments.map((assignment: any) => {
+                                                const activeServices = assignment.services.filter((s: any) => !assignment.canceledServiceIds.includes(s.id));
+                                                const isComplete =
+                                                    assignment.status !== 'denied' &&
+                                                    !assignment.canceledAt &&
+                                                    activeServices.length > 0 &&
+                                                    activeServices.length ===
+                                                        [...new Set(assignment.completedServiceIds.filter((id: any) => !assignment.canceledServiceIds.includes(id)))].length;
+
+                                                return (
+                                                    <div
+                                                        key={assignment.id}
+                                                        className={cn(
+                                                            'bg-white border border-gray-200 rounded-xl p-3 shadow-sm overflow-x-hidden',
+                                                            !!assignment.canceledAt || assignment.status === 'denied' || activeServices.length === 0 ? 'opacity-30' : '',
+                                                            isComplete ? 'bg-primary-extra-light/90 border-primary/30' : '',
+                                                        )}
+                                                    >
+                                                        <div className='flex items-center justify-between gap-3 mb-2'>
+                                                            <div className='flex items-center gap-3 min-w-0 flex-1'>
+                                                                <div className='min-w-10 h-10 rounded-full bg-gray-100 overflow-hidden relative'>
+                                                                    {assignment.horse.profileImage ? (
+                                                                        <Image src={assignment.horse.profileImage} alt={assignment.horse.barnName} fill className='object-cover' />
+                                                                    ) : (
+                                                                        <div className='w-full h-full flex items-center justify-center font-bold text-primary bg-primary/5'>
+                                                                            {assignment.horse.barnName[0]}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className='min-w-0'>
+                                                                    <p className='font-bold text-gray-900 truncate'>{assignment.horse.barnName}</p>
+                                                                    <p className='text-xs text-gray-500 italic truncate'>{assignment.horse.showName}</p>
+                                                                </div>
+                                                            </div>
+                                                            {isComplete ? <BadgeCheck className='text-primary-light w-8 h-8' strokeWidth={2.25} /> : <></>}
+                                                        </div>
+                                                        <div className='space-y-1 pl-1 border-t border-gray-100 pt-2'>
+                                                            {assignment.services.map((service: any) => (
+                                                                <div
+                                                                    key={service.id}
+                                                                    className={cn(
+                                                                        'flex justify-between text-sm',
+                                                                        assignment.canceledServiceIds.includes(service.id) ? 'text-gray-400 line-through' : '',
+                                                                    )}
+                                                                >
+                                                                    <span className='flex items-center gap-1 min-w-0'>
+                                                                        {assignment.completedServiceIds.includes(service.id) ? (
+                                                                            <BadgeCheck className='text-primary-light w-4.5 h-4.5' strokeWidth={2.25} />
+                                                                        ) : (
+                                                                            <></>
+                                                                        )}
+                                                                        <span
+                                                                            className={cn(
+                                                                                'truncate min-w-0',
+                                                                                assignment.completedServiceIds.includes(service.id) ? 'text-primary-dark' : 'text-gray-700',
+                                                                            )}
+                                                                        >
+                                                                            {service.name}
+                                                                        </span>
+                                                                    </span>
+                                                                    <span
+                                                                        className={cn(
+                                                                            'font-bold',
+                                                                            assignment.canceledServiceIds.includes(service.id)
+                                                                                ? 'text-gray-400'
+                                                                                : assignment.completedServiceIds.includes(service.id)
+                                                                                  ? 'text-primary-dark'
+                                                                                  : 'text-gray-900',
+                                                                        )}
+                                                                    >
+                                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(service.priceUSD)}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                            {assignment.customCharges?.map((charge: any) => (
+                                                                <div key={charge.id} className='flex justify-between text-sm font-bold text-amber-700'>
+                                                                    <span className='flex items-center gap-1'>
+                                                                        <PlusCircle className='w-4 h-4' />
+                                                                        <span>{charge.name}</span>
+                                                                    </span>
+                                                                    <span className='font-bold'>
+                                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(charge.amount)}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )
+                    ),
                 )}
             </div>
 
-            {canAddHorse && (
+            {jobInfo[0].canAddHorse && (
                 <div className='p-4 border-t border-gray-100 bg-gray-50'>
                     <button
                         onClick={() => setShowAddHorseModal(true)}
@@ -260,12 +278,11 @@ export const DayAssignmentsModal = ({
                 </div>
             )}
 
-            {/* Reuse AddHorseToJobForm but pre-select date */}
             <Modal isOpen={showAddHorseModal} setIsOpen={setShowAddHorseModal} className='max-w-2xl p-0 rounded-3xl bg-white overflow-hidden primary-border-bold shadow-2xl'>
                 <AddHorseToJobForm
-                    job={job}
+                    job={jobs[0]}
                     horses={horsesRef}
-                    braiderServices={job.braider.services}
+                    braiderServices={jobs[0].braider.services}
                     onClose={() => {
                         setShowAddHorseModal(false);
                         onClose();

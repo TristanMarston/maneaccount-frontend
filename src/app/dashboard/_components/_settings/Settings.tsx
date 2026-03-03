@@ -25,6 +25,7 @@ import {
     KeyRound,
     Sparkles,
     ArrowUpRight,
+    Pencil,
 } from 'lucide-react';
 import { Session } from 'next-auth';
 import React, { useState, useEffect, useRef, Fragment } from 'react';
@@ -39,6 +40,7 @@ import { requestPasswordReset, requestVerificationEmail, resetPassword, verifyRe
 import SubscriptionSettings from './SubscriptionSettings';
 import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
 import { Tab } from '../_braider/BraiderDashboard';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
 enum NotificationType {
     calendar_invite = 'calendar_invite',
@@ -139,8 +141,15 @@ const Settings = ({
     const [isCropping, setIsCropping] = useState(false);
     const [finalImageBlob, setFinalImageBlob] = useState<Blob | null>(null);
 
+    const [editingEmail, setEditingEmail] = useState(false);
+    const emailButtonRef = useRef<HTMLDivElement>(null);
+    const emailInputRef = useRef<HTMLInputElement>(null);
+    useOnClickOutside(emailInputRef, [emailButtonRef], () => setEditingEmail(false));
+
     const originalInfo = useRef<{
         name: string;
+        email: string;
+        emailVerified: Date | null;
         publicID: string;
         image: string;
         phoneNumber: string;
@@ -152,6 +161,8 @@ const Settings = ({
         allowedNotifications: NotificationType[];
     }>({
         name: '',
+        email: '',
+        emailVerified: null,
         publicID: '',
         image: '',
         phoneNumber: '',
@@ -177,6 +188,14 @@ const Settings = ({
     }, [venmo]);
 
     useEffect(() => {
+        if (email !== originalInfo.current.email) {
+            setEmailVerified(null);
+        } else if (email === originalInfo.current.email) {
+            setEmailVerified(originalInfo.current.emailVerified);
+        }
+    }, [email]);
+
+    useEffect(() => {
         if (zelle !== 'disabled') setZelleUpset([]);
     }, [zelle]);
 
@@ -188,6 +207,8 @@ const Settings = ({
 
                 originalInfo.current = {
                     name: data.name || '',
+                    email: data.email || '',
+                    emailVerified: data.emailVerified || null,
                     publicID: data.publicID || '',
                     image: data.image || '',
                     phoneNumber: formattedPhone,
@@ -244,6 +265,7 @@ const Settings = ({
 
     const isDirty =
         originalInfo.current.name !== name ||
+        originalInfo.current.email !== email ||
         originalInfo.current.publicID !== publicID ||
         originalInfo.current.phoneNumber !== phoneNumber ||
         originalInfo.current.image !== imagePreview ||
@@ -353,6 +375,7 @@ const Settings = ({
 
         const formData: any = {};
         if (name !== originalInfo.current.name) formData.name = name;
+        if (email !== originalInfo.current.email) formData.email = email;
         if (publicID !== originalInfo.current.publicID) formData.publicID = publicID;
         if (phoneNumber !== originalInfo.current.phoneNumber) formData.phoneNumber = phoneNumber;
         if (venmoLink !== originalInfo.current.venmo) formData.venmo = venmoLink;
@@ -373,12 +396,15 @@ const Settings = ({
                 successToast('Profile updated!');
                 const updateData: any = {};
                 if (formData.name && formData.name.length > 0) updateData.name = formData.name;
+                if (formData.email && formData.email.length > 0) updateData.email = formData.email;
                 if (result.image && result.image.length > 0) updateData.image = result.image;
                 await update(updateData);
 
                 originalInfo.current = {
                     ...originalInfo.current,
                     name: name,
+                    email: email,
+                    emailVerified: emailVerified,
                     publicID: publicID,
                     phoneNumber: phoneNumber,
                     image: imagePreview,
@@ -424,6 +450,8 @@ const Settings = ({
                             <button
                                 onClick={() => {
                                     setName(originalInfo.current.name);
+                                    setEmail(originalInfo.current.email);
+                                    setEmailVerified(originalInfo.current.emailVerified);
                                     setPublicID(originalInfo.current.publicID);
                                     setPhoneNumber(originalInfo.current.phoneNumber);
                                     setImagePreview(originalInfo.current.image);
@@ -584,18 +612,42 @@ const Settings = ({
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Email Address</label>
                                             <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[350px]/account:p-4 font-figtree'>
                                                 <div className='flex flex-col @min-[500px]/account:flex-row @min-[500px]/account:items-center justify-between gap-4 w-full'>
-                                                    <div className='flex items-center gap-3'>
+                                                    <div className='flex items-center gap-2'>
                                                         <div
+                                                            ref={emailButtonRef}
+                                                            onClick={() => {
+                                                                if (!editingEmail) {
+                                                                    setEditingEmail(true);
+                                                                    setTimeout(() => {
+                                                                        if (emailInputRef && emailInputRef.current) emailInputRef.current.focus();
+                                                                    }, 100);
+                                                                } else {
+                                                                    if (emailInputRef && emailInputRef.current) emailInputRef.current.blur();
+                                                                    setEditingEmail(false);
+                                                                }
+                                                            }}
                                                             className={cn(
-                                                                'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
-                                                                emailVerified ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600',
+                                                                'w-11 h-11 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all',
+                                                                emailVerified ? 'bg-green-100 hover:bg-green-200 text-green-600' : 'bg-amber-100 hover:bg-amber-200 text-amber-600',
                                                             )}
                                                         >
-                                                            <Mail size={18} />
+                                                            <Pencil size={20} strokeWidth={2.25} />
                                                         </div>
                                                         <div className='min-w-0 flex-1'>
-                                                            <p className='font-semibold text-gray-900 truncate min-w-0 flex-1'>{email}</p>
-                                                            <p className={cn('text-[12.5px] font-bold uppercase', emailVerified ? 'text-green-600' : 'text-amber-600')}>
+                                                            <input
+                                                                type='email'
+                                                                value={email}
+                                                                ref={emailInputRef}
+                                                                disabled={!editingEmail}
+                                                                onChange={(e) => setEmail(e.target.value)}
+                                                                title={email}
+                                                                className={cn(
+                                                                    'w-full border font-semibold text-gray-900 truncate min-w-0 flex-1 outline-none px-1.5 py-px',
+                                                                    editingEmail ? 'rounded-lg' : 'border-transparent',
+                                                                    editingEmail && emailVerified ? 'border-green-200 bg-green-50' : editingEmail ? 'border-amber-200 bg-amber-50' : '',
+                                                                )}
+                                                            />
+                                                            <p className={cn('text-[12.5px] font-bold uppercase pl-1.5', emailVerified ? 'text-green-600' : 'text-amber-600')}>
                                                                 {emailVerified ? 'Verified' : 'Unverified'}
                                                             </p>
                                                         </div>
@@ -604,10 +656,10 @@ const Settings = ({
                                                         <button
                                                             type='button'
                                                             onClick={handleVerificationRequest}
-                                                            disabled={isVerifying}
-                                                            className='px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50'
+                                                            disabled={isVerifying || email !== originalInfo.current.email}
+                                                            className='px-4 py-2 bg-white border text-nowrap border-gray-200 text-gray-700 font-bold text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:hover:bg-white disabled:cursor-not-allowed'
                                                         >
-                                                            {isVerifying ? 'Sending...' : 'Verify'}
+                                                            {email !== originalInfo.current.email ? 'Save Changes to Verify' : isVerifying ? 'Sending...' : 'Verify'}
                                                         </button>
                                                     )}
                                                 </div>

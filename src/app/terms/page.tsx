@@ -15,7 +15,8 @@ const TermsPage = () => {
                 These Terms and Conditions (&quot;<Bold>Terms</Bold>&quot;) govern your access to and use of the Mane Account website application and related services (collectively, the
                 &quot;
                 <Bold>App</Bold>&quot;), operated by&nbsp;
-                <Bold>Counter Canter Collective LLC</Bold>, doing business as Mane Account (&quot;<Bold>Company</Bold>,&quot; &quot;<Bold>we</Bold>,&quot; &quot;<Bold>us</Bold>,&quot; or &quot;
+                <Bold>Counter Canter Collective LLC</Bold>, doing business as Mane Account (&quot;<Bold>Company</Bold>,&quot; &quot;<Bold>we</Bold>,&quot; &quot;<Bold>us</Bold>,&quot;
+                or &quot;
                 <Bold>our</Bold>&quot;).
             </Paragraph>
             <Paragraph>By accessing or using the App, you agree to be bound by these Terms. If you do not agree, do not use the App.</Paragraph>
@@ -50,16 +51,20 @@ const TermsPage = () => {
                 Access to App features is provided through paid subscription plans. Available plans, pricing, features, and billing cycles are displayed within the App and at checkout.
             </Paragraph>
             <Paragraph>Pricing may vary by region and is subject to applicable taxes.</Paragraph>
-            <HeadingTwo>4.2 Auto-Renewal</HeadingTwo>
+            <HeadingTwo>4.2 Price Adjustments</HeadingTwo>
+            <Paragraph>
+                We reserve the right to change our subscription plans or adjust pricing for our service, or any components thereof, in any manner and at any time as we may determine in
+                our sole and absolute discretion. Any price changes or changes to your subscription plan will take effect following notice to you.
+            </Paragraph>
+            <HeadingTwo>4.3 Auto-Renewal</HeadingTwo>
             <Paragraph>
                 Subscriptions automatically renew unless canceled at least <Bold>24 hours before</Bold> the end of the current billing period.
             </Paragraph>
-            <HeadingTwo>4.3 Cancellation</HeadingTwo>
+            <HeadingTwo>4.4 Cancellation</HeadingTwo>
             <Paragraph>
-                You may cancel your subscription at any time through the App&apos;s subscription settings. Cancellation becomes effective at the end of the current
-                billing cycle.
+                You may cancel your subscription at any time through the App&apos;s subscription settings. Cancellation becomes effective at the end of the current billing cycle.
             </Paragraph>
-            <HeadingTwo>4.4 Refunds</HeadingTwo>
+            <HeadingTwo>4.5 Refunds</HeadingTwo>
             <Paragraph>
                 All payments are <Bold>non-refundable</Bold>, except where required by applicable law or platform policies.
             </Paragraph>
@@ -160,6 +165,6 @@ const TermsPage = () => {
             </Paragraph>
         </LegalPageLayout>
     );
-}
+};
 
 export default TermsPage;

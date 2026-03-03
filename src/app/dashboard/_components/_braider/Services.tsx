@@ -11,7 +11,7 @@ import { failToast, successToast } from '@/app/context';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { createPortal } from 'react-dom';
 
-const braidOptions = ['Basic Braids', 'Show Braids', 'Jumper Braids', 'Western Braids', 'Dressage Braids', 'Additional Services', 'Hunter Braids', 'Other'];
+const braidOptions = ['Unspecified', 'Basic Braids', 'Show Braids', 'Jumper Braids', 'Western Braids', 'Dressage Braids', 'Additional Services', 'Hunter Braids', 'Other'];
 
 type Service = {
     id: string;
@@ -34,13 +34,13 @@ const Services = ({ userEmail }: { userEmail: string }) => {
 
     const [serviceModalOpen, setServiceModalOpen] = useState(false);
     const [checkModal, setCheckModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
-    const [formData, setFormData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
+    const [formData, setFormData] = useState<ServiceFormData>({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
     const [editModal, setEditModal] = useState<{ open: boolean; id: string }>({
         open: false,
         id: '',
     });
-    const [editModalData, setEditModalData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
-    const [previousData, setPreviousData] = useState<ServiceFormData>({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
+    const [editModalData, setEditModalData] = useState<ServiceFormData>({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
+    const [previousData, setPreviousData] = useState<ServiceFormData>({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
 
     useEffect(() => {
         const loadServices = async () => {
@@ -69,7 +69,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
         if (result.success) {
             successToast('Service added successfully');
             setServiceModalOpen(false);
-            setFormData({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
+            setFormData({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
 
             const updated = await getServices(userEmail);
             setServices(updated);
@@ -97,7 +97,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
                 open: false,
                 id: '',
             });
-            setEditModalData({ name: '', category: 'Basic Braids', priceUSD: '', duration: null });
+            setEditModalData({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
 
             const updated = await getServices(userEmail);
             setServices(updated);
@@ -432,7 +432,7 @@ const CategorySelect = ({ value, onChange }: { value: string; onChange: (val: st
                 onClick={() => setIsOpen(!isOpen)}
                 className={`w-full flex items-center justify-between outline-none shadow-sm border px-4 py-1.5 lg:py-2 rounded-xl transition-all ${
                     isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-gray-200 hover:border-gray-300'
-                } bg-white`}
+                } bg-white cursor-pointer`}
             >
                 <span className={value ? 'text-gray-900' : 'text-gray-400'}>{value || 'Select Category'}</span>
                 <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />

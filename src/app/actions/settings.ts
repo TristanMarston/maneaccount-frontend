@@ -24,7 +24,10 @@ export async function updateProfile(formData: any) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
+    console.log(formData.emailVerified);
+
     const name = formData.name as string | null;
+    const email = formData.email as string | null;
     const publicID = formData.publicID as string | null;
     const imageFile = formData.image as File | null;
     const phoneNumber = formData.phoneNumber as string | null;
@@ -34,11 +37,26 @@ export async function updateProfile(formData: any) {
     const allowedNotifications = formData.allowedNotifications as any[] | null;
     const thanksMessage = formData.thanksMessage as string | null;
 
-    if (!name && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications && !thanksMessage)
+    if (
+        !name &&
+        !email &&
+        !publicID &&
+        !imageFile &&
+        !phoneNumber &&
+        !venmo &&
+        !zelle &&
+        venmoEnabled === null &&
+        !allowedNotifications &&
+        !thanksMessage
+    )
         return { error: 'Update at least one field' };
 
     const updateData: any = {};
     if (name) updateData.name = name;
+    if (email) {
+        updateData.email = email;
+        updateData.emailVerified = null;
+    }
     if (phoneNumber) updateData.phoneNumber = phoneNumber.replace(/\D/g, '');
     if (venmo !== null) updateData.venmo = venmo;
     if (zelle !== null) updateData.zelle = zelle;
@@ -247,7 +265,7 @@ export async function changeThanksMessage(message: string) {
         await prisma.user.update({ where: { email: session.user.email }, data: { thanksMessage: message } });
 
         revalidatePath('/dashboard');
-        return { success: true, message }
+        return { success: true, message };
     } catch (error) {
         console.error('Rewrite thanks message error:', error);
         return { error: 'Failed to set thank-you message' };

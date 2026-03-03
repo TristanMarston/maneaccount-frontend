@@ -101,7 +101,9 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
     const allAssignments = jobs.filter((j) => j.invoiceSentAt).flatMap((j) => j.assignments.map((a: any) => ({ ...a, job: j })));
 
     const getAssignmentCost = (a: any) => {
-        const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+        const servicesTotal = a.services
+            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
+            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
         const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
         return servicesTotal + customTotal;
     };
@@ -546,7 +548,9 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
     };
 
     const totalRevenue = job.assignments.reduce((acc: number, a: any) => {
-        const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+        const servicesTotal = a.services
+            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
+            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
         const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
         return acc + servicesTotal + customTotal;
     }, 0);
@@ -600,7 +604,7 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
                                 .map((group: any) => {
                                     const groupTotal = group.assignments.reduce((acc: number, a: any) => {
                                         const servicesTotal = a.services
-                                            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
+                                            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
                                             .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
                                         const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
                                         return acc + servicesTotal + customTotal;
@@ -621,7 +625,11 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
                                                         loadingClient === group.id && !group.isPaid ? 'text-primary' : '',
                                                     )}
                                                 >
-                                                    {loadingClient === group.id ? <RefreshCcw className='w-3 h-3 animate-spin text-primary' /> : <CheckSquare size={14} strokeWidth={3} className='text-white' />}
+                                                    {loadingClient === group.id ? (
+                                                        <RefreshCcw className='w-3 h-3 animate-spin text-primary' />
+                                                    ) : (
+                                                        <CheckSquare size={14} strokeWidth={3} className='text-white' />
+                                                    )}
                                                 </button>
                                                 <div>
                                                     <p className='font-bold text-sm text-gray-900'>{group.name}</p>

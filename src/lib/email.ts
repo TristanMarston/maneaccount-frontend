@@ -201,7 +201,7 @@ export async function sendCalendarInviteEmail({
                     Body: { Html: { Data: html } },
                 },
             });
-            
+
             await ses.send(command);
         }
 
@@ -265,6 +265,7 @@ export async function sendJobCompletedEmail({
     image,
     paymentInformation,
     serviceDetails,
+    horseDetails,
 }: {
     to: string;
     braiderName: string;
@@ -290,11 +291,21 @@ export async function sendJobCompletedEmail({
             client: any;
         }[]
     >[];
+    horseDetails?: Record<
+        string,
+        Record<
+            string,
+            {
+                days: Date[];
+                price: number;
+            }
+        >
+    >;
 }) {
     if (!to) return { error: 'No email provided' };
 
     try {
-        const html = await render(ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, thanksMessage }));
+        const html = await render(ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, horseDetails, thanksMessage }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,

@@ -522,7 +522,7 @@ const RequestWorkSubpage = ({
                                             shows.map((s) => (
                                                 <button
                                                     type='button'
-                                                    disabled={braiderJobs.some((j) => j.showId === s.id)}
+                                                    disabled={braiderJobs.some((j) => j.showId === s.id && j.barn.email === userEmail)}
                                                     key={s.id}
                                                     onClick={() => setSelectedShow(s)}
                                                     className='p-4 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-primary/50 hover:shadow-md cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none'

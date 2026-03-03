@@ -207,6 +207,8 @@ const Tasks = ({
             await markAllTypeAsRead(NotificationType.job_request);
             await markAllTypeAsRead(NotificationType.job_status_change);
             await markAllTypeAsRead(NotificationType.job_completed);
+            await markAllTypeAsRead(NotificationType.horse_status_change);
+            await markAllTypeAsRead(NotificationType.horse_sub_completed);
             refreshCounts();
         };
 
@@ -1001,7 +1003,15 @@ const JobCard = ({
             }}
             className={cn(
                 'bg-white p-5 @min-[450px]/tasks:p-6 relative rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col @min-[600px]/tasks:flex-row gap-4 justify-between items-start @min-[600px]/tasks:items-center @container/job-card',
-                canceled ? 'opacity-50' : completed ? 'opacity-60' : completedNotPaid ? 'bg-[#f2fcf7] border-primary-extra-light mt-2' : job.status === 'editing' ? 'opacity-70 border-red-200' : '',
+                canceled
+                    ? 'opacity-50'
+                    : completed
+                      ? 'opacity-60'
+                      : completedNotPaid
+                        ? 'bg-[#f2fcf7] border-primary-extra-light mt-2'
+                        : job.status === 'editing'
+                          ? 'opacity-70 border-red-200'
+                          : '',
             )}
         >
             <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>
@@ -1039,13 +1049,13 @@ const JobCard = ({
                                         : isJobAccepted && horsesCompleted === 0
                                           ? 'all accepted'
                                           : horsesCompleted > 0
-                                            ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                            ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
                                             : isJobDenied
                                               ? 'denied'
                                               : isJobCanceled
                                                 ? 'canceled'
                                                 : job.status === 'submitted'
-                                                  ? 'all completed'
+                                                  ? 'all accepted'
                                                   : job.status
                                 : job.assignments.every((a) => a.paidAt)
                                   ? 'paid'
@@ -1083,28 +1093,50 @@ const JobCard = ({
                                 )}
                             </span>
                         </div>
-                        <div
-                            className={cn(
-                                'flex items-center gap-x-2 gap-y-0.5 text-sm font-medium flex-wrap',
-                                job.assignments
-                                    .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                    .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
+                        {job.assignments
+                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                            .reduce(
+                                (acc, a) =>
+                                    acc +
+                                    a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt).length,
+                                0,
+                            ) > 0 && (
+                            <div
+                                className={cn(
+                                    'flex items-center gap-x-2 gap-y-0.5 text-sm font-medium flex-wrap',
                                     job.assignments
                                         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                        .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)
-                                    ? 'text-primary-light'
-                                    : 'text-gray-500',
-                            )}
-                        >
-                            <span className='flex items-center gap-1'>
-                                <CircleCheck className='w-4 h-4' />
-                                {`${job.assignments
-                                    .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                    .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0)}/${job.assignments
-                                    .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
-                                    .reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0)} Completed`}
-                            </span>
-                        </div>
+                                        .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
+                                        job.assignments
+                                            .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                            .reduce(
+                                                (acc, a) =>
+                                                    acc +
+                                                    a.services.filter(
+                                                        (s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt,
+                                                    ).length,
+                                                0,
+                                            )
+                                        ? 'text-primary-light'
+                                        : 'text-gray-500',
+                                )}
+                            >
+                                <span className='flex items-center gap-1'>
+                                    <CircleCheck className='w-4 h-4' />
+                                    {`${job.assignments
+                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                        .reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0)}/${job.assignments
+                                        .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
+                                        .reduce(
+                                            (acc, a) =>
+                                                acc +
+                                                a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
+                                                    .length,
+                                            0,
+                                        )} Completed`}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1118,8 +1150,14 @@ const JobCard = ({
                 <div className='flex items-center gap-2'>
                     {role === 'braider' &&
                         job.status === 'submitted' &&
+                        job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) > 0 &&
                         job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) ===
-                            job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) && (
+                            job.assignments.reduce(
+                                (acc, a) =>
+                                    acc +
+                                    a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt).length,
+                                0,
+                            ) && (
                             <button
                                 onClick={handleMarkCompleted}
                                 className='p-2 rounded-full flex justify-center items-center cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
@@ -1167,7 +1205,7 @@ const JobCard = ({
                                         .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
                                         .reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
                                     const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
-                                    return a.canceledAt ? acc : acc + servicesTotal + customTotal;
+                                    return a.canceledAt || !(a.status === 'accepted' || a.status === 'accepted') ? acc : acc + servicesTotal + customTotal;
                                 }, 0),
                         )}
                     </span>

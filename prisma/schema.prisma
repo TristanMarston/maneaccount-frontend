@@ -194,6 +194,8 @@ enum NotificationType {
   job_request
   job_status_change
   job_completed
+  horse_status_change
+  horse_sub_completed
   barn_invite
   barn_status_change
   team_invite

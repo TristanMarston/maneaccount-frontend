@@ -142,12 +142,14 @@ export const authOptions: AuthOptions = {
         async jwt({ token, trigger, user, session, account }) {
             if (trigger === 'update' && session) {
                 if (session.name && session.name.length > 0) token.name = session.name;
+                if (session.email && session.email.length > 0) token.email = session.email;
                 if (session.image && session.image.length > 0) token.image = session.image;
                 if (session.role && session.role.length > 0) token.role = session.role;
             }
             if (user) {
                 token.sub = user.id;
                 token.name = user.name;
+                token.email = user.email;
                 token.role = user.role;
                 token.image = user.image;
 

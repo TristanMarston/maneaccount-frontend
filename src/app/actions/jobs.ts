@@ -3,12 +3,12 @@
 import { JobStatus, JobAssignment, AssignmentStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
 import { getBraiderUsage } from '@/lib/limits';
-import { normalizeDateToUTC, getLocalTodayStart } from '@/lib/date-utils';
+import { normalizeDateToUTC, getLocalTodayStart, parseUTCToLocal } from '@/lib/date-utils';
 
 export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[]; date: Date }[] }, timezoneOffset: number = 0) {
     const session = await auth();
@@ -192,11 +192,28 @@ export async function updateAssignmentStatus(assignmentId: string, status: Assig
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        await prisma.jobAssignment.update({
+        const {
+            job: originalJob,
+            horse,
+            assignmentDate,
+        } = await prisma.jobAssignment.update({
             where: { id: assignmentId },
             data: { status },
-            include: { job: { include: { braider: true, barn: true, show: true } } },
+            include: { job: { include: { braider: true, show: true } }, horse: true },
         });
+
+        if (originalJob) {
+            await createNotification(
+                originalJob.barnId,
+                NotificationType.horse_status_change,
+                status === 'accepted'
+                    ? `${originalJob.braider.name} accepted ${horse.barnName} for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`
+                    : `${originalJob.braider.name} declined ${horse.barnName} for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`,
+                null,
+                originalJob.braiderId,
+                null,
+            );
+        }
 
         revalidatePath('/dashboard');
         return { success: true };
@@ -206,7 +223,7 @@ export async function updateAssignmentStatus(assignmentId: string, status: Assig
     }
 }
 
-export async function acceptAllPendingAssignments(assignmentIds: string[]) {
+export async function acceptAllPendingAssignments(assignmentIds: string[], jobId?: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -216,6 +233,19 @@ export async function acceptAllPendingAssignments(assignmentIds: string[]) {
             data: { status: 'accepted' },
         });
 
+        if (assignmentIds.length > 0 && jobId) {
+            const originalJob = await prisma.job.findFirst({ where: { id: jobId }, include: { show: true, braider: true } });
+            if (originalJob)
+                await createNotification(
+                    originalJob.barnId,
+                    NotificationType.horse_status_change,
+                    `${originalJob.braider.name} accepted ${assignmentIds.length} horse${assignmentIds.length !== 1 ? 's' : ''} for ${originalJob.show.name}`,
+                    null,
+                    originalJob.braiderId,
+                    null,
+                );
+        }
+
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
@@ -224,7 +254,7 @@ export async function acceptAllPendingAssignments(assignmentIds: string[]) {
     }
 }
 
-export async function toggleServiceCompletion(assignmentId: string, serviceId: string, timezoneOffset: number = 0) {
+export async function toggleServiceCompletion(assignmentId: string, serviceId: string, timezoneOffset: number = 0, whoCompleted: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -258,24 +288,42 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
                     await createNotification(
                         assignment.job.braiderId,
                         NotificationType.limit_approaching,
-                        `You have serviced ${newCount} horses out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
+                        `${whoCompleted === 'braider' ? 'You have' : whoCompleted === 'subcontractor' ? 'Your braider has' : 'You have'} serviced ${newCount} horses out of ${whoCompleted === 'braider' ? 'your' : whoCompleted === 'subcontractor' ? 'their' : 'your'} ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
                         null,
                         null,
                         null,
                         timezoneOffset,
                     );
                 } else if (newCount > 50) {
-                    return { error: `You have reached your limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.` };
+                    return {
+                        error: `${whoCompleted === 'braider' ? 'You have' : whoCompleted === 'subcontractor' ? 'Your braider has' : 'You have'} reached ${whoCompleted === 'braider' ? 'your' : whoCompleted === 'subcontractor' ? 'their' : 'your'} limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.`,
+                    };
                 }
             }
         }
-        await prisma.jobAssignment.update({
+
+        const assignmentInfo = await prisma.jobAssignment.update({
             where: { id: assignmentId },
             data: {
                 completedServiceIds,
                 completedAt: isComplete ? new Date() : null,
             },
+            include: { subcontractor: true, job: { include: { show: true } }, horse: true },
         });
+
+        if (whoCompleted === 'subcontractor' && isComplete) {
+            const { subcontractor, job: originalJob, horse, assignmentDate } = assignmentInfo;
+            if (subcontractor) {
+                await createNotification(
+                    originalJob.braiderId,
+                    NotificationType.horse_sub_completed,
+                    `${subcontractor.name} has finished servicing ${horse.barnName} for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`,
+                    null,
+                    subcontractor.id,
+                );
+            }
+        }
+
         revalidatePath('/dashboard');
         return { success: true, message: successMessage };
     } catch (error) {
@@ -452,7 +500,7 @@ export async function getBraiderData(braiderId: string) {
                     orderBy: { startDate: 'asc' },
                 },
                 services: true,
-                braiderJobs: true,
+                braiderJobs: { include: { barn: true } },
             },
         });
 
@@ -523,7 +571,6 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        // Find current assignment to get the current subcontractor
         const currentAssignment = await prisma.jobAssignment.findUnique({
             where: { id: assignmentId },
             select: { subcontractorId: true, jobId: true },

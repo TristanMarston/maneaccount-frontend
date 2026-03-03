@@ -120,17 +120,17 @@ export const DayAssignmentsModal = ({
                         </div>
                     </div>
                 )}
-                {jobInfo.map(({ sortedClients, barn }) =>
-                    !jobInfo.some((job) => job.sortedClients.length > 0) ? (
+                {jobInfo.map(({ sortedClients, barn }, i) =>
+                    !jobInfo.some((job) => job.sortedClients.length > 0) && i === 0 ? (
                         <div className='text-center py-10 text-gray-400 italic'>No assignments for this day.</div>
                     ) : (
                         sortedClients.length > 0 && (
                             <>
-                                {jobInfo.length > 0 && role === 'braider' && (
+                                {jobInfo.length > 0 && role !== 'barn' && (
                                     <h4 className='text-lg font-semibold mb-4 text-primary-light bg-primary-extra-light rounded-[10px] py-0.5 px-2'>{barn}</h4>
                                 )}
                                 {sortedClients.map(([clientName, assignments]: [string, any]) => (
-                                    <div key={clientName} className={cn('space-y-3', jobInfo.length > 0 && role === 'braider' && 'pl-5 border-l border-gray-200')}>
+                                    <div key={clientName} className={cn('space-y-3', jobInfo.length > 0 && role !== 'barn' && 'pl-5 border-l border-gray-200')}>
                                         <div>
                                             <div className='flex items-center gap-2'>
                                                 <h4 className='font-bold text-lg text-gray-800 font-lusitana truncate min-w-0 text-nowrap'>{clientName}</h4>

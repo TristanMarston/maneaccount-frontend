@@ -754,7 +754,7 @@ export const JobDetailSubpage = ({
                                 className='text-sm font-bold text-primary flex items-center gap-1.5 primary-border-hover cursor-pointer px-4 py-1 rounded-lg'
                             >
                                 <Plus size={16} />
-                                Add Horse
+                                Add Service
                             </button>
                         )}
                         {role === 'braider' && job.assignments.some((a) => a.status === 'pending') && (
@@ -1589,7 +1589,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
             refresh();
             onClose();
         } else {
-            failToast(res.error || `Failed to add horse${assignments.length === 1 ? '' : 's'}`);
+            failToast(res.error || `Failed to add service${assignments.length === 1 ? '' : 's'}`);
         }
         setLoading(false);
     };
@@ -1618,7 +1618,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
     return (
         <div className='flex flex-col max-h-[90vh] font-figtree'>
             <div className='px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white'>
-                <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horse to Job</h3>
+                <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Service(s) to Job</h3>
                 <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600 transition-all cursor-pointer'>
                     <X size={20} />
                 </button>

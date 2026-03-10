@@ -170,8 +170,10 @@ model User {
 
   trialEndsAt            DateTime?
   currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean  @default(false)
   googleCalendarId       String?
   hasUsedTrial           Boolean  @default(false)
+  hasUsedPromoOne        Boolean  @default(false)
 }
 
 model Notification {

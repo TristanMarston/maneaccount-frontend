@@ -74,6 +74,7 @@ const DashboardSidebar = ({
     setActiveTab,
     subscriptionTier,
     unsavedRequest,
+    isFrozen,
 }: {
     dashboard: string;
     session: Session | null;
@@ -88,6 +89,7 @@ const DashboardSidebar = ({
     setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
     subscriptionTier?: SubscriptionTier | null;
     unsavedRequest?: boolean;
+    isFrozen?: boolean;
 }) => {
     const { unreadCounts, refreshCounts } = useNotifications();
     const [open, setOpen] = useState(true);
@@ -182,6 +184,7 @@ const DashboardSidebar = ({
     const normalizedRole = (dashboard || 'braider').toLowerCase();
     const filteredPages = pages.filter((page) => {
         if (subscriptionTier === 'starter' && page.title === 'Team') return false;
+        if (isFrozen && page.title !== 'Dashboard') return false;
         return page.accountTypes.includes(normalizedRole);
     });
 
@@ -273,15 +276,17 @@ const DashboardSidebar = ({
                                             }}
                                             selected={selectedPage === 'Settings'}
                                         />
-                                        <MobileDrawerItem
-                                            icon={User}
-                                            title='Account'
-                                            onClick={() => {
-                                                setActiveTab('account');
-                                                handlePageChange('Settings');
-                                            }}
-                                        />
-                                        {dashboard === 'braider' && (
+                                        {!isFrozen && (
+                                            <MobileDrawerItem
+                                                icon={User}
+                                                title='Account'
+                                                onClick={() => {
+                                                    setActiveTab('account');
+                                                    handlePageChange('Settings');
+                                                }}
+                                            />
+                                        )}
+                                        {dashboard === 'braider' && !isFrozen && (
                                             <MobileDrawerItem
                                                 icon={CreditCard}
                                                 title='Invoicing'
@@ -507,15 +512,17 @@ const DashboardSidebar = ({
                                             </div>
 
                                             <div className='space-y-0.5'>
-                                                <MenuItem
-                                                    icon={User}
-                                                    onClick={() => {
-                                                        setUserDropdownOpen(false);
-                                                        setActiveTab('account');
-                                                        handlePageChange('Settings');
-                                                    }}
-                                                    label='Account'
-                                                />
+                                                {!isFrozen && (
+                                                    <MenuItem
+                                                        icon={User}
+                                                        onClick={() => {
+                                                            setUserDropdownOpen(false);
+                                                            setActiveTab('account');
+                                                            handlePageChange('Settings');
+                                                        }}
+                                                        label='Account'
+                                                    />
+                                                )}
 
                                                 {dashboard === 'braider' && (
                                                     <MenuItem

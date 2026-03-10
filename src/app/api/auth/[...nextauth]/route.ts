@@ -98,8 +98,38 @@ export const authOptions: AuthOptions = {
         },
     },
     callbacks: {
-        async signIn({ user, account }) {
+        async signIn({ user, account, profile }) {
             if (account?.provider === 'google') {
+                try {
+                    const cookieStore = await cookies();
+                    const intent = cookieStore.get('auth_intent')?.value;
+                    const linkTargetEmail = cookieStore.get('link_target_email')?.value;
+
+                    if (intent === 'link' && linkTargetEmail && profile?.email) {
+                        const existingUser = await prisma.user.findUnique({
+                            where: { email: linkTargetEmail },
+                        });
+
+                        if (existingUser && profile.email.toLowerCase() !== existingUser.email?.toLowerCase()) {
+                            const emailTaken = await prisma.user.findUnique({
+                                where: { email: profile.email.toLowerCase() },
+                            });
+
+                            if (!emailTaken || emailTaken.id === existingUser.id) {
+                                const updateData: any = { email: profile.email.toLowerCase() };
+                                if (profile.name) updateData.name = profile.name;
+                                if ((profile as any).picture) updateData.image = (profile as any).picture;
+
+                                await prisma.user.update({
+                                    where: { id: existingUser.id },
+                                    data: updateData,
+                                });
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error handling Google link intent:', error);
+                }
                 if (account.refresh_token && user.email) {
                     try {
                         const existingAccount = await prisma.account.findFirst({

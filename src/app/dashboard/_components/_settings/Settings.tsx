@@ -31,11 +31,11 @@ import { Session } from 'next-auth';
 import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
-import { checkPublicIDAvailability, updateProfile, getUserSettings, deleteAccount, switchAccountRole } from '@/app/actions/settings';
+import { checkPublicIDAvailability, updateProfile, getUserSettings, deleteAccount, switchAccountRole, cleanupExtraGoogleAccounts, switchToEmailPassword } from '@/app/actions/settings';
 import { cn } from '@/lib/utils';
 import { failToast, successToast } from '../../../context';
 import Modal from '../../Modal';
-import { signOut } from 'next-auth/react';
+import { signIn, signOut } from 'next-auth/react';
 import { requestPasswordReset, requestVerificationEmail, resetPassword, verifyResetCode, verifyToken } from '../../../actions/verification';
 import SubscriptionSettings from './SubscriptionSettings';
 import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
@@ -93,6 +93,7 @@ const Settings = ({
     setActiveTab,
     userEmail,
     updateSubscriptionTier,
+    isFrozen,
 }: {
     update: (data?: any) => Promise<Session | null>;
     role: string;
@@ -110,6 +111,7 @@ const Settings = ({
             subscriptionInterval: string;
         } | null,
     ) => void;
+    isFrozen?: boolean;
 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -174,13 +176,25 @@ const Settings = ({
         allowedNotifications: [],
     });
     const [deleteAccountModal, setDeleteAccountModal] = useState(false);
+    const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState<{ open: boolean; trial: boolean; onConfirm: (() => Promise<void>) | null; loading: boolean }>({
+        open: false,
+        trial: false,
+        onConfirm: null,
+        loading: false,
+    });
 
     const debouncedPublicID = useDebounce(publicID, 500);
     const [isIDAvailable, setIsIDAvailable] = useState<boolean | null>(null);
     const [isCheckingID, setIsCheckingID] = useState(false);
     const [resetModalOpen, setResetModalOpen] = useState(false);
+    const [googleAccountModal, setGoogleAccountModal] = useState(false);
 
     const [hasPassword, setHasPassword] = useState(false);
+    const [hasGoogleAccount, setHasGoogleAccount] = useState(false);
+
+    useEffect(() => {
+        cleanupExtraGoogleAccounts();
+    }, []);
 
     useEffect(() => {
         if (venmo.length >= 5 && venmo.length <= 30) {
@@ -223,6 +237,7 @@ const Settings = ({
                 };
 
                 setHasPassword(data.password !== null);
+                setHasGoogleAccount(data.accounts && data.accounts.length > 0);
 
                 setName(data.name || '');
                 setPublicID(data.publicID || '');
@@ -438,51 +453,61 @@ const Settings = ({
             <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 @min-[745px]/content:space-y-8 @container/settings relative'>
                 <div className='flex justify-between items-center'>
                     <div>
-                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Settings</h1>
-                        <p className='text-gray-500 font-figtree mt-1'>Manage your account preferences and notifications.</p>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>{isFrozen ? 'Subscription' : 'Settings'}</h1>
+                        <p className='text-gray-500 font-figtree mt-1'>
+                            {isFrozen ? 'Your account is frozen. Please renew your subscription to regain access.' : 'Manage your account preferences and notifications.'}
+                        </p>
                     </div>
                 </div>
 
                 <div className='flex flex-col @min-[650px]/settings:flex-row flex-1 overflow-hidden mt-4 gap-6 items-start'>
-                    <div className='w-full @min-[650px]/settings:w-64 bg-gray-50 border rounded-[18px] border-gray-100 p-4 flex flex-col gap-2 shrink-0 sticky top-0'>
-                        <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
-                        <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
-                        {propRole === 'braider' && <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />}
-                        {propRole === 'braider' && <NavTab active={activeTab === 'invoicing'} onClick={() => setActiveTab('invoicing')} icon={CreditCard} label='Invoicing' />}
-                        <NavTab active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={Bell} label='Notifications' />
-                        <motion.div className={cn('flex mt-1 flex-col gap-3', isDirty ? '' : 'pointer-events-none')} initial={{ opacity: 0.3 }} animate={{ opacity: isDirty ? 1 : 0.3 }}>
-                            <button
-                                onClick={() => {
-                                    setName(originalInfo.current.name);
-                                    setEmail(originalInfo.current.email);
-                                    setEmailVerified(originalInfo.current.emailVerified);
-                                    setPublicID(originalInfo.current.publicID);
-                                    setPhoneNumber(originalInfo.current.phoneNumber);
-                                    setImagePreview(originalInfo.current.image);
-                                    setRole(originalInfo.current.role as any);
-                                    setVenmoLink(originalInfo.current.venmo);
-                                    setZelle(originalInfo.current.zelle);
-                                    setVenmoEnabled(originalInfo.current.venmoEnabled);
-                                    setAllowedNotifications(originalInfo.current.allowedNotifications);
-                                    setVenmo(originalInfo.current.venmo?.substring(originalInfo.current.venmo?.indexOf('/u/') + 3) || '');
-                                    setFinalImageBlob(null);
-                                    setIsIDAvailable(true);
-                                }}
-                                className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-primary text-nowrap rounded-[10px] py-2 px-4 primary-border-hover'
+                    {!isFrozen && (
+                        <div className='w-full @min-[650px]/settings:w-64 bg-gray-50 border rounded-[18px] border-gray-100 p-4 flex flex-col gap-2 shrink-0 sticky top-0'>
+                            <NavTab active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={User} label='Profile' />
+                            <NavTab active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={Shield} label='Account' />
+                            {propRole === 'braider' && (
+                                <NavTab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')} icon={Sparkles} label='Subscription' />
+                            )}
+                            {propRole === 'braider' && <NavTab active={activeTab === 'invoicing'} onClick={() => setActiveTab('invoicing')} icon={CreditCard} label='Invoicing' />}
+                            <NavTab active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={Bell} label='Notifications' />
+                            <motion.div
+                                className={cn('flex mt-1 flex-col gap-3', isDirty ? '' : 'pointer-events-none')}
+                                initial={{ opacity: 0.3 }}
+                                animate={{ opacity: isDirty ? 1 : 0.3 }}
                             >
-                                Discard
-                            </button>
-                            <button
-                                form='settings-form'
-                                type='submit'
-                                disabled={isSaving || isIDAvailable === false || isLoading}
-                                className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-nowrap rounded-[10px] py-2 px-4 bg-primary-light text-white primary-border-hover'
-                            >
-                                {isSaving && <Loader2 size={16} className='animate-spin' />}
-                                Save Changes
-                            </button>
-                        </motion.div>
-                    </div>
+                                <button
+                                    onClick={() => {
+                                        setName(originalInfo.current.name);
+                                        setEmail(originalInfo.current.email);
+                                        setEmailVerified(originalInfo.current.emailVerified);
+                                        setPublicID(originalInfo.current.publicID);
+                                        setPhoneNumber(originalInfo.current.phoneNumber);
+                                        setImagePreview(originalInfo.current.image);
+                                        setRole(originalInfo.current.role as any);
+                                        setVenmoLink(originalInfo.current.venmo);
+                                        setZelle(originalInfo.current.zelle);
+                                        setVenmoEnabled(originalInfo.current.venmoEnabled);
+                                        setAllowedNotifications(originalInfo.current.allowedNotifications);
+                                        setVenmo(originalInfo.current.venmo?.substring(originalInfo.current.venmo?.indexOf('/u/') + 3) || '');
+                                        setFinalImageBlob(null);
+                                        setIsIDAvailable(true);
+                                    }}
+                                    className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-primary text-nowrap rounded-[10px] py-2 px-4 primary-border-hover'
+                                >
+                                    Discard
+                                </button>
+                                <button
+                                    form='settings-form'
+                                    type='submit'
+                                    disabled={isSaving || isIDAvailable === false || isLoading}
+                                    className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-nowrap rounded-[10px] py-2 px-4 bg-primary-light text-white primary-border-hover'
+                                >
+                                    {isSaving && <Loader2 size={16} className='animate-spin' />}
+                                    Save Changes
+                                </button>
+                            </motion.div>
+                        </div>
+                    )}
 
                     <div className={cn('flex-1 w-full relative dashboard-sm:pb-8', isLoading ? 'min-h-[300px]' : '')}>
                         {isLoading ? (
@@ -498,7 +523,11 @@ const Settings = ({
                                         transition={{ duration: 0.3 }}
                                         className='space-y-6 @container/subscription font-figtree'
                                     >
-                                        <SubscriptionSettings updateSubscriptionTier={updateSubscriptionTier} />
+                                        <SubscriptionSettings
+                                            isFrozen={isFrozen || false}
+                                            updateSubscriptionTier={updateSubscriptionTier}
+                                            setCancelSubscriptionModal={setCancelSubscriptionModal}
+                                        />
                                     </motion.div>
                                 )}
 
@@ -616,10 +645,14 @@ const Settings = ({
                                             <label className='text-sm font-bold ml-1 text-gray-500 uppercase'>Email Address</label>
                                             <div className='bg-gray-50 shadow-sm border border-gray-200 rounded-xl p-3 @min-[350px]/account:p-4 font-figtree'>
                                                 <div className='flex flex-col @min-[500px]/account:flex-row @min-[500px]/account:items-center justify-between gap-4 w-full'>
-                                                    <div className='flex items-center gap-2'>
+                                                    <div className='flex items-center gap-2 w-full'>
                                                         <div
                                                             ref={emailButtonRef}
                                                             onClick={() => {
+                                                                if (hasGoogleAccount) {
+                                                                    setGoogleAccountModal(true);
+                                                                    return;
+                                                                }
                                                                 if (!hasPassword) return;
                                                                 if (!editingEmail) {
                                                                     setEditingEmail(true);
@@ -633,14 +666,25 @@ const Settings = ({
                                                             }}
                                                             className={cn(
                                                                 'w-11 h-11 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all',
-                                                                emailVerified ? 'bg-green-100 hover:bg-green-200 text-green-600' : 'bg-amber-100 hover:bg-amber-200 text-amber-600',
-                                                                !hasPassword ? 'pointer-events-none' : '',
+                                                                hasGoogleAccount
+                                                                    ? 'border border-gray-200 shadow-sm bg-white hover:bg-gray-50'
+                                                                    : emailVerified
+                                                                      ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                                                      : 'bg-amber-100 hover:bg-amber-200 text-amber-600',
+                                                                !hasPassword && !hasGoogleAccount ? 'pointer-events-none' : '',
                                                             )}
                                                         >
-                                                            {hasPassword ? <Pencil size={20} strokeWidth={2.25} /> : <Lock size={20} strokeWidth={2.25} />}
+                                                            {hasGoogleAccount ? (
+                                                                <Image src='/google-logo.png' alt='Google' width={20} height={20} className='w-5 h-5' />
+                                                            ) : hasPassword ? (
+                                                                <Pencil size={20} strokeWidth={2.25} />
+                                                            ) : (
+                                                                <Lock size={20} strokeWidth={2.25} />
+                                                            )}
                                                         </div>
-                                                        <div className='min-w-0 flex-1'>
+                                                        <div className='min-w-0 flex-1 w-full'>
                                                             <input
+                                                                id='email'
                                                                 type='email'
                                                                 value={email}
                                                                 ref={emailInputRef}
@@ -1085,8 +1129,180 @@ const Settings = ({
                     </div>
                 </div>
             </Modal>
+            <Modal
+                isOpen={cancelSubscriptionModal.open}
+                setIsOpen={(open: boolean) => setCancelSubscriptionModal({ open, trial: false, onConfirm: null, loading: false })}
+                className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative'
+            >
+                <div className='@container/cancel-subscription'>
+                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
+                    <p className='text-gray-800 text-[17px] font-figtree mt-2'>
+                        Canceling your subscription will not end your use of the application immediately.{' '}
+                        {cancelSubscriptionModal.trial
+                            ? 'You will maintain access until your free trial is up, at which point your account will be frozen.'
+                            : 'You will maintain access until the end of the current billing cycle, at which point your account will be frozen.'}{' '}
+                        You may re-subscribe at any point.
+                    </p>
+                    <div className='grid grid-cols-1 @min-[435px]/cancel-subscription:grid-cols-2 mt-4 gap-3 @min-[435px]:gap-4'>
+                        <button
+                            onClick={() => setCancelSubscriptionModal({ open: false, trial: false, onConfirm: null, loading: false })}
+                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/cancel-subscription:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            disabled={cancelSubscriptionModal.onConfirm === null || cancelSubscriptionModal.loading}
+                            onClick={async () => {
+                                if (cancelSubscriptionModal.onConfirm) {
+                                    await cancelSubscriptionModal.onConfirm();
+                                    setCancelSubscriptionModal({ open: false, trial: false, onConfirm: null, loading: false });
+                                }
+                            }}
+                            className='font-figtree disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/cancel-subscription:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
+                        >
+                            {cancelSubscriptionModal.loading ? <Loader2 size={24} className='animate-spin' /> : 'Cancel Subscription'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
             <ResetPasswordModal isOpen={resetModalOpen} setIsOpen={setResetModalOpen} initialEmail={userEmail} />
+            <GoogleAccountModal isOpen={googleAccountModal} setIsOpen={setGoogleAccountModal} userEmail={userEmail} />
         </>
+    );
+};
+
+const GoogleAccountModal = ({ isOpen, setIsOpen, userEmail }: { isOpen: boolean; setIsOpen: (open: boolean) => void; userEmail: string }) => {
+    const [step, setStep] = useState<'options' | 'setPassword' | 'success'>('options');
+    const [password, setPassword] = useState('');
+    const [passwordShown, setPasswordShown] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setStep('options');
+            setPassword('');
+        }
+    }, [isOpen]);
+
+    const handleSwitchToEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await switchToEmailPassword(password);
+        if (res.success) {
+            successToast('Account updated successfully!');
+            setStep('success');
+            setTimeout(() => {
+                setIsOpen(false);
+                window.location.reload(); // Reload to pick up new state easily
+            }, 2000);
+        } else {
+            failToast(res.error || 'Failed to update account');
+        }
+        setLoading(false);
+    };
+
+    const handleConnectDifferentGoogle = () => {
+        document.cookie = 'auth_intent=link; path=/; max-age=3600';
+        document.cookie = `link_target_email=${userEmail}; path=/; max-age=3600`;
+        signIn('google', { prompt: 'select_account' });
+    };
+
+    return (
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen} className='max-w-md p-0 overflow-hidden rounded-2xl primary-border-bold'>
+            <div className='p-6 lg:p-8 font-figtree'>
+                <AnimatePresence mode='wait'>
+                    {step === 'options' && (
+                        <motion.div key='options' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-gray-50 border border-gray-200 rounded-full flex items-center justify-center mb-4'>
+                                    <Image src='/google-logo.png' alt='Google' width={32} height={32} className='w-8 h-8' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>Google Account Settings</h2>
+                                <p className='text-gray-500 text-center'>You are currently logged in with a Google account. What would you like to do?</p>
+                            </div>
+                            <div className='space-y-3 pt-4'>
+                                <button
+                                    onClick={() => setStep('setPassword')}
+                                    className='w-full cursor-pointer bg-primary-light text-white font-bold py-3 text-sm min-[340px]:text-[15px] xs:text-[16px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2'
+                                >
+                                    <Mail className='w-5 h-5' />
+                                    Switch to Email & Password
+                                </button>
+                                <button
+                                    onClick={handleConnectDifferentGoogle}
+                                    className='w-full cursor-pointer bg-white border border-gray-200 text-gray-700 font-bold py-3 text-sm min-[340px]:text-[15px] xs:text-[16px] rounded-[10px] hover:bg-gray-50 transition-colors flex items-center justify-center gap-2'
+                                >
+                                    <Image src='/google-logo.png' alt='Google' width={20} height={20} className='w-5 h-5' />
+                                    Switch Google Account
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {step === 'setPassword' && (
+                        <motion.div key='setPassword' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className='space-y-4'>
+                            <div className='text-center flex flex-col items-center space-y-2'>
+                                <div className='w-16 h-16 bg-primary-light primary-border rounded-full flex items-center justify-center mb-4'>
+                                    <Lock className='w-7 h-7 text-background' />
+                                </div>
+                                <h2 className='text-2xl font-bold'>Set a Password</h2>
+                                <p className='text-gray-500'>To switch away from Google sign in, please create a password for your account.</p>
+                            </div>
+                            <form onSubmit={handleSwitchToEmail} className='space-y-4'>
+                                <div className='relative'>
+                                    <Lock className={cn('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', password.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                    <input
+                                        className='w-full outline-none shadow-sm border border-gray-200 pl-10 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                        type={passwordShown ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder='New Password'
+                                        autoCorrect='off'
+                                        autoComplete='off'
+                                        spellCheck={false}
+                                        required
+                                        minLength={6}
+                                    />
+                                    <button
+                                        type='button'
+                                        onClick={() => setPasswordShown(!passwordShown)}
+                                        className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary'
+                                    >
+                                        {passwordShown ? <Eye className='w-5 h-5' /> : <EyeOff className='w-5 h-5' />}
+                                    </button>
+                                </div>
+                                <div className='flex gap-3 pt-2'>
+                                    <button
+                                        type='button'
+                                        onClick={() => setStep('options')}
+                                        className='flex-1 cursor-pointer bg-gray-100 text-gray-700 font-bold py-2 text-[17px] rounded-[10px] hover:bg-gray-200 transition-colors'
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        type='submit'
+                                        disabled={loading || password.length < 6}
+                                        className='flex-[2] cursor-pointer bg-primary-light text-white font-bold py-2 text-[17px] rounded-[10px] primary-border-hover flex items-center justify-center gap-2 disabled:opacity-50'
+                                    >
+                                        {loading ? <Loader2 className='w-5 h-5 animate-spin' /> : 'Save Password'}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    )}
+
+                    {step === 'success' && (
+                        <motion.div key='success' initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className='text-center space-y-4 py-4'>
+                            <div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto'>
+                                <CheckCircle2 className='w-10 h-10 text-green-600' />
+                            </div>
+                            <h2 className='text-2xl font-bold'>Account Updated</h2>
+                            <p className='text-gray-500'>Your account has been updated to use email and password.</p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </Modal>
     );
 };
 
@@ -1414,7 +1630,7 @@ const DeleteAccountModal = ({ setOpen, verification }: { setOpen: React.Dispatch
                                 ? 'border-green-300 focus:border-green-500 focus:ring-green-100'
                                 : 'border-red-300 focus:border-red-500 focus:ring-red-100',
                         )}
-                        name='typed-verification'
+                        name='typed-delete-verification'
                         value={typedVerification}
                         onPaste={(e) => e.preventDefault()}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTypedVerification(e.target.value)}

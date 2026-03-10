@@ -676,11 +676,10 @@ export async function cancelAssignment(assignmentId: string) {
         const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId }, include: { services: true } });
         if (!assignment) return { error: 'Assignment not found' };
 
-        const isSoftDeleted = assignment.status === 'denied' || assignment.status === 'canceled' || !!assignment.canceledAt;
+        const isRestoring = assignment.status === 'denied' || assignment.status === 'canceled' || !!assignment.canceledAt;
 
         const data: any = {};
-        if (isSoftDeleted) {
-            // Restore
+        if (isRestoring) {
             data.status = 'accepted';
             data.canceledAt = null;
             data.canceledServiceIds = [];
@@ -691,13 +690,29 @@ export async function cancelAssignment(assignmentId: string) {
             data.completedAt = null;
         }
 
-        await prisma.jobAssignment.update({
+        const {
+            job: originalJob,
+            horse,
+            assignmentDate,
+        } = await prisma.jobAssignment.update({
             where: { id: assignmentId },
             data,
+            include: { job: { include: { braider: true, show: true } }, horse: true },
         });
 
+        if (isRestoring) {
+            await createNotification(
+                originalJob.barnId,
+                NotificationType.horse_status_change,
+                `${originalJob.braider.name} reinstated ${horse.barnName} as a service for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`,
+                null,
+                originalJob.braiderId,
+                null,
+            );
+        }
+
         revalidatePath('/dashboard');
-        return { success: true, message: isSoftDeleted ? 'Restored horse to job' : 'Removed horse from job' };
+        return { success: true, message: isRestoring ? 'Restored horse to job' : 'Removed horse from job' };
     } catch (error) {
         console.error('Cancel assignment error:', error);
         return { error: 'Failed to update assignment' };

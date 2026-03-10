@@ -54,12 +54,14 @@ const DashboardHome = ({
     userEmail,
     setSelectedPage,
     setSettingsOpen,
+    isFrozen,
 }: {
     role: string;
     name: string;
     userEmail: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
     setSettingsOpen: (page: Tab) => void;
+    isFrozen?: boolean;
 }) => {
     const hours = new Date().getHours();
     const greeting = hours < 12 ? 'Good morning' : hours < 18 ? 'Good afternoon' : 'Good evening';
@@ -152,7 +154,7 @@ const DashboardHome = ({
                     </div>
                 ) : (
                     <div className='space-y-8 animate-in fade-in duration-500 font-figtree overflow-y-auto pb-28 dashboard-sm:pb-8 pr-1'>
-                        {role === 'braider' && <BraiderView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} />}
+                        {role === 'braider' && !isFrozen && <BraiderView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} />}
                         {role === 'subcontractor' && <SubcontractorView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} userEmail={userEmail} />}
                         {role === 'barn' && <BarnView upcomingShows={upcomingShows} jobs={mappedJobShows} setSelectedPage={setSelectedPage} />}
                     </div>

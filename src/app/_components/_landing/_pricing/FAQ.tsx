@@ -125,11 +125,19 @@ const questions = (page: Page): Question[] => {
     } else if (page === 'landing') {
         return [
             {
+                question: '*Do all users have to subscribe?',
+                answer: () => (
+                    <p className='prose prose-sm max-w-none'>
+                        Nope! Barns, clients, and subcontractors of the braider do not have to subscribe to use ManeAccount. Only the braider has to subscribe to one of the plans above.
+                    </p>
+                ),
+            },
+            {
                 question: 'Why is there no free option?',
                 answer: () => (
                     <p className='prose prose-sm max-w-none'>
                         We believe that offering free plans can often lead to compromised quality and limited features. By focusing on paid plans, we ensure that our product remains
-                        robust and reliable for all users.
+                        robust and reliable for all users. We do offer a 14-day free trial period for all plans.
                     </p>
                 ),
             },
@@ -141,14 +149,10 @@ const questions = (page: Page): Question[] => {
                 question: 'What happens if I cancel my plan?',
                 answer: () => (
                     <p className='prose prose-sm max-w-none'>
-                        If you cancel your plan within the 30-day free trial period, you will not be charged. If you cancel after the trial period, your subscription will remain active
-                        until the end of the current billing cycle, and you will not be charged for the next cycle.
+                        If you cancel your plan within the 14-day free trial period, you will not be charged. If you cancel after the trial period, your subscription will remain active
+                        until the end of the current billing cycle, and you will not be charged for the next cycle. You can cancel your subscription at any time.
                     </p>
                 ),
-            },
-            {
-                question: 'Can I pay in other currencies?',
-                answer: () => <p className='prose prose-sm max-w-none'>Currently, we only accept payments in USD.</p>,
             },
         ];
     } else return [];

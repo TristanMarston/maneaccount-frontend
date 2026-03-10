@@ -411,3 +411,10 @@
         opacity: 1;
     }
 }
+
+.p-PaymentAccordionButtonIconContainer {
+    margin: 0 !important;
+    margin-inline: 0 !important;
+    padding: 0 !important;
+    padding-inline: 0 !important;
+}

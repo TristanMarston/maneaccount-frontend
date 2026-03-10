@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
+import { stripe } from '@/lib/stripe-init';
+import { hash } from 'bcryptjs';
 
 export async function checkPublicIDAvailability(publicID: string) {
     const session = await auth();
@@ -129,6 +131,14 @@ export async function getUserSettings() {
             venmoEnabled: true,
             thanksMessage: true,
             allowedNotifications: true,
+            subscriptionStatus: true,
+            subscriptionTier: true,
+            currentPeriodEnd: true,
+            trialEndsAt: true,
+            accounts: {
+                where: { provider: 'google' },
+                select: { id: true },
+            },
         },
     });
 }
@@ -143,6 +153,14 @@ export async function deleteAccount() {
         });
 
         if (!user) return { error: 'User not found' };
+
+        if (user.stripeCustomerId) {
+            try {
+                await stripe.customers.del(user.stripeCustomerId);
+            } catch (stripeError) {
+                console.error('Error deleting Stripe customer:', stripeError);
+            }
+        }
 
         if (user.image && user.image.includes(process.env.NEXT_PUBLIC_SUPABASE_URL!)) {
             try {
@@ -177,6 +195,14 @@ export async function deleteAccountByID(id: string) {
         });
 
         if (!user) return { error: 'User not found' };
+
+        if (user.stripeCustomerId) {
+            try {
+                await stripe.customers.del(user.stripeCustomerId);
+            } catch (stripeError) {
+                console.error('Error deleting Stripe customer:', stripeError);
+            }
+        }
 
         if (user.image && user.image.includes(process.env.NEXT_PUBLIC_SUPABASE_URL!)) {
             try {
@@ -266,5 +292,64 @@ export async function changeThanksMessage(message: string) {
     } catch (error) {
         console.error('Rewrite thanks message error:', error);
         return { error: 'Failed to set thank-you message' };
+    }
+}
+
+export async function switchToEmailPassword(password: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const hashedPassword = await hash(password, 10);
+        
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { email: session.user.email },
+                data: { password: hashedPassword },
+            }),
+            prisma.account.deleteMany({
+                where: {
+                    user: { email: session.user.email },
+                    provider: 'google',
+                },
+            }),
+        ]);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to switch to email/password:', error);
+        return { error: 'Failed to switch to email/password' };
+    }
+}
+
+export async function cleanupExtraGoogleAccounts() {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            include: {
+                accounts: {
+                    where: { provider: 'google' }
+                }
+            }
+        });
+
+        if (user && user.accounts.length > 1) {
+            // Sort by id descending (cuid encodes timestamp so it works well enough)
+            const sortedAccounts = user.accounts.sort((a, b) => b.id.localeCompare(a.id));
+            const accountsToDelete = sortedAccounts.slice(1).map(a => a.id);
+
+            await prisma.account.deleteMany({
+                where: {
+                    id: { in: accountsToDelete }
+                }
+            });
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to cleanup google accounts:', error);
+        return { error: 'Failed to cleanup google accounts' };
     }
 }

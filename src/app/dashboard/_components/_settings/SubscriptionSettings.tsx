@@ -637,7 +637,13 @@ const SubscriptionSettings = ({
                                             placeholder='Code'
                                             className='w-full bg-white outline-none shadow-sm border border-gray-200 px-3 py-2 text-sm rounded-lg focus:border-primary transition-colors'
                                         />
-                                        <button className='bg-gray-900 cursor-pointer text-white px-3 py-2 rounded-[10px] text-sm font-bold shadow-sm whitespace-nowrap hover:bg-gray-800 transition-colors'>
+                                        <button
+                                            type='button'
+                                            onClick={() => {
+                                                failToast('Invalid coupon code.');
+                                            }}
+                                            className='bg-gray-900 cursor-pointer text-white px-3 py-2 rounded-[10px] text-sm font-bold shadow-sm whitespace-nowrap hover:bg-gray-800 transition-colors'
+                                        >
                                             Apply
                                         </button>
                                     </div>

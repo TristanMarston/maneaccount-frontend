@@ -364,14 +364,15 @@ export async function applyOneOffCoupon(code: string) {
 
     if (!user) return { error: 'User not found' };
 
-    if (user.hasUsedPromoOne) {
-        return { error: 'You have already used this coupon code.' };
-    }
-
+    
     if (!process.env.COUPON_ONE || code.trim().toLowerCase() !== process.env.COUPON_ONE.toLowerCase()) {
         return { error: 'Invalid coupon code.' };
     }
-
+    
+    if (user.hasUsedPromoOne) {
+        return { error: 'You have already used this coupon code.' };
+    }
+    
     try {
         const targetDate = new Date('2026-03-24T00:00:00Z'); // March 23rd 2026, inclusive end of day UTC
         const now = new Date();

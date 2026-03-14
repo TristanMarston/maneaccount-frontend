@@ -896,15 +896,52 @@ export async function adjustServices(assignmentId: string, newServiceIds: string
             const removingServiceIds: string[] = previousServiceIds.filter((identifier) => !remainingServiceIds.some((id) => identifier === id));
             if (addingServiceIds.length === 0 && removingServiceIds.length === 0) return { error: 'No changes made' };
 
-            await prisma.jobAssignment.update({
+            const updatedAssignmentServices = assignment.services.filter(
+                (s) => !removingServiceIds.includes(s.id) && (remainingServiceIds.includes(s.id) || addingServiceIds.includes(s.id)),
+            );
+            const isComplete =
+                updatedAssignmentServices.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
+                    [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length && assignment.completedServiceIds.length > 0;
+
+            const updatedAssignment = await prisma.jobAssignment.update({
                 where: { id: assignmentId },
                 data: {
                     services: {
                         connect: addingServiceIds.map((id) => ({ id })),
                         disconnect: removingServiceIds.map((id) => ({ id })),
                     },
+                    completedAt: isComplete ? new Date() : null,
                 },
+                select: { services: true, job: { include: { braider: true } }, canceledServiceIds: true, completedServiceIds: true },
             });
+
+            if (isComplete) {
+                const { count, limit, period } = await getBraiderUsage(
+                    updatedAssignment.job.braiderId,
+                    updatedAssignment.job.braider.subscriptionTier,
+                    new Date(),
+                    new Date().getTimezoneOffset(),
+                );
+                const newCount = count + 1;
+
+                if (period !== 'unlimited') {
+                    if (newCount === 48) {
+                        await createNotification(
+                            updatedAssignment.job.braiderId,
+                            NotificationType.limit_approaching,
+                            `You have serviced ${newCount} horses out of your ${limit} ${period === 'week' ? 'weekly' : period === 'day' ? 'daily' : 'weekly'} limit.`,
+                            null,
+                            null,
+                            null,
+                            new Date().getTimezoneOffset(),
+                        );
+                    } else if (newCount > 50) {
+                        return {
+                            error: `You have reached your limit of 50 horses per ${period === 'week' ? 'week' : 'day'}.`,
+                        };
+                    }
+                }
+            }
 
             return { success: true };
         } else return { error: 'No assignment found with that ID.' };

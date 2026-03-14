@@ -25,11 +25,12 @@ import {
     DollarSign,
     Loader2,
     Icon,
+    Pencil,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { format, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, eachDayOfInterval, isSameDay, addDays, isAfter } from 'date-fns';
 import { Job, statusColors } from './Tasks';
 import {
     addNote,
@@ -307,6 +308,7 @@ const SelectSubcontractorDropdown = ({
 
 import { SubscriptionTier } from '@prisma/client';
 import { formatPhoneNumber } from '../_settings/Settings';
+import EditAssignmentForm from './EditAssignmentForm';
 
 export const JobDetailSubpage = ({
     job: initialJob,
@@ -362,6 +364,7 @@ export const JobDetailSubpage = ({
     const [exactTime, setExactTime] = useState(new Date());
     const [acceptAllLoading, setAcceptAllLoading] = useState(false);
     const [loadingServiceIds, setLoadingServiceIds] = useState<{ horseId: string; date: string; id: string }[]>([]);
+    const [editingHorse, setEditingHorse] = useState<any | null>(null);
 
     useEffect(() => {
         const getContainerWidth = () => {
@@ -465,7 +468,7 @@ export const JobDetailSubpage = ({
     };
 
     const handleCancelAssignment = async (assignmentId: string) => {
-        const res = await cancelAssignment(assignmentId);
+        const res = await cancelAssignment(assignmentId, false);
         if (res.success) {
             successToast(res.message);
             refresh();
@@ -1005,6 +1008,34 @@ export const JobDetailSubpage = ({
                                                                                         />
                                                                                     </div>
                                                                                 )}
+                                                                                {role === 'barn' &&
+                                                                                    !isGrayed &&
+                                                                                    activeServices.length !==
+                                                                                        [
+                                                                                            ...new Set(
+                                                                                                assignment.completedServiceIds.filter(
+                                                                                                    (id: any) => !assignment.canceledServiceIds.includes(id),
+                                                                                                ),
+                                                                                            ),
+                                                                                        ].length && (
+                                                                                        <div
+                                                                                            onClick={() =>
+                                                                                                setEditingHorse({
+                                                                                                    ...assignment.horse,
+                                                                                                    date:
+                                                                                                        parseUTCToLocal(new Date(dateKey + 'T12:00:00')) ||
+                                                                                                        new Date(dateKey + 'T12:00:00'),
+                                                                                                    assignment,
+                                                                                                })
+                                                                                            }
+                                                                                            className={cn(
+                                                                                                'rounded-full p-1.5 transition-all text-gray-400 hover:bg-primary-extra-light hover:text-primary cursor-pointer',
+                                                                                                assignment.status === 'pending' ? 'opacity-70' : '',
+                                                                                            )}
+                                                                                        >
+                                                                                            <Pencil size={20} />
+                                                                                        </div>
+                                                                                    )}
                                                                                 <div
                                                                                     onClick={() => setSelectedHorse(assignment.horse)}
                                                                                     className={cn(
@@ -1533,6 +1564,13 @@ export const JobDetailSubpage = ({
             {/* Add Horse Modal for Barns */}
             <Modal isOpen={showAddHorseModal} setIsOpen={setShowAddHorseModal} className='max-w-2xl p-0 rounded-3xl bg-white overflow-hidden primary-border-bold shadow-2xl'>
                 <AddHorseToJobForm job={job} horses={horsesRef} braiderServices={job.braider.services} onClose={() => setShowAddHorseModal(false)} refresh={refresh} />
+            </Modal>
+            <Modal isOpen={!!editingHorse} setIsOpen={() => setEditingHorse(null)} className='max-w-2xl p-0 rounded-3xl bg-white overflow-hidden primary-border-bold shadow-2xl'>
+                {editingHorse ? (
+                    <EditAssignmentForm job={job} braiderServices={job.braider.services} onClose={() => setEditingHorse(null)} refresh={refresh} editingHorse={editingHorse} />
+                ) : (
+                    <></>
+                )}
             </Modal>
         </div>
     );

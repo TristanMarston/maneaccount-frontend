@@ -668,7 +668,7 @@ export async function respondToSubcontractorAssignment(status: 'accepted' | 'den
     }
 }
 
-export async function cancelAssignment(assignmentId: string) {
+export async function cancelAssignment(assignmentId: string, barn: boolean) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -738,10 +738,8 @@ export async function cancelAssignmentService(assignmentId: string, serviceId: s
             canceledServiceIds = canceledServiceIds.filter((id) => id !== serviceId);
             message = 'Service restored';
         } else {
-            // Cancel
             canceledServiceIds.push(serviceId);
 
-            // Also update completed to remove if canceling
             let completedServiceIds = assignment.completedServiceIds;
             if (completedServiceIds.includes(serviceId)) {
                 completedServiceIds = completedServiceIds.filter((id) => id !== serviceId);
@@ -757,12 +755,19 @@ export async function cancelAssignmentService(assignmentId: string, serviceId: s
             assignment.services.filter((s) => !canceledServiceIds.includes(s.id)).length ===
                 [...new Set(assignment.completedServiceIds.filter((id) => !canceledServiceIds.includes(id)))].length && assignment.completedServiceIds.length > 0;
 
+        const isCanceled = assignment.services.filter((s) => !canceledServiceIds.includes(s.id)).length === 0;
+
+        const data: any = {};
+        data.canceledServiceIds = canceledServiceIds;
+        if (isComplete) data.completedAt = new Date();
+        if (isCanceled) {
+            data.canceledAt = new Date();
+            data.status = 'canceled';
+        }
+
         await prisma.jobAssignment.update({
             where: { id: assignmentId },
-            data: {
-                canceledServiceIds,
-                completedAt: isComplete ? new Date() : null,
-            },
+            data,
         });
 
         revalidatePath('/dashboard');
@@ -874,5 +879,37 @@ export async function getEarningsHistory(period: 'day' | 'week' | 'month' | 'yea
     } catch (error) {
         console.error('Get earnings history error:', error);
         return [];
+    }
+}
+
+export async function adjustServices(assignmentId: string, newServiceIds: string[]) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!assignmentId || newServiceIds.length === 0) return { error: 'Invalid parameters' };
+
+    try {
+        const assignment = await prisma.jobAssignment.findUnique({ where: { id: assignmentId }, include: { services: true } });
+        if (assignment) {
+            const previousServiceIds: string[] = assignment.services.map((s) => s.id);
+            const remainingServiceIds: string[] = newServiceIds.filter((identifier) => previousServiceIds.some((id) => id === identifier));
+            const addingServiceIds: string[] = newServiceIds.filter((identifier) => !previousServiceIds.some((id) => id === identifier));
+            const removingServiceIds: string[] = previousServiceIds.filter((identifier) => !remainingServiceIds.some((id) => identifier === id));
+            if (addingServiceIds.length === 0 && removingServiceIds.length === 0) return { error: 'No changes made' };
+
+            await prisma.jobAssignment.update({
+                where: { id: assignmentId },
+                data: {
+                    services: {
+                        connect: addingServiceIds.map((id) => ({ id })),
+                        disconnect: removingServiceIds.map((id) => ({ id })),
+                    },
+                },
+            });
+
+            return { success: true };
+        } else return { error: 'No assignment found with that ID.' };
+    } catch (error) {
+        console.error('Error adjusting services:', error);
+        return { error: 'Error adjusting services' };
     }
 }

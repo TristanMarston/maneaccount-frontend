@@ -484,7 +484,9 @@ export const JobDetailSubpage = ({
     const isJobCanceled = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'canceled');
     const isJobCompleted =
         jobAssignments.length > 0 &&
-        jobAssignments.every((a) => a.status === 'completed' || (a.status === 'accepted' && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length));
+        jobAssignments
+            .filter((a) => !a.canceledAt)
+            .every((a) => a.status === 'completed' || (a.status === 'accepted' && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length));
 
     const horsesCompleted = job.assignments
         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
@@ -671,11 +673,11 @@ export const JobDetailSubpage = ({
                                   ? 'drafting'
                                   : isJobPending
                                     ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                    : isJobAccepted && horsesCompleted === 0
+                                    : isJobAccepted && horsesCompleted === 0 && job.assignments.some((a) => !a.canceledAt)
                                       ? 'all accepted'
                                       : horsesCompleted > 0
                                         ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                        : isJobDenied
+                                        : isJobDenied || job.assignments.every((a) => a.canceledAt || a.status === 'canceled' || a.status === 'denied')
                                           ? 'denied'
                                           : isJobCanceled
                                             ? 'canceled'
@@ -1266,7 +1268,7 @@ export const JobDetailSubpage = ({
                                                                                                         currency: 'USD',
                                                                                                     }).format(charge.amount)}
                                                                                                 </span>
-                                                                                                {role === 'braider' && !isJobCompleted && (
+                                                                                                {role === 'braider' && (
                                                                                                     <button
                                                                                                         onClick={() => handleRemoveCharge(charge.id)}
                                                                                                         className='text-red-400 hover:text-red-500 cursor-pointer'
@@ -1277,7 +1279,7 @@ export const JobDetailSubpage = ({
                                                                                             </div>
                                                                                         </div>
                                                                                     ))}
-                                                                                    {role === 'braider' && !isJobCompleted && (
+                                                                                    {role === 'braider' && (
                                                                                         <button
                                                                                             onClick={() => {
                                                                                                 setSelectedAssignmentId(assignment.id);
@@ -1389,7 +1391,7 @@ export const JobDetailSubpage = ({
                 </div>
 
                 <div className={cn('flex items-center gap-3 flex-col @min-[450px]/job-detail:flex-row mt-4 mb-8', job.invoiceSentAt ? 'opacity-70 pointer-events-none' : '')}>
-                    {role !== 'subcontractor' && !job.invoiceSentAt && !isJobCanceled && !isJobDenied && !isJobCompleted && ((role === 'barn' && isJobPending) || !isJobPending) && (
+                    {role !== 'subcontractor' && !job.invoiceSentAt && !isJobCanceled && !isJobDenied && !isJobCompleted && (
                         <div
                             onClick={handleCancelJobModal}
                             className='w-full grid place-items-center font-figtree font-bold text-red-500 rounded-[10px] py-2 text-lg cursor-pointer red-border-hover transition-all'

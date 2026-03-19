@@ -534,14 +534,25 @@ export async function getUserByEmail(email: string) {
     });
 }
 
-export async function cancelJob(jobId: string) {
+export async function cancelJob(jobId: string, role: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        await prisma.job.delete({
+        const deletedJob = await prisma.job.delete({
             where: { id: jobId },
+            include: { barn: true, braider: true, show: true },
         });
+
+        if (role === 'braider' || role === 'barn') {
+            await createNotification(
+                role === 'braider' ? deletedJob.barnId : deletedJob.braiderId,
+                NotificationType.job_status_change,
+                `${role === 'braider' ? deletedJob.braider.name : deletedJob.barn.name} canceled the job at ${deletedJob.show.name}`,
+                deletedJob.id,
+                role === 'braider' ? deletedJob.braiderId : deletedJob.barnId,
+            );
+        }
 
         revalidatePath('/dashboard');
         return { success: true };

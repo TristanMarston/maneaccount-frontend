@@ -27,7 +27,7 @@ interface ManeAccountEmailProps {
             client: any;
         }[]
     >[];
-    horseDetails?: Record<
+    horseDetails: Record<
         string,
         Record<
             string,
@@ -96,57 +96,61 @@ export const ManeAccountJobCompletedEmail = ({
 
                         <Section style={detailsParent}>
                             <Section style={detailsContainer}>
-                                <Text style={{ ...detailRow, fontSize: '20px', fontWeight: 'bold' }}>{isClient ? 'Horse-by-Week' : 'Day-by-day'} Breakdown of Completed Services:</Text>
-                                {isClient && horseDetails ? (
+                                <Text style={{ ...detailRow, fontSize: '20px', fontWeight: 'bold' }}>Horse-by-Week Breakdown of Completed Services:</Text>
+                                {horseDetails && (
                                     <>
-                                        {Object.entries(horseDetails).map(([horseName, serviceDetails], i) => (
-                                            <Fragment key={horseName + i}>
-                                                <Text
-                                                    style={{
-                                                        ...detailRow,
-                                                        fontWeight: 'bold',
-                                                        fontSize: '16px',
-                                                        marginTop: '12px',
-                                                        borderBottom: '1px solid #ccc',
-                                                        paddingBottom: '4px',
-                                                    }}
-                                                >
-                                                    {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
-                                                </Text>
-                                                <div>
-                                                    <div style={{ marginBottom: '12px', paddingLeft: '12px', marginTop: '8px' }}>
-                                                        <ul style={{ padding: '0', margin: '4px 0' }}>
-                                                            {Object.entries(serviceDetails).map(([service, { days, price }], j) => (
-                                                                <li key={j + service + price} style={{ fontSize: '14px', color: '#444', marginBottom: '2px' }}>
-                                                                    {service}&nbsp;-&nbsp;
-                                                                    {days.map((day, k) => (
-                                                                        <span key={k + day.getTime()}>
-                                                                            {format(parseUTCToLocal(day) || day, 'EEEE')}
-                                                                            {k === days.length - 1 ? '' : ', '}
-                                                                        </span>
-                                                                    ))}{' '}
-                                                                    ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)})
-                                                                </li>
-                                                            ))}
-                                                            {horseExpenses !== undefined && horseExpenses[horseName] !== undefined && horseExpenses[horseName] > 0 && (
-                                                                <li style={{ color: '#d97706', fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>
-                                                                    Expenses: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(horseExpenses[horseName])}
-                                                                </li>
-                                                            )}
-                                                        </ul>
-                                                        <p style={{ fontSize: '14px', color: '#444', margin: '8px 0 2px 0', fontWeight: 'bold' }}>
-                                                            Subtotal:{' '}
-                                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                                                                Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
-                                                                    (horseExpenses !== undefined && horseExpenses[horseName] !== undefined ? horseExpenses[horseName] : 0),
-                                                            )}
-                                                        </p>
+                                        {Object.entries(horseDetails)
+                                            .sort(([aName], [bName]) => aName.split('/////')[0].localeCompare(bName.split('/////')[0]))
+                                            .map(([horseName, serviceDetails], i) => (
+                                                <Fragment key={horseName + i}>
+                                                    <Text
+                                                        style={{
+                                                            ...detailRow,
+                                                            fontWeight: 'bold',
+                                                            fontSize: '16px',
+                                                            marginTop: '12px',
+                                                            borderBottom: '1px solid #ccc',
+                                                            paddingBottom: '4px',
+                                                        }}
+                                                    >
+                                                        {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
+                                                    </Text>
+                                                    <div>
+                                                        <div style={{ marginBottom: '12px', paddingLeft: '12px', marginTop: '8px' }}>
+                                                            <ul style={{ padding: '0', margin: '4px 0' }}>
+                                                                {Object.entries(serviceDetails).map(([service, { days, price }], j) => (
+                                                                    <li key={j + service + price} style={{ fontSize: '14px', color: '#444', marginBottom: '2px' }}>
+                                                                        {service}&nbsp;-&nbsp;
+                                                                        {days.map((day, k) => (
+                                                                            <span key={k + day.getTime()}>
+                                                                                {format(parseUTCToLocal(day) || day, 'EEEE')}
+                                                                                {k === days.length - 1 ? '' : ', '}
+                                                                            </span>
+                                                                        ))}{' '}
+                                                                        ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)})
+                                                                    </li>
+                                                                ))}
+                                                                {horseExpenses !== undefined && horseExpenses[horseName] !== undefined && horseExpenses[horseName] > 0 && (
+                                                                    <li style={{ color: '#d97706', fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>
+                                                                        Expenses:{' '}
+                                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(horseExpenses[horseName])}
+                                                                    </li>
+                                                                )}
+                                                            </ul>
+                                                            <p style={{ fontSize: '14px', color: '#444', margin: '8px 0 2px 0', fontWeight: 'bold' }}>
+                                                                Subtotal:{' '}
+                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                                                                    Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
+                                                                        (horseExpenses !== undefined && horseExpenses[horseName] !== undefined ? horseExpenses[horseName] : 0),
+                                                                )}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </Fragment>
-                                        ))}
+                                                </Fragment>
+                                            ))}
                                     </>
-                                ) : (
+                                )}
+                                {/* ) : (
                                     !isClient && (
                                         <>
                                             {serviceDetails.map((dayRecord, i) =>
@@ -186,7 +190,7 @@ export const ManeAccountJobCompletedEmail = ({
                                             )}
                                         </>
                                     )
-                                )}
+                                )} */}
 
                                 <Hr style={hr} />
                                 <Text style={{ ...detailRow, fontSize: '18px', fontWeight: 'bold', textAlign: 'left' }}>
@@ -207,7 +211,9 @@ export const ManeAccountJobCompletedEmail = ({
 
                         {paymentInformation.venmo || paymentInformation.zelle ? (
                             <Section>
-                                <Text style={{ ...bold, fontSize: '20px', margin: '8px 0 0 0' }}>Select a payment method:</Text>
+                                <Text style={{ ...bold, fontSize: '20px', margin: '8px 0 0 0' }}>
+                                    {paymentInformation.venmo && paymentInformation.zelle ? 'Use one of the following payment methods:' : 'Use the following payment method:'}
+                                </Text>
                                 <Text style={{ ...italic, margin: '0 0 4px 0' }}>
                                     {isClient ? `Pay ${braiderName} or defer payment to your barn.` : `Pay ${braiderName} or defer payment to your clients.`}
                                 </Text>

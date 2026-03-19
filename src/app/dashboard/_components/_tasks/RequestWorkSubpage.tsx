@@ -63,7 +63,7 @@ const RequestWorkSubpage = ({
     );
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [selectedHorseId, setSelectedHorseId] = useState<string>('');
+    const [selectedHorseIds, setSelectedHorseIds] = useState<string[]>([]);
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
     const [braiderJobs, setBraiderJobs] = useState<any[]>([]);
 
@@ -185,11 +185,11 @@ const RequestWorkSubpage = ({
     }, [selectedShow]);
 
     const handleAddAssignment = () => {
-        if (!selectedDate || !selectedHorseId || selectedServiceIds.length === 0) return;
+        if (!selectedDate || selectedHorseIds.length === 0 || selectedServiceIds.length === 0) return;
 
-        const existingAssignment = assignments.some((a) => a.horseId === selectedHorseId && isSameDay(a.date, selectedDate));
+        const existingAssignment = assignments.some((a) => selectedHorseIds.includes(a.horseId) && isSameDay(a.date, selectedDate));
         if (existingAssignment) {
-            failToast('Horse already added for this date');
+            failToast('One or more horses already added for this date');
             return;
         }
 
@@ -198,16 +198,16 @@ const RequestWorkSubpage = ({
                 ? prev
                 : [
                       ...prev,
-                      {
-                          clientName: horses.find((h) => h.id === selectedHorseId)?.client.name,
-                          horseId: selectedHorseId,
+                      ...selectedHorseIds.map((horseId) => ({
+                          clientName: horses.find((h) => h.id === horseId)?.client.name,
+                          horseId: horseId,
                           serviceIds: selectedServiceIds,
                           date: selectedDate,
-                      },
+                      })),
                   ],
         );
 
-        setSelectedHorseId('');
+        setSelectedHorseIds([]);
         setSelectedServiceIds([]);
         setSelectedHorse(null);
     };
@@ -572,6 +572,7 @@ const RequestWorkSubpage = ({
                                                     const d = new Date(date);
                                                     d.setHours(12, 0, 0, 0);
                                                     setSelectedDate(d);
+                                                    setSelectedHorseIds([]);
                                                 }}
                                                 className={cn(
                                                     'shrink-0 w-20 py-3 rounded-2xl flex flex-col items-center border transition-all cursor-pointer',
@@ -596,11 +597,11 @@ const RequestWorkSubpage = ({
                                             <div
                                                 key={h.id}
                                                 onClick={() => {
-                                                    setSelectedHorseId(h.id);
+                                                    setSelectedHorseIds((prev) => [...prev, h.id]);
                                                 }}
                                                 className={cn(
                                                     'flex flex-col items-center gap-2 p-3 rounded-xl shadow-sm border cursor-pointer transition-all relative group',
-                                                    selectedHorseId === h.id
+                                                    selectedHorseIds.includes(h.id)
                                                         ? 'bg-primary-extra-light border-primary'
                                                         : 'bg-white border-gray-200 hover:shadow-md hover:border-primary/50',
                                                     assignments.some((a) => isSameDay(selectedDate || new Date(), a.date) && h.id === a.horseId) || !selectedDate
@@ -666,11 +667,11 @@ const RequestWorkSubpage = ({
                             <div className='mt-6 flex flex-col @min-[450px]/request-page:flex-row gap-3'>
                                 <button
                                     onClick={handleAddAssignment}
-                                    disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
+                                    disabled={!selectedDate || selectedHorseIds.length === 0 || selectedServiceIds.length === 0}
                                     className='bg-background justify-center @min-[450px]/request-page:justify-start text-[17px] primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
                                 >
                                     <Plus size={18} />
-                                    Add to List
+                                    Add to List {selectedHorseIds.length > 0 ? `(${selectedHorseIds.length})` : ''}
                                 </button>
                                 <span className={cn(loading || assignments.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer')}>
                                     <button

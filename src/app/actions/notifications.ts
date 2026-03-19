@@ -370,6 +370,30 @@ export async function createNotification(
                         if (job.braider.zelle && job.braider.zelle !== 'disabled')
                             paymentInformation.zelle = job.braider.zelle === 'email' ? job.braider.email || '' : job.braider.phoneNumber || '';
 
+                        // HORSE DETAILS
+
+                        const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
+                        const horseExpenses: Record<string, number> = {};
+                        for (const horse of validAssignments) {
+                            const showName = horse.horse.showName;
+                            const barnName = horse.horse.barnName;
+                            const nameKey = `${showName}/////(${barnName})`;
+
+                            if (!horseExpenses[nameKey]) horseExpenses[nameKey] = 0;
+                            if (horse.customCharges.length > 0) horseExpenses[nameKey] += horse.customCharges.reduce((acc, c) => acc + c.amount, 0);
+
+                            if (!horseDetails[nameKey]) horseDetails[nameKey] = {};
+
+                            for (const service of horse.services) {
+                                const serviceName = service.name;
+                                if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
+
+                                horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+                                horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+                                horseDetails[nameKey][serviceName].price += service.priceUSD;
+                            }
+                        }
+
                         await sendJobCompletedEmail({
                             to: user.email,
                             braiderName: job.braider.name || 'Braider',
@@ -380,6 +404,8 @@ export async function createNotification(
                             image: image || '',
                             paymentInformation,
                             serviceDetails: [mainServiceDetails],
+                            horseDetails,
+                            horseExpenses,
                         });
 
                         const notifiedClientIds = new Set<string>();
@@ -402,25 +428,25 @@ export async function createNotification(
                                     }
                                 }
 
-                                const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
-                                const horseExpenses: Record<string, number> = {};
+                                const clientHorseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
+                                const clientHorseExpenses: Record<string, number> = {};
                                 for (const horse of validAssignments.filter((a) => a.horse.clientId === client.id)) {
                                     const showName = horse.horse.showName;
                                     const barnName = horse.horse.barnName;
                                     const nameKey = `${showName}/////(${barnName})`;
 
-                                    if (!horseExpenses[nameKey]) horseExpenses[nameKey] = 0;
-                                    if (horse.customCharges.length > 0) horseExpenses[nameKey] += horse.customCharges.reduce((acc, c) => acc + c.amount, 0);
+                                    if (!clientHorseExpenses[nameKey]) clientHorseExpenses[nameKey] = 0;
+                                    if (horse.customCharges.length > 0) clientHorseExpenses[nameKey] += horse.customCharges.reduce((acc, c) => acc + c.amount, 0);
 
-                                    if (!horseDetails[nameKey]) horseDetails[nameKey] = {};
+                                    if (!clientHorseDetails[nameKey]) clientHorseDetails[nameKey] = {};
 
                                     for (const service of horse.services) {
                                         const serviceName = service.name;
-                                        if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
+                                        if (!clientHorseDetails[nameKey][serviceName]) clientHorseDetails[nameKey][serviceName] = { days: [], price: 0 };
 
-                                        horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
-                                        horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
-                                        horseDetails[nameKey][serviceName].price += service.priceUSD;
+                                        clientHorseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+                                        clientHorseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+                                        clientHorseDetails[nameKey][serviceName].price += service.priceUSD;
                                     }
                                 }
 
@@ -432,10 +458,11 @@ export async function createNotification(
                                         horseName: assignment.horse.showName,
                                         thanksMessage: job.thanksMessage || '',
                                         isClient: true,
+                                        image: image || '',
                                         paymentInformation,
                                         serviceDetails: [clientServiceDetails],
-                                        horseDetails: horseDetails,
-                                        horseExpenses: horseExpenses,
+                                        horseDetails: clientHorseDetails,
+                                        horseExpenses: clientHorseExpenses,
                                     });
                                 }
                                 notifiedClientIds.add(client.id);

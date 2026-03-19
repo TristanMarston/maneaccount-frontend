@@ -631,10 +631,7 @@ const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistor
                                                         <CheckSquare size={14} strokeWidth={3} className='text-white' />
                                                     )}
                                                 </button>
-                                                <div>
-                                                    <p className='font-bold text-sm text-gray-900'>{group.name}</p>
-                                                    <p className='text-xs text-gray-500'>{group.assignments.length} horses</p>
-                                                </div>
+                                                <p className='font-bold text-sm text-gray-900'>{group.name}</p>
                                             </div>
                                             <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
                                         </div>

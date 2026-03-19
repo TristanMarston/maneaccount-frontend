@@ -184,7 +184,7 @@ const Tasks = ({
     useAutoRefresh(loadJobs);
 
     const handleCancelJob = async (id: string) => {
-        const res = await cancelJob(id);
+        const res = await cancelJob(id, role);
 
         if (res.success) {
             successToast('Job canceled!');
@@ -640,7 +640,7 @@ const Tasks = ({
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
                         <p className='text-gray-800 text-[17px] font-figtree mt-2'>
-                            This action will cancel this request. However, you may still request it again if you change your mind.
+                            This action will cancel this job. Are you sure you want to proceed?{role === 'barn' && ' However, you may request from the same show again if you change your mind.'}
                         </p>
                         <div className='grid @min-[325px]/check-request:grid-cols-2 @min-[325px]/check-request:gap-3 gap-2 mt-4'>
                             <button
@@ -653,7 +653,7 @@ const Tasks = ({
                                 onClick={() => handleCancelJob(selectedJob.id)}
                                 className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                             >
-                                Cancel Request
+                                Cancel Job
                             </button>
                         </div>
                     </div>
@@ -1055,11 +1055,11 @@ const JobCard = ({
                                       ? 'drafting'
                                       : isJobPending
                                         ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                        : isJobAccepted && horsesCompleted === 0
+                                        : isJobAccepted && horsesCompleted === 0 && job.assignments.some((a) => !a.canceledAt)
                                           ? 'all accepted'
                                           : horsesCompleted > 0
                                             ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                            : isJobDenied
+                                            : isJobDenied || job.assignments.every((a) => a.canceledAt || a.status === 'canceled' || a.status === 'denied')
                                               ? 'denied'
                                               : isJobCanceled
                                                 ? 'canceled'

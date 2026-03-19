@@ -292,7 +292,7 @@ export async function sendJobCompletedEmail({
             client: any;
         }[]
     >[];
-    horseDetails?: Record<
+    horseDetails: Record<
         string,
         Record<
             string,
@@ -315,7 +315,7 @@ export async function sendJobCompletedEmail({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
             Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
             Message: {
-                Subject: { Data: `${isClient ? 'PAYMENT REQUIRED - ' : ''}Services Completed: ${showName}` },
+                Subject: { Data: `${isClient ? 'BRAIDING PAYMENT REQUIRED - ' : ''}Services Completed: ${showName}` },
                 Body: { Html: { Data: html } },
             },
         });

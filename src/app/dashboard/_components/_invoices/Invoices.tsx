@@ -244,7 +244,7 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                                     }, 0);
 
                                     return (
-                                        <div className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all')}>
+                                        <div key={job.id} className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all')}>
                                             <div
                                                 className='p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-all'
                                                 onClick={() => {

@@ -33,6 +33,8 @@ import {
     Send,
     Loader2,
     Loader,
+    CloudCheck,
+    CloudBackup,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
@@ -47,6 +49,8 @@ import {
     submitJob,
     markJobCompleted,
     getUserByEmail,
+    markJobReview,
+    revertJobReview,
 } from '@/app/actions/jobs';
 import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
@@ -57,7 +61,7 @@ import { JobDetailSubpage } from './JobDetailSubpage';
 import { ViewShowDetailsModal } from './RequestWorkModals';
 import { createPortal } from 'react-dom';
 import { getTeamMembers } from '@/app/actions/team';
-import { failToast, successToast, scrollVariants } from '@/app/context';
+import { failToast, successToast, scrollVariants, loadingToast } from '@/app/context';
 import { markAllMessagesAsRead, markAllTypeAsRead } from '@/app/actions/notifications';
 import { NotificationType, SubscriptionTier } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
@@ -74,7 +78,7 @@ import { changeThanksMessage } from '@/app/actions/settings';
 
 export type Job = {
     id: string;
-    status: 'editing' | 'submitted';
+    status: 'editing' | 'submitted' | 'reviewing' | 'completed';
     braider: { name: string; image?: string; email: string; id: string; services: { id: string; name: string; priceUSD: number; duration: number }[] };
     barn: { name: string; image?: string; email: string; id: string };
     subcontractors: { name: string; image?: string; email: string; id: string }[];
@@ -116,6 +120,7 @@ export const statusColors = {
     canceled: 'bg-gray-100 text-gray-700 border-gray-200',
     completed: 'bg-green-100 text-green-700 border-green-200',
     paid: 'bg-green-100 text-green-700 border-green-200',
+    reviewing: 'bg-purple-100 text-purple-700 border-purple-200',
 };
 
 const Tasks = ({
@@ -640,7 +645,8 @@ const Tasks = ({
                     <div>
                         <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
                         <p className='text-gray-800 text-[17px] font-figtree mt-2'>
-                            This action will cancel this job. Are you sure you want to proceed?{role === 'barn' && ' However, you may request from the same show again if you change your mind.'}
+                            This action will cancel this job. Are you sure you want to proceed?
+                            {role === 'barn' && ' However, you may request from the same show again if you change your mind.'}
                         </p>
                         <div className='grid @min-[325px]/check-request:grid-cols-2 @min-[325px]/check-request:gap-3 gap-2 mt-4'>
                             <button
@@ -964,6 +970,7 @@ const JobCard = ({
 }) => {
     const completedNotPaid = !!job.invoiceSentAt && !job.assignments.every((a) => a.paidAt);
 
+    const reviewingJob = job.status === 'reviewing';
     const isJobPending = job.assignments.some((a) => a.status === 'pending');
     const isJobAccepted = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'accepted' || a.status === 'completed');
     const isJobDenied = job.assignments.length > 0 && job.assignments.every((a) => a.status === 'denied');
@@ -972,13 +979,41 @@ const JobCard = ({
         .filter((a) => role !== 'subcontractor' || a.subcontractor?.email === userEmail)
         .filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length && a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length).length;
 
-    const handleMarkCompleted = (e: React.MouseEvent) => {
+    // const handleMarkCompleted = (e: React.MouseEvent) => {
+    //     e.stopPropagation();
+    //     setCheckMarkedCompleted({
+    //         open: true,
+    //         id: job.id,
+    //         assignments: job.assignments,
+    //     });
+    // };
+
+    const handleSaveAndReview = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        setCheckMarkedCompleted({
-            open: true,
-            id: job.id,
-            assignments: job.assignments,
-        });
+
+        const loadingId = loadingToast('Saving job for review...');
+
+        const res = await markJobReview(job.id);
+        if (res.success) {
+            successToast('Job saved for review!', loadingId);
+            refresh();
+        } else {
+            failToast(res.error || 'Failed to save job for review', loadingId);
+        }
+    };
+
+    const handleRevertReviewStatus = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        const loadingId = loadingToast('Reverting job review status...');
+
+        const res = await revertJobReview(job.id);
+        if (res.success) {
+            successToast('Reverted job review! You are free to make changes again.', loadingId);
+            refresh();
+        } else {
+            failToast(res.error || 'Failed to revert job review status', loadingId);
+        }
     };
 
     const sendRequest = async () => {
@@ -1012,10 +1047,12 @@ const JobCard = ({
                         ? 'bg-[#f2fcf7] border-primary-extra-light mt-2'
                         : job.status === 'editing'
                           ? 'opacity-70 border-red-200'
-                          : '',
+                          : reviewingJob
+                            ? 'border-[1.5px] border-amber-200 bg-primary-extra-light mt-2'
+                            : '',
             )}
         >
-            <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '')}>
+            <div className={cn('flex items-start gap-4 w-full @min-[600px]/tasks:w-auto', completedNotPaid ? 'opacity-60' : '', reviewingJob ? 'opacity-70' : '')}>
                 <div className='w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-figtree'>
                     {role === 'barn' ? (
                         job.braider?.image ? (
@@ -1040,11 +1077,13 @@ const JobCard = ({
                                 statusColors[
                                     job.assignments.every((a) => a.paidAt)
                                         ? 'paid'
-                                        : horsesCompleted > 0 ||
-                                            (role === 'subcontractor' &&
-                                                job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length === 0)
-                                          ? 'accepted'
-                                          : job.status
+                                        : job.status === 'reviewing'
+                                          ? 'reviewing'
+                                          : horsesCompleted > 0 ||
+                                              (role === 'subcontractor' &&
+                                                  job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length === 0)
+                                            ? 'accepted'
+                                            : job.status
                                 ],
                             )}
                         >
@@ -1053,19 +1092,21 @@ const JobCard = ({
                                     ? 'paid'
                                     : job.status === 'editing'
                                       ? 'drafting'
-                                      : isJobPending
-                                        ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                        : isJobAccepted && horsesCompleted === 0 && job.assignments.some((a) => !a.canceledAt)
-                                          ? 'all accepted'
-                                          : horsesCompleted > 0
-                                            ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                            : isJobDenied || job.assignments.every((a) => a.canceledAt || a.status === 'canceled' || a.status === 'denied')
-                                              ? 'denied'
-                                              : isJobCanceled
-                                                ? 'canceled'
-                                                : job.status === 'submitted'
-                                                  ? 'all accepted'
-                                                  : job.status
+                                      : job.status === 'reviewing'
+                                        ? 'under review'
+                                        : isJobPending
+                                          ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
+                                          : isJobAccepted && horsesCompleted === 0 && job.assignments.some((a) => !a.canceledAt)
+                                            ? 'all accepted'
+                                            : horsesCompleted > 0
+                                              ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                              : isJobDenied || job.assignments.every((a) => a.canceledAt || a.status === 'canceled' || a.status === 'denied')
+                                                ? 'denied'
+                                                : isJobCanceled
+                                                  ? 'canceled'
+                                                  : job.status === 'submitted'
+                                                    ? 'all accepted'
+                                                    : job.status
                                 : job.assignments.every((a) => a.paidAt)
                                   ? 'paid'
                                   : isJobDenied
@@ -1179,13 +1220,22 @@ const JobCard = ({
                                 0,
                             ) && (
                             <button
-                                onClick={handleMarkCompleted}
+                                onClick={handleSaveAndReview}
                                 className='p-2 rounded-full flex justify-center items-center cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
-                                title='Send Invoice'
+                                title='Save & Review'
                             >
-                                <CheckCircle2 size={28} />
+                                <CloudCheck size={28} />
                             </button>
                         )}
+                    {role === 'braider' && reviewingJob && (
+                        <button
+                            onClick={handleRevertReviewStatus}
+                            className='p-2 rounded-full flex justify-center items-center cursor-pointer hover:bg-green-50 text-gray-400 hover:text-green-600 transition-all border border-transparent hover:border-green-200'
+                            title='Go Back & Edit'
+                        >
+                            <CloudBackup size={28} />
+                        </button>
+                    )}
                     {job.status === 'editing' && (
                         <button
                             onClick={(e) => {
@@ -1266,6 +1316,20 @@ const JobCard = ({
                     )}
                 >
                     Invoices Sent
+                    {role === 'braider' && <ChevronsRight className='w-5 h-5' />}
+                </div>
+            )}
+            {reviewingJob && (
+                <div
+                    onClick={() => {
+                        if (role === 'braider') setSelectedPage('Invoices');
+                    }}
+                    className={cn(
+                        'cursor-pointer flex items-center gap-2 font-figtree uppercase font-bold absolute -top-3 right-2 text-[15px] tracking-wide px-3 py-0.5 rounded-full bg-amber-100 border border-amber-200 shadow-sm text-amber-700 hover:bg-amber-200 transition-all',
+                        role !== 'braider' ? 'pointer-events-none' : '',
+                    )}
+                >
+                    {role === 'braider' ? 'Review Invoice' : 'Under Review'}
                     {role === 'braider' && <ChevronsRight className='w-5 h-5' />}
                 </div>
             )}

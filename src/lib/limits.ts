@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { SubscriptionTier } from '@prisma/client';
-import { startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
+import { startOfWeek, endOfWeek, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
+import { parseUTCToLocal } from './date-utils';
 
 export async function getBraiderUsage(
     braiderId: string,
@@ -73,9 +74,9 @@ export async function getBraiderUsage(
                 [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
             assignment.completedServiceIds.length > 0 &&
             assignment.completedAt &&
-            assignment.completedAt >= startDate &&
-            assignment.completedAt <= endDate,
+            isAfter(parseUTCToLocal(assignment.completedAt) || assignment.completedAt, startDate) &&
+            isBefore(parseUTCToLocal(assignment.completedAt) || assignment.completedAt, endDate),
     ).length;
-
+    
     return { count, limit, period };
 }

@@ -18,19 +18,28 @@ export const scrollVariants = (delay: number = 0, duration: number = 1, staggerC
     },
 });
 
-export const failToast = (message: string) => {
-    toast.error(message, {
-        duration: 10000,
+export const loadingToast = (message: string) => {
+    return toast.loading(message, {
         position: 'top-center',
         className: 'font-figtree primary-border-important !p-[8px_16px_8px_20px] !rounded-[14px] font-semibold text-lg w-full !max-w-fit',
     });
 };
 
-export const successToast = (message: string) => {
+export const failToast = (message: string, id?: string) => {
+    toast.error(message, {
+        duration: 10000,
+        position: 'top-center',
+        className: 'font-figtree primary-border-important !p-[8px_16px_8px_20px] !rounded-[14px] font-semibold text-lg w-full !max-w-fit',
+        id,
+    });
+};
+
+export const successToast = (message: string, id?: string) => {
     toast.success(message, {
         duration: 10000,
         position: 'top-center',
         className: 'font-figtree primary-border-important !p-[8px_16px_8px_20px] !rounded-[14px] font-semibold text-lg w-full !max-w-fit',
+        id,
     });
 };
 

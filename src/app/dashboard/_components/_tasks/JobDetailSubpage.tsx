@@ -46,10 +46,12 @@ import {
     markJobCompleted,
     acceptAllPendingAssignments,
     respondToSubcontractorAssignment,
+    markJobReview,
+    revertJobReview,
 } from '@/app/actions/jobs';
 import { getTeamMembers } from '@/app/actions/team';
 import { getIDByEmail } from '@/app/actions/join';
-import { successToast, failToast } from '@/app/context';
+import { successToast, failToast, loadingToast } from '@/app/context';
 import { getHorses } from '@/app/actions/horses';
 import Modal from '../../Modal';
 import { AnimatePresence, motion, Variants } from 'motion/react';
@@ -609,6 +611,34 @@ export const JobDetailSubpage = ({
         }
     };
 
+    const handleSaveAndReview = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        const loadingId = loadingToast('Saving job for review...');
+
+        const res = await markJobReview(job.id);
+        if (res.success) {
+            successToast('Job saved for review! Go to Invoices to finalize.', loadingId);
+            refresh();
+        } else {
+            failToast(res.error || 'Failed to save job for review', loadingId);
+        }
+    };
+
+    const handleRevertReviewStatus = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        const loadingId = loadingToast('Reverting job review status...');
+
+        const res = await revertJobReview(job.id);
+        if (res.success) {
+            successToast('Reverted job review! You are free to make changes again.', loadingId);
+            refresh();
+        } else {
+            failToast(res.error || 'Failed to revert job review status', loadingId);
+        }
+    };
+
     return (
         <div className='font-figtree pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 w-full @container/job-subpage'>
             <div ref={containerRef} className='w-full'>
@@ -658,11 +688,13 @@ export const JobDetailSubpage = ({
                             statusColors[
                                 job.assignments.every((a) => a.paidAt)
                                     ? 'paid'
-                                    : horsesCompleted > 0 ||
-                                        (role === 'subcontractor' &&
-                                            job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length === 0)
-                                      ? 'accepted'
-                                      : job.status
+                                    : job.status === 'reviewing'
+                                      ? 'reviewing'
+                                      : horsesCompleted > 0 ||
+                                          (role === 'subcontractor' &&
+                                              job.assignments.filter((a) => a.subcontractor?.email === userEmail && a.subcontractorStatus === 'pending').length === 0)
+                                        ? 'accepted'
+                                        : job.status
                             ],
                         )}
                     >
@@ -671,19 +703,21 @@ export const JobDetailSubpage = ({
                                 ? 'paid'
                                 : job.status === 'editing'
                                   ? 'drafting'
-                                  : isJobPending
-                                    ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
-                                    : isJobAccepted && horsesCompleted === 0 && job.assignments.some((a) => !a.canceledAt)
-                                      ? 'all accepted'
-                                      : horsesCompleted > 0
-                                        ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
-                                        : isJobDenied || job.assignments.every((a) => a.canceledAt || a.status === 'canceled' || a.status === 'denied')
-                                          ? 'denied'
-                                          : isJobCanceled
-                                            ? 'canceled'
-                                            : job.status === 'submitted'
-                                              ? 'all accepted'
-                                              : job.status
+                                  : job.status === 'reviewing'
+                                    ? 'under review'
+                                    : isJobPending
+                                      ? `${job.assignments.filter((a) => a.status === 'pending').length}/${job.assignments.filter((a) => a.status !== 'denied' && a.status !== 'canceled').length} horses pending`
+                                      : isJobAccepted && horsesCompleted === 0 && job.assignments.some((a) => !a.canceledAt)
+                                        ? 'all accepted'
+                                        : horsesCompleted > 0
+                                          ? `${horsesCompleted}/${job.assignments.filter((a) => !a.canceledAt && (a.status === 'accepted' || a.status === 'completed') && a.services.length !== a.canceledServiceIds.length).length} horses completed`
+                                          : isJobDenied || job.assignments.every((a) => a.canceledAt || a.status === 'canceled' || a.status === 'denied')
+                                            ? 'denied'
+                                            : isJobCanceled
+                                              ? 'canceled'
+                                              : job.status === 'submitted'
+                                                ? 'all accepted'
+                                                : job.status
                             : job.assignments.every((a) => a.paidAt)
                               ? 'paid'
                               : isJobDenied
@@ -750,7 +784,7 @@ export const JobDetailSubpage = ({
                     </div>
                 )}
 
-                <div className={cn(job.invoiceSentAt ? 'pointer-events-none opacity-70' : '')}>
+                <div className={cn(job.invoiceSentAt || job.status === 'reviewing' ? 'pointer-events-none opacity-[0.65]' : '')}>
                     <div className='flex justify-between items-center mb-3 mt-4'>
                         <h3 className='text-sm font-bold text-gray-500 uppercase'>Assignments</h3>
                         {role === 'barn' && !job.invoiceSentAt && (
@@ -1418,16 +1452,10 @@ export const JobDetailSubpage = ({
                                 0,
                             ) && (
                             <button
-                                onClick={() => {
-                                    setCheckMarkedCompleted({
-                                        id: job.id,
-                                        open: true,
-                                        assignments: job.assignments,
-                                    });
-                                }}
+                                onClick={handleSaveAndReview}
                                 className='w-full flex justify-center items-center gap-2 font-figtree font-bold text-background bg-primary-light rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'
                             >
-                                Send Invoice
+                                Save & Review Invoice
                                 <AlertCircle
                                     strokeWidth={2.5}
                                     className={cn(
@@ -1445,6 +1473,29 @@ export const JobDetailSubpage = ({
                                 />
                             </button>
                         )}
+                    {role === 'braider' && job.status === 'reviewing' && (
+                        <button
+                            onClick={handleRevertReviewStatus}
+                            className='w-full flex justify-center items-center gap-2 font-figtree font-bold bg-background text-primary rounded-[10px] py-1.5 text-lg cursor-pointer disabled:opacity-50 disabled:pointer-events-none primary-border-hover'
+                        >
+                            Revert Job Review Status
+                            <AlertCircle
+                                strokeWidth={2.5}
+                                className={cn(
+                                    'w-6 h-6',
+                                    job.assignments.reduce((acc, a) => acc + [...new Set(a.completedServiceIds)].length, 0) === 0 &&
+                                        job.assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length === 0 &&
+                                        job.assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0) === 0 &&
+                                        job.assignments.reduce(
+                                            (acc, a) => (a.canceledAt ? acc + a.services.length : acc + a.services.filter((s) => a.canceledServiceIds.includes(s.id)).length),
+                                            0,
+                                        ) === job.assignments.reduce((acc, a) => acc + a.services.length, 0)
+                                        ? 'block'
+                                        : 'hidden',
+                                )}
+                            />
+                        </button>
+                    )}
                 </div>
             </div>
 

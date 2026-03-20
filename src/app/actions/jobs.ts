@@ -142,8 +142,8 @@ export async function getJobs(email: string, role: string) {
 
         let whereClause: any = {};
         if (role === 'barn') whereClause = { barnId: user.id };
-        else if (role === 'braider') whereClause = { braiderId: user.id, status: { in: ['submitted', 'completed'] } };
-        else if (role === 'subcontractor') whereClause = { subcontractors: { some: { id: user.id } }, status: { in: ['submitted', 'completed'] } };
+        else if (role === 'braider') whereClause = { braiderId: user.id, status: { in: ['submitted', 'completed', 'reviewing'] } };
+        else if (role === 'subcontractor') whereClause = { subcontractors: { some: { id: user.id } }, status: { in: ['submitted', 'completed', 'reviewing'] } };
         else return [];
 
         const jobs = await prisma.job.findMany({
@@ -361,6 +361,47 @@ export async function addNote(jobId: string, content: string) {
         return { error: 'Failed to add note' };
     }
 }
+
+export async function markJobReview(jobId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        await prisma.job.update({
+            where: { id: jobId },
+            data: { status: 'reviewing' },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Mark review error:', error);
+        return { error: 'Failed to mark job as review' };
+    }
+}
+
+export async function revertJobReview(jobId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({ where: { id: jobId } });
+        if (!job) return { error: 'No job found with that id' };
+        if (job.status !== 'reviewing') return { error: 'Job not in review process' };
+
+        await prisma.job.update({
+            where: { id: jobId },
+            data: { status: 'submitted' },
+        });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Mark review error:', error);
+        return { error: 'Failed to mark job as review' };
+    }
+}
+
 export async function markJobCompleted(jobId: string, thanksMessage?: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };

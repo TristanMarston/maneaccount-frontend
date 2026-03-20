@@ -310,6 +310,7 @@ model Note {
 enum JobStatus {
   editing
   submitted
+  reviewing
   completed
 }
 

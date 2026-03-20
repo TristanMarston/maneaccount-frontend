@@ -52,29 +52,22 @@ import {
     markJobReview,
     revertJobReview,
 } from '@/app/actions/jobs';
-import { getRelations } from '@/app/actions/barn-relations';
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { format, eachDayOfInterval, isSameDay, addHours } from 'date-fns';
 import { JobDetailSubpage } from './JobDetailSubpage';
 import { ViewShowDetailsModal } from './RequestWorkModals';
-import { createPortal } from 'react-dom';
-import { getTeamMembers } from '@/app/actions/team';
 import { failToast, successToast, scrollVariants, loadingToast } from '@/app/context';
 import { markAllMessagesAsRead, markAllTypeAsRead } from '@/app/actions/notifications';
 import { NotificationType, SubscriptionTier } from '@prisma/client';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { addShowToCalendar } from '@/app/actions/calendar';
-import DatePicker from '../DatePicker';
-import { getIDByEmail } from '@/app/actions/join';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { formatPhoneNumber } from '../_settings/Settings';
 import RequestWorkSubpage from './RequestWorkSubpage';
 import { parseUTCToLocal } from '@/lib/date-utils';
 import { Tab } from '../_braider/BraiderDashboard';
-import { changeThanksMessage } from '@/app/actions/settings';
 
 export type Job = {
     id: string;
@@ -154,9 +147,7 @@ const Tasks = ({
     const [cancelJobModal, setCancelJobModal] = useState(false);
     const [showCanceledEvents, setShowCanceledEvents] = useState(false);
     const [showCompletedEvents, setShowCompletedEvents] = useState(false);
-    const [checkMarkedCompleted, setCheckMarkedCompleted] = useState<{ open: boolean; id: string; assignments: any[] }>({ open: false, id: '', assignments: [] });
     const [selectedHorse, setSelectedHorse] = useState<any | null>(null);
-    const [exactTime, setExactTime] = useState(new Date());
     const [braiderUsage, setBraiderUsage] = useState<{ count: number; limit: number; period: string } | null>(null);
 
     useEffect(() => {
@@ -167,17 +158,6 @@ const Tasks = ({
 
         if (role === 'braider') getUsages();
     }, [userEmail, role, jobs]);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (!checkMarkedCompleted.open) return;
-            setExactTime(new Date());
-        }, 60000);
-
-        return () => {
-            clearInterval(interval);
-        };
-    }, [checkMarkedCompleted]);
 
     const loadJobs = useCallback(async () => {
         const data = await getJobs(userEmail, role);
@@ -251,18 +231,6 @@ const Tasks = ({
         if (selectedJob) {
             const updatedJob = (updated as any).find((j: Job) => j.id === selectedJob.id);
             if (updatedJob) setSelectedJob(updatedJob);
-        }
-    };
-
-    const handleMarkJobCompleted = async (jobID: string, thanksMessage: string) => {
-        const res = await markJobCompleted(jobID, thanksMessage);
-        if (res.success) {
-            successToast('Invoice sent!');
-            setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
-            setSelectedJob(null);
-            refreshJobs();
-        } else {
-            failToast('Failed to mark job as completed.');
         }
     };
 
@@ -404,7 +372,6 @@ const Tasks = ({
                                                 setNotesJob={setNotesJob}
                                                 refresh={refreshJobs}
                                                 setSelectedPage={setSelectedPage}
-                                                setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                 unreadCount={unreadCounts.byType[`new_message_${job.id}`]}
                                                 setRequestingJob={setRequestingJob}
                                             />
@@ -487,7 +454,6 @@ const Tasks = ({
                                                                     setNotesJob={setNotesJob}
                                                                     refresh={refreshJobs}
                                                                     setSelectedPage={setSelectedPage}
-                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     unreadCount={unreadCounts.byType[`new_message_${job.id}`]}
                                                                 />
                                                             ))}
@@ -557,7 +523,6 @@ const Tasks = ({
                                                                     setNotesJob={setNotesJob}
                                                                     refresh={refreshJobs}
                                                                     setSelectedPage={setSelectedPage}
-                                                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                                                     unreadCount={unreadCounts.byType[`new_message_${job.id}`]}
                                                                 />
                                                             ))}
@@ -614,7 +579,6 @@ const Tasks = ({
                                     refresh={refreshJobs}
                                     handleCancelJobModal={handleCancelJobModal}
                                     setSelectedHorse={setSelectedHorse}
-                                    setCheckMarkedCompleted={setCheckMarkedCompleted}
                                     subscriptionTier={subscriptionTier}
                                 />
                             </motion.div>
@@ -666,7 +630,7 @@ const Tasks = ({
                 )}
             </Modal>
 
-            <Modal
+            {/* <Modal
                 isOpen={checkMarkedCompleted.open}
                 setIsOpen={(open: boolean) => setCheckMarkedCompleted((prev) => ({ ...prev, open }))}
                 closeOnOutsideClick={false}
@@ -681,7 +645,7 @@ const Tasks = ({
                     userEmail={userEmail}
                     setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
                 />
-            </Modal>
+            </Modal> */}
 
             <Modal isOpen={!!notesJob} setIsOpen={() => setNotesJob(null)} className='max-w-lg p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {notesJob && <JobNotesModal job={notesJob} role={role} onClose={() => setNotesJob(null)} refresh={refreshJobs} />}
@@ -719,227 +683,227 @@ const getInvoiceInfo = (assignments: any[]) => {
     };
 };
 
-const CheckMarkedCompletedModal = ({
-    checkMarkedCompleted,
-    setCheckMarkedCompleted,
-    handleMarkJobCompleted,
-    exactTime,
-    role,
-    userEmail,
-    setSettingsOpen,
-}: {
-    checkMarkedCompleted: {
-        open: boolean;
-        id: string;
-        assignments: any[];
-    };
-    setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; assignments: any[] }) => void;
-    role: string;
-    handleMarkJobCompleted: (id: string, thanksMessage: string) => void;
-    exactTime: Date;
-    userEmail: string;
-    setSettingsOpen: (page: Tab) => void;
-}) => {
-    // @ts-ignore
-    if (!checkMarkedCompleted.id) setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
-    const [invoiceInfo, setInvoiceInfo] = useState(getInvoiceInfo(checkMarkedCompleted.assignments));
-    const originalThanksMessage = useRef('');
-    const [thanksMessage, setThanksMessage] = useState('');
-    const [loadingThanksMessage, setLoadingThanksMessage] = useState(true);
-    const [thanksMessageWords, setThanksMessageWords] = useState(0);
+// const CheckMarkedCompletedModal = ({
+//     checkMarkedCompleted,
+//     setCheckMarkedCompleted,
+//     handleMarkJobCompleted,
+//     exactTime,
+//     role,
+//     userEmail,
+//     setSettingsOpen,
+// }: {
+//     checkMarkedCompleted: {
+//         open: boolean;
+//         id: string;
+//         assignments: any[];
+//     };
+//     setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; assignments: any[] }) => void;
+//     role: string;
+//     handleMarkJobCompleted: (id: string, thanksMessage: string) => void;
+//     exactTime: Date;
+//     userEmail: string;
+//     setSettingsOpen: (page: Tab) => void;
+// }) => {
+//     // @ts-ignore
+//     if (!checkMarkedCompleted.id) setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
+//     const [invoiceInfo, setInvoiceInfo] = useState(getInvoiceInfo(checkMarkedCompleted.assignments));
+//     const originalThanksMessage = useRef('');
+//     const [thanksMessage, setThanksMessage] = useState('');
+//     const [loadingThanksMessage, setLoadingThanksMessage] = useState(true);
+//     const [thanksMessageWords, setThanksMessageWords] = useState(0);
 
-    useEffect(() => {
-        setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
-    }, [checkMarkedCompleted.open]);
+//     useEffect(() => {
+//         setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
+//     }, [checkMarkedCompleted.open]);
 
-    const [loadingDetails, setLoadingDetails] = useState(true);
-    const [hasPayoutInfo, setHasPayoutInfo] = useState(false);
+//     const [loadingDetails, setLoadingDetails] = useState(true);
+//     const [hasPayoutInfo, setHasPayoutInfo] = useState(false);
 
-    useEffect(() => {
-        const getPayoutInfo = async () => {
-            setLoadingDetails(true);
-            const user = await getUserByEmail(userEmail);
+//     useEffect(() => {
+//         const getPayoutInfo = async () => {
+//             setLoadingDetails(true);
+//             const user = await getUserByEmail(userEmail);
 
-            if (user && ((user.venmo && user.venmoEnabled) || user.zelle !== 'disabled')) setHasPayoutInfo(true);
-            setLoadingDetails(false);
-        };
+//             if (user && ((user.venmo && user.venmoEnabled) || user.zelle !== 'disabled')) setHasPayoutInfo(true);
+//             setLoadingDetails(false);
+//         };
 
-        const getThanksMessage = async () => {
-            setLoadingThanksMessage(true);
-            const user = await getUserByEmail(userEmail);
-            if (user && user.thanksMessage) {
-                originalThanksMessage.current = user.thanksMessage;
-                setThanksMessage(user.thanksMessage);
-                setThanksMessageWords(user.thanksMessage.split(' ').filter((s) => s.trim().length > 0).length);
-            }
-            setLoadingThanksMessage(false);
-        };
+//         const getThanksMessage = async () => {
+//             setLoadingThanksMessage(true);
+//             const user = await getUserByEmail(userEmail);
+//             if (user && user.thanksMessage) {
+//                 originalThanksMessage.current = user.thanksMessage;
+//                 setThanksMessage(user.thanksMessage);
+//                 setThanksMessageWords(user.thanksMessage.split(' ').filter((s) => s.trim().length > 0).length);
+//             }
+//             setLoadingThanksMessage(false);
+//         };
 
-        getPayoutInfo();
-        getThanksMessage();
-    }, [checkMarkedCompleted.id]);
+//         getPayoutInfo();
+//         getThanksMessage();
+//     }, [checkMarkedCompleted.id]);
 
-    const setNewThanksMessage = async () => {
-        setLoadingThanksMessage(true);
-        const result = await changeThanksMessage(thanksMessage);
+//     const setNewThanksMessage = async () => {
+//         setLoadingThanksMessage(true);
+//         const result = await changeThanksMessage(thanksMessage);
 
-        if (result.success) {
-            setLoadingThanksMessage(false);
-            successToast('Default thank-you message saved!');
-            originalThanksMessage.current = result.message;
-        } else {
-            setLoadingThanksMessage(false);
-            failToast('Failed to save thank-you message.');
-        }
-    };
+//         if (result.success) {
+//             setLoadingThanksMessage(false);
+//             successToast('Default thank-you message saved!');
+//             originalThanksMessage.current = result.message;
+//         } else {
+//             setLoadingThanksMessage(false);
+//             failToast('Failed to save thank-you message.');
+//         }
+//     };
 
-    return loadingDetails ? (
-        <div className='w-full h-48 flex items-center justify-center'>
-            <span className='loader-primary'></span>
-        </div>
-    ) : checkMarkedCompleted.id.length > 0 && role === 'braider' && hasPayoutInfo ? (
-        <div>
-            <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
-                Have you completed this service?
-            </h1>
-            <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
-                <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
-                <p className='mt-2'>
-                    Payments occur outside of the ManeAccount platform, but we offer the ability to track them in the <span className='font-bold'>Invoices</span> panel. Please ensure
-                    that all reported services were actually completed.
-                </p>
-            </div>
-            <div className='flex flex-col gap-2 mt-4'>
-                <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
-                <div className='p-4 w-full font-figtree bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
-                    <div className='flex items-center gap-3 flex-wrap'>
-                        <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
-                            {new Intl.NumberFormat('en-US', {
-                                style: 'currency',
-                                currency: 'USD',
-                            }).format(invoiceInfo.earnings)}
-                        </div>
-                        <div className='font-figtree font-normal text-sm'>
-                            <div className='flex items-center gap-2 font-semibold text-[15px]'>
-                                <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
-                                {format(exactTime, 'Pp')}
-                            </div>
-                            <span>
-                                {invoiceInfo.horses} Horse{invoiceInfo.horses === 1 ? '' : 's'}
-                            </span>{' '}
-                            •{' '}
-                            <span>
-                                {invoiceInfo.services} Service{invoiceInfo.services === 1 ? '' : 's'}
-                            </span>
-                        </div>
-                    </div>
-                    <div className='ml-1'>
-                        <p className='font-figtree text-purple-600 font-bold tracking-wide uppercase text-sm mt-3'>Client Breakdown</p>
-                        {Object.values(invoiceInfo.clientBreakdown)
-                            .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
-                            .map((group: any) => {
-                                const groupTotal = group.assignments.reduce((acc: number, a: any) => {
-                                    const servicesTotal = a.services
-                                        .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
-                                        .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
-                                    const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
-                                    return acc + servicesTotal + customTotal;
-                                }, 0);
+//     return loadingDetails ? (
+//         <div className='w-full h-48 flex items-center justify-center'>
+//             <span className='loader-primary'></span>
+//         </div>
+//     ) : checkMarkedCompleted.id.length > 0 && role === 'braider' && hasPayoutInfo ? (
+//         <div>
+//             <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
+//                 Have you completed this service?
+//             </h1>
+//             <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
+//                 <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
+//                 <p className='mt-2'>
+//                     Payments occur outside of the ManeAccount platform, but we offer the ability to track them in the <span className='font-bold'>Invoices</span> panel. Please ensure
+//                     that all reported services were actually completed.
+//                 </p>
+//             </div>
+//             <div className='flex flex-col gap-2 mt-4'>
+//                 <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
+//                 <div className='p-4 w-full font-figtree bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
+//                     <div className='flex items-center gap-3 flex-wrap'>
+//                         <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
+//                             {new Intl.NumberFormat('en-US', {
+//                                 style: 'currency',
+//                                 currency: 'USD',
+//                             }).format(invoiceInfo.earnings)}
+//                         </div>
+//                         <div className='font-figtree font-normal text-sm'>
+//                             <div className='flex items-center gap-2 font-semibold text-[15px]'>
+//                                 <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
+//                                 {format(exactTime, 'Pp')}
+//                             </div>
+//                             <span>
+//                                 {invoiceInfo.horses} Horse{invoiceInfo.horses === 1 ? '' : 's'}
+//                             </span>{' '}
+//                             •{' '}
+//                             <span>
+//                                 {invoiceInfo.services} Service{invoiceInfo.services === 1 ? '' : 's'}
+//                             </span>
+//                         </div>
+//                     </div>
+//                     <div className='ml-1'>
+//                         <p className='font-figtree text-purple-600 font-bold tracking-wide uppercase text-sm mt-3'>Client Breakdown</p>
+//                         {Object.values(invoiceInfo.clientBreakdown)
+//                             .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
+//                             .map((group: any) => {
+//                                 const groupTotal = group.assignments.reduce((acc: number, a: any) => {
+//                                     const servicesTotal = a.services
+//                                         .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
+//                                         .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+//                                     const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+//                                     return acc + servicesTotal + customTotal;
+//                                 }, 0);
 
-                                if (groupTotal === 0) return null;
+//                                 if (groupTotal === 0) return null;
 
-                                return (
-                                    <div key={group.id} className='flex items-center py-2 pl-1 @min-[380px]/check-completed:p-3 gap-1 rounded-lg flex-wrap'>
-                                        <div className='font-lusitana text-2xl py-1.5 px-3.5 bg-purple-200 border border-purple-400 text-purple-600 shadow-sm rounded-[14px]'>
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}
-                                        </div>
-                                        <div className='pl-1 w-[101%] @min-[315px]/check-completed:w-fit'>
-                                            <p className='font-semibold text-[15px] text-purple-600'>{group.name}</p>
-                                            <p className='text-[13px] font-normal text-purple-600'>{group.assignments.length} Horses</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                    </div>
-                    <div className='ml-1'>
-                        <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-1'>Thank-you Message (optional)</p>
-                        <p className='font-figtree text-primary font-semibold text-[13px] mt-0.5'>Write a custom thank-you message for your clients to see in the invoice.</p>
-                        <textarea
-                            value={loadingThanksMessage ? 'Loading...' : thanksMessage}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                const words = value.split(' ').filter((s) => s.trim().length > 0).length;
-                                if (words > 150) return;
-                                setThanksMessage(e.target.value);
-                                setThanksMessageWords(words);
-                            }}
-                            className='w-full mt-2 font-medium text-primary-dark bg-primary/15 focus:bg-primary/5 outline-none shadow-sm border h-[90px] max-h-[90px] min-h-[42px] overflow-y-auto border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
-                            placeholder={`e.g. "Thanks for doing business with me!"`}
-                            autoCorrect='on'
-                            autoComplete='on'
-                            spellCheck={true}
-                            required
-                        />
-                        <span className='inline-flex items-start mt-1 flex-col @min-[270px]/check-completed:flex-row @min-[270px]/check-completed:justify-between w-full'>
-                            <p className={cn('text-xs ml-1 pb-2 text-primary', thanksMessageWords === 150 ? 'text-red-400' : '')}>{thanksMessageWords} / 150 words</p>
-                            <AnimatePresence>
-                                {originalThanksMessage.current.length > 0 && originalThanksMessage.current.trim() !== thanksMessage.trim() && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        onClick={() => setNewThanksMessage()}
-                                        className='text-sm uppercase ml-1 flex items-center gap-1 bg-primary/10 py-0.5 px-2 rounded-full hover:bg-primary/5 transition-colors cursor-pointer'
-                                    >
-                                        {loadingThanksMessage ? <Loader2 className='animate-spin text-primary w-4 h-4' /> : <></>}
-                                        {loadingThanksMessage ? 'Loading...' : 'Set as Default'}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
-                <button
-                    // @ts-ignore
-                    onClick={() => setCheckMarkedCompleted((prev) => ({ ...prev, open: false }))}
-                    className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
-                >
-                    Cancel
-                </button>
-                <button
-                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage)}
-                    className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
-                >
-                    Send Invoice
-                </button>
-            </div>
-        </div>
-    ) : (
-        role === 'braider' &&
-        !hasPayoutInfo && (
-            <div className='w-full px-5 py-24 flex flex-col items-center justify-center gap-4'>
-                <div className='bg-primary-extra-light rounded-full p-3'>
-                    <BadgeDollarSign className='text-primary w-14 h-14' />
-                </div>
-                <h4 className='text-gray-700 text-lg text-center font-figtree'>
-                    You have no payout information added, so clients will have no way of paying you. Go to{' '}
-                    <button
-                        onClick={() => {
-                            setSettingsOpen('invoicing');
-                        }}
-                        className='text-primary hover:text-primary-light transition-all font-semibold cursor-pointer'
-                    >
-                        Settings
-                    </button>{' '}
-                    to fix this.
-                </h4>
-            </div>
-        )
-    );
-};
+//                                 return (
+//                                     <div key={group.id} className='flex items-center py-2 pl-1 @min-[380px]/check-completed:p-3 gap-1 rounded-lg flex-wrap'>
+//                                         <div className='font-lusitana text-2xl py-1.5 px-3.5 bg-purple-200 border border-purple-400 text-purple-600 shadow-sm rounded-[14px]'>
+//                                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}
+//                                         </div>
+//                                         <div className='pl-1 w-[101%] @min-[315px]/check-completed:w-fit'>
+//                                             <p className='font-semibold text-[15px] text-purple-600'>{group.name}</p>
+//                                             <p className='text-[13px] font-normal text-purple-600'>{group.assignments.length} Horses</p>
+//                                         </div>
+//                                     </div>
+//                                 );
+//                             })}
+//                     </div>
+//                     <div className='ml-1'>
+//                         <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-1'>Thank-you Message (optional)</p>
+//                         <p className='font-figtree text-primary font-semibold text-[13px] mt-0.5'>Write a custom thank-you message for your clients to see in the invoice.</p>
+//                         <textarea
+//                             value={loadingThanksMessage ? 'Loading...' : thanksMessage}
+//                             onChange={(e) => {
+//                                 const value = e.target.value;
+//                                 const words = value.split(' ').filter((s) => s.trim().length > 0).length;
+//                                 if (words > 150) return;
+//                                 setThanksMessage(e.target.value);
+//                                 setThanksMessageWords(words);
+//                             }}
+//                             className='w-full mt-2 font-medium text-primary-dark bg-primary/15 focus:bg-primary/5 outline-none shadow-sm border h-[90px] max-h-[90px] min-h-[42px] overflow-y-auto border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+//                             placeholder={`e.g. "Thanks for doing business with me!"`}
+//                             autoCorrect='on'
+//                             autoComplete='on'
+//                             spellCheck={true}
+//                             required
+//                         />
+//                         <span className='inline-flex items-start mt-1 flex-col @min-[270px]/check-completed:flex-row @min-[270px]/check-completed:justify-between w-full'>
+//                             <p className={cn('text-xs ml-1 pb-2 text-primary', thanksMessageWords === 150 ? 'text-red-400' : '')}>{thanksMessageWords} / 150 words</p>
+//                             <AnimatePresence>
+//                                 {originalThanksMessage.current.length > 0 && originalThanksMessage.current.trim() !== thanksMessage.trim() && (
+//                                     <motion.div
+//                                         initial={{ opacity: 0 }}
+//                                         animate={{ opacity: 1 }}
+//                                         exit={{ opacity: 0 }}
+//                                         transition={{ duration: 0.3 }}
+//                                         onClick={() => setNewThanksMessage()}
+//                                         className='text-sm uppercase ml-1 flex items-center gap-1 bg-primary/10 py-0.5 px-2 rounded-full hover:bg-primary/5 transition-colors cursor-pointer'
+//                                     >
+//                                         {loadingThanksMessage ? <Loader2 className='animate-spin text-primary w-4 h-4' /> : <></>}
+//                                         {loadingThanksMessage ? 'Loading...' : 'Set as Default'}
+//                                     </motion.div>
+//                                 )}
+//                             </AnimatePresence>
+//                         </span>
+//                     </div>
+//                 </div>
+//             </div>
+//             <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
+//                 <button
+//                     // @ts-ignore
+//                     onClick={() => setCheckMarkedCompleted((prev) => ({ ...prev, open: false }))}
+//                     className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+//                 >
+//                     Cancel
+//                 </button>
+//                 <button
+//                     onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage)}
+//                     className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
+//                 >
+//                     Send Invoice
+//                 </button>
+//             </div>
+//         </div>
+//     ) : (
+//         role === 'braider' &&
+//         !hasPayoutInfo && (
+//             <div className='w-full px-5 py-24 flex flex-col items-center justify-center gap-4'>
+//                 <div className='bg-primary-extra-light rounded-full p-3'>
+//                     <BadgeDollarSign className='text-primary w-14 h-14' />
+//                 </div>
+//                 <h4 className='text-gray-700 text-lg text-center font-figtree'>
+//                     You have no payout information added, so clients will have no way of paying you. Go to{' '}
+//                     <button
+//                         onClick={() => {
+//                             setSettingsOpen('invoicing');
+//                         }}
+//                         className='text-primary hover:text-primary-light transition-all font-semibold cursor-pointer'
+//                     >
+//                         Settings
+//                     </button>{' '}
+//                     to fix this.
+//                 </h4>
+//             </div>
+//         )
+//     );
+// };
 
 const JobCard = ({
     job,
@@ -951,7 +915,6 @@ const JobCard = ({
     completed = false,
     refresh,
     setSelectedPage,
-    setCheckMarkedCompleted,
     unreadCount,
     setRequestingJob,
 }: {
@@ -964,7 +927,6 @@ const JobCard = ({
     completed?: boolean;
     refresh: () => void;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
-    setCheckMarkedCompleted: React.Dispatch<React.SetStateAction<{ open: boolean; id: string; assignments: any[] }>>;
     unreadCount: number;
     setRequestingJob?: (j: Job | 'creating' | null) => void;
 }) => {

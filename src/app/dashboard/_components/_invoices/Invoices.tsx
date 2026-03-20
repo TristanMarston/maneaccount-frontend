@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -23,10 +23,15 @@ import {
     BadgeDollarSign,
     Loader2,
     CalendarCheck,
+    CheckCircle,
+    MinusCircle,
+    Trash2,
+    DollarSign,
+    Loader,
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { cn } from '@/lib/utils';
-import { getJobs, markClientPaid, getEarningsHistory, getUserByEmail, markJobCompleted } from '@/app/actions/jobs';
+import { getJobs, markClientPaid, getEarningsHistory, getUserByEmail, markJobCompleted, removeCustomCharge, getJobById, addCustomCharge } from '@/app/actions/jobs';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { format } from 'date-fns';
@@ -38,6 +43,7 @@ import { changeThanksMessage, getUserSettings } from '@/app/actions/settings';
 import { formatPhoneNumber } from '../_settings/Settings';
 import { failToast, successToast } from '@/app/context';
 import { Tab } from '../_braider/BraiderDashboard';
+import { parseUTCToLocal } from '@/lib/date-utils';
 
 const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string; userEmail: string; setView: (view: string) => void; setSettingsOpen: (page: Tab) => void }) => {
     const [jobs, setJobs] = useState<any[]>([]);
@@ -59,6 +65,13 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
 
     const [checkMarkedCompleted, setCheckMarkedCompleted] = useState<{ open: boolean; id: string; assignments: any[] }>({ open: false, id: '', assignments: [] });
     const [exactTime, setExactTime] = useState(new Date());
+
+    const [chargeModalOpen, setChargeModalOpen] = useState(false);
+    const [chargeName, setChargeName] = useState('');
+    const [chargeAmount, setChargeAmount] = useState('');
+    const [chargeLoading, setChargeLoading] = useState(false);
+    const [selectedChargeAssignmentId, setSelectedChargeAssignmentId] = useState<string>('');
+    const [refreshModalFunction, setRefreshModalFunction] = useState<(() => void) | null>(null);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -92,6 +105,14 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
         [userEmail, role],
     );
 
+    const refreshCheckMarkedCompletedModal = async (jobId: string) => {
+        console.log(jobId);
+        const job = await getJobById(jobId);
+        if (job && job.success && job.job) {
+            setCheckMarkedCompleted({ ...checkMarkedCompleted, assignments: job.job.assignments });
+        }
+    };
+
     const fetchEarnings = useCallback(async () => {
         setEarningsLoading(true);
         const data = await getEarningsHistory(earningsPeriod);
@@ -110,6 +131,36 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
         } else {
             failToast('Failed to mark job as completed.');
         }
+    };
+
+    const handleAddCharge = async () => {
+        if (!selectedChargeAssignmentId || !chargeName || !chargeAmount) return;
+        setChargeLoading(true);
+        const res = await addCustomCharge(selectedChargeAssignmentId, chargeName, parseFloat(chargeAmount));
+        if (res.success) {
+            successToast('Charge added');
+            setChargeModalOpen(false);
+            setChargeName('');
+            setChargeAmount('');
+            setChargeLoading(false);
+
+            setSelectedChargeAssignmentId('');
+
+            refreshCheckMarkedCompletedModal(checkMarkedCompleted.id);
+
+            return true;
+        } else {
+            failToast(res.error || 'Failed to add charge');
+            setChargeLoading(false);
+            return false;
+        }
+    };
+
+    const handleOpenAddChargeModal = (assignmentId: string) => {
+        setChargeModalOpen(true);
+        setChargeName('');
+        setChargeAmount('');
+        setSelectedChargeAssignmentId(assignmentId);
     };
 
     useEffect(() => {
@@ -149,132 +200,134 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
     const fullyPaidJobs = jobs.filter((j) => j.status === 'completed' && j.assignments.length > 0 && j.assignments.every((a: any) => a.paidAt || a.canceledAt));
 
     return (
-        <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/invoices'>
-            <div className='flex justify-between @min-[490px]/invoices:items-center flex-col @min-[490px]/invoices:flex-row mb-6 gap-4'>
-                <div>
-                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Invoices</h1>
-                    <p className='text-gray-500 font-figtree mt-1'>Track your earnings and manage payments.</p>
+        <>
+            <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 @container/invoices'>
+                <div className='flex justify-between @min-[490px]/invoices:items-center flex-col @min-[490px]/invoices:flex-row mb-6 gap-4'>
+                    <div>
+                        <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Invoices</h1>
+                        <p className='text-gray-500 font-figtree mt-1'>Track your earnings and manage payments.</p>
+                    </div>
+                    <div className='flex flex-col gap-3 @min-[380px]/invoices:flex-row @min-[380px]/invoices:items-center @min-[380px]/invoices:gap-4 w-auto'>
+                        <button
+                            onClick={() => refreshJobsFn(true)}
+                            className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-primary primary-border-hover bg-background text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[735px]/invoices:py-2 @min-[735px]/invoices:px-6'
+                        >
+                            <RefreshCcw className={cn('w-6 h-6', loading ? 'animate-spin' : '')} strokeWidth={2.5} />
+                            <span className='block @min-[490px]/invoices:hidden @min-[735px]/invoices:block'>Refresh</span>
+                        </button>
+                        <button
+                            onClick={() => setShowQRModal(true)}
+                            className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/invoices:text-lg @min-[650px]/invoices:text-[19px] @min-[735px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[650px]/invoices:rounded-[14px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[650px]/invoices:py-2 @min-[650px]/invoices:px-6 bg-primary-light text-background primary-border-hover'
+                        >
+                            <QrCode className='w-6 h-6' strokeWidth={2.5} />
+                            <span className='block @min-[490px]/invoices:hidden @min-[650px]/invoices:block'>Show QR Codes</span>
+                        </button>
+                    </div>
                 </div>
-                <div className='flex flex-col gap-3 @min-[380px]/invoices:flex-row @min-[380px]/invoices:items-center @min-[380px]/invoices:gap-4 w-auto'>
-                    <button
-                        onClick={() => refreshJobsFn(true)}
-                        className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-primary primary-border-hover bg-background text-[17px] @min-[275px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[735px]/invoices:py-2 @min-[735px]/invoices:px-6'
-                    >
-                        <RefreshCcw className={cn('w-6 h-6', loading ? 'animate-spin' : '')} strokeWidth={2.5} />
-                        <span className='block @min-[490px]/invoices:hidden @min-[735px]/invoices:block'>Refresh</span>
-                    </button>
-                    <button
-                        onClick={() => setShowQRModal(true)}
-                        className='font-figtree w-auto cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[275px]/invoices:text-lg @min-[650px]/invoices:text-[19px] @min-[735px]/invoices:text-lg text-nowrap rounded-[14px] @min-[490px]/invoices:rounded-[20px] @min-[650px]/invoices:rounded-[14px] @min-[735px]/invoices:rounded-[10px] py-2 px-6 @min-[490px]/invoices:p-3 @min-[650px]/invoices:py-2 @min-[650px]/invoices:px-6 bg-primary-light text-background primary-border-hover'
-                    >
-                        <QrCode className='w-6 h-6' strokeWidth={2.5} />
-                        <span className='block @min-[490px]/invoices:hidden @min-[650px]/invoices:block'>Show QR Codes</span>
-                    </button>
-                </div>
-            </div>
 
-            <div className='grid grid-cols-1 @min-[490px]/invoices:grid-cols-2 gap-4 mb-8 font-figtree'>
-                <div className='bg-emerald-50 primary-border rounded-[14px] p-6 flex flex-col gap-2'>
-                    <span className='text-emerald-600 font-bold uppercase text-xs tracking-wider flex items-center gap-2'>
-                        Total Earnings <TrendingUp size={16} />
-                    </span>
-                    <span
-                        className='text-4xl font-lusitana font-bold text-primary truncate'
-                        title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)}
-                    >
+                <div className='grid grid-cols-1 @min-[490px]/invoices:grid-cols-2 gap-4 mb-8 font-figtree'>
+                    <div className='bg-emerald-50 primary-border rounded-[14px] p-6 flex flex-col gap-2'>
+                        <span className='text-emerald-600 font-bold uppercase text-xs tracking-wider flex items-center gap-2'>
+                            Total Earnings <TrendingUp size={16} />
+                        </span>
+                        <span
+                            className='text-4xl font-lusitana font-bold text-primary truncate'
+                            title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)}
+                        >
+                            {loading ? (
+                                <span>
+                                    $<span className='text-4xl'>--.--</span>
+                                </span>
+                            ) : (
+                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)
+                            )}
+                        </span>
+                    </div>
+                    <div className='bg-amber-50 amber-border p-6 rounded-[14px] flex flex-col gap-2'>
+                        <span className='text-amber-600 font-bold uppercase text-xs tracking-wider flex items-center gap-2'>
+                            Pending Payments <ListFilter size={16} />
+                        </span>
+                        <span
+                            className='text-4xl font-lusitana font-bold text-amber-700 truncate'
+                            title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
+                        >
+                            {loading ? (
+                                <span>
+                                    $<span className='text-4xl'>--.--</span>
+                                </span>
+                            ) : (
+                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)
+                            )}
+                        </span>
+                    </div>
+                </div>
+
+                <div className='space-y-8 font-figtree'>
+                    <section>
+                        <h2 className='text-lg font-bold font-figtree mb-4 flex items-center gap-2'>
+                            Invoices to Review
+                            {jobsUnderReview.length > 0 && (
+                                <span className='bg-purple-600 text-white text-xs w-5.5 h-5.5 rounded-full aspect-square flex justify-center items-center text-center'>
+                                    {jobsUnderReview.length}
+                                </span>
+                            )}
+                        </h2>
+
                         {loading ? (
-                            <span>
-                                $<span className='text-4xl'>--.--</span>
-                            </span>
+                            <div className='flex flex-col gap-3 animate-pulse'>
+                                <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
+                                <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
+                            </div>
+                        ) : jobsUnderReview.length === 0 ? (
+                            <div className='flex flex-col items-center justify-center text-center py-12 bg-gray-50/50 rounded-2xl px-4 border border-dashed border-gray-200'>
+                                <span className='text-gray-500 text-lg font-semibold'>No invoices to review.</span>
+                            </div>
                         ) : (
-                            new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEarned)
-                        )}
-                    </span>
-                </div>
-                <div className='bg-amber-50 amber-border p-6 rounded-[14px] flex flex-col gap-2'>
-                    <span className='text-amber-600 font-bold uppercase text-xs tracking-wider flex items-center gap-2'>
-                        Pending Payments <ListFilter size={16} />
-                    </span>
-                    <span
-                        className='text-4xl font-lusitana font-bold text-amber-700 truncate'
-                        title={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)}
-                    >
-                        {loading ? (
-                            <span>
-                                $<span className='text-4xl'>--.--</span>
-                            </span>
-                        ) : (
-                            new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pendingAmount)
-                        )}
-                    </span>
-                </div>
-            </div>
+                            <div className='space-y-3'>
+                                {jobsUnderReview
+                                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                    .map((job) => {
+                                        const totalRevenue = job.assignments.reduce((acc: number, a: any) => {
+                                            const servicesTotal = a.services
+                                                .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
+                                                .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+                                            const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+                                            return acc + servicesTotal + customTotal;
+                                        }, 0);
 
-            <div className='space-y-8 font-figtree'>
-                <section>
-                    <h2 className='text-lg font-bold font-figtree mb-4 flex items-center gap-2'>
-                        Invoices to Review
-                        {jobsUnderReview.length > 0 && (
-                            <span className='bg-primary text-white text-xs w-5.5 h-5.5 rounded-full aspect-square flex justify-center items-center text-center'>
-                                {jobsUnderReview.length}
-                            </span>
-                        )}
-                    </h2>
-
-                    {loading ? (
-                        <div className='flex flex-col gap-3 animate-pulse'>
-                            <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
-                            <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
-                        </div>
-                    ) : jobsUnderReview.length === 0 ? (
-                        <div className='flex flex-col items-center justify-center text-center py-12 bg-gray-50/50 rounded-2xl px-4 border border-dashed border-gray-200'>
-                            <span className='text-gray-500 text-lg font-semibold'>No invoices to review.</span>
-                        </div>
-                    ) : (
-                        <div className='space-y-3'>
-                            {jobsUnderReview
-                                .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                                .map((job) => {
-                                    const totalRevenue = job.assignments.reduce((acc: number, a: any) => {
-                                        const servicesTotal = a.services
-                                            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
-                                            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
-                                        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
-                                        return acc + servicesTotal + customTotal;
-                                    }, 0);
-
-                                    return (
-                                        <div key={job.id} className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all')}>
-                                            <div
-                                                className='p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-all'
-                                                onClick={() => {
-                                                    setCheckMarkedCompleted({
-                                                        open: true,
-                                                        id: job.id,
-                                                        assignments: job.assignments,
-                                                    });
-                                                }}
-                                            >
-                                                <div className='flex items-center gap-4'>
-                                                    <div
-                                                        className={cn(
-                                                            'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
-                                                            'bg-primary-extra-light border border-[#dae3de] text-primary-light',
-                                                        )}
+                                        return (
+                                            <div key={job.id} className={cn('bg-violet-50 rounded-[14px] border border-violet-100 shadow-sm overflow-hidden transition-all')}>
+                                                <div
+                                                    className='p-4 flex items-center justify-between cursor-pointer transition-all'
+                                                    onClick={() => {
+                                                        setCheckMarkedCompleted({
+                                                            open: true,
+                                                            id: job.id,
+                                                            assignments: job.assignments,
+                                                        });
+                                                    }}
+                                                >
+                                                    <div className='flex items-center gap-4'>
+                                                        <div className='w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0 bg-violet-200 border border-violet-200 text-violet-500'>
+                                                            {new Intl.NumberFormat('en-US', {
+                                                                style: 'currency',
+                                                                currency: 'USD',
+                                                            }).format(totalRevenue)}
+                                                        </div>
+                                                        <div>
+                                                            <h3 className='font-bold text-gray-900'>{job.show.name}</h3>
+                                                            <p className='text-xs text-gray-500'>
+                                                                {format(new Date(job.invoiceSentAt), 'MMM d, yyyy')} • {job.assignments.length} Horses
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type='button'
+                                                        className='px-5 cursor-pointer py-2 violet-border-hover text-[17px] bg-violet-400 text-white font-bold font-figtree rounded-[10px]'
                                                     >
-                                                        {new Intl.NumberFormat('en-US', {
-                                                            style: 'currency',
-                                                            currency: 'USD',
-                                                        }).format(totalRevenue)}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className='font-bold text-gray-900'>{job.show.name}</h3>
-                                                        <p className='text-xs text-gray-500'>
-                                                            {format(new Date(job.invoiceSentAt), 'MMM d, yyyy')} • {job.assignments.length} Horses
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                {/* <motion.div
+                                                        Send Invoice
+                                                    </button>
+                                                    {/* <motion.div
                                                     className='text-gray-400 mr-2 bg-gray-100 p-1 rounded-full'
                                                     initial={{ rotate: 0 }}
                                                     animate={{ rotate: expanded ? 180 : 0 }}
@@ -282,75 +335,74 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                                                 >
                                                     <ChevronUp />
                                                 </motion.div> */}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                        </div>
-                    )}
-                </section>
-                <section>
-                    <h2 className='text-lg font-bold font-figtree mb-4 flex items-center gap-2'>
-                        Pending Payment
-                        {jobsWithPending.length > 0 && (
-                            <span className='bg-primary text-white text-xs w-5.5 h-5.5 rounded-full aspect-square flex justify-center items-center text-center'>
-                                {jobsWithPending.length}
-                            </span>
+                                        );
+                                    })}
+                            </div>
                         )}
-                    </h2>
-
-                    {loading ? (
-                        <div className='flex flex-col gap-3 animate-pulse'>
-                            <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
-                            <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
-                        </div>
-                    ) : jobsWithPending.length === 0 ? (
-                        <div className='flex flex-col items-center justify-center text-center py-12 bg-gray-50/50 rounded-2xl px-4 border border-dashed border-gray-200'>
-                            <span className='text-gray-500 text-lg font-semibold'>No pending invoices.</span>
-                        </div>
-                    ) : (
-                        <div className='space-y-3'>
-                            {jobsWithPending
-                                .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                                .map((job) => (
-                                    <InvoiceCard key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
-                                ))}
-                        </div>
-                    )}
-                </section>
-
-                {fullyPaidJobs.length > 0 && (
-                    <section>
-                        <span
-                            onClick={() => setShowHistory((prev) => !prev)}
-                            className='text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-1.5 text-lg mb-2'
-                        >
-                            <h2 className=''>History</h2>
-                            <motion.div animate={{ rotate: showHistory ? 180 : 0 }}>
-                                <ChevronDown />
-                            </motion.div>
-                        </span>
-                        <AnimatePresence>
-                            {showHistory && (
-                                <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className='space-y-3 overflow-hidden pb-0.5 px-0.5'
-                                >
-                                    {fullyPaidJobs
-                                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                                        .map((job) => (
-                                            <InvoiceCard key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
-                                        ))}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
                     </section>
-                )}
-            </div>
+                    <section>
+                        <h2 className='text-lg font-bold font-figtree mb-4 flex items-center gap-2'>
+                            Pending Payment
+                            {jobsWithPending.length > 0 && (
+                                <span className='bg-primary text-white text-xs w-5.5 h-5.5 rounded-full aspect-square flex justify-center items-center text-center'>
+                                    {jobsWithPending.length}
+                                </span>
+                            )}
+                        </h2>
 
-            {/* Pending Payments Modal */}
+                        {loading ? (
+                            <div className='flex flex-col gap-3 animate-pulse'>
+                                <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
+                                <div className='w-full h-32 bg-gray-100 rounded-2xl'></div>
+                            </div>
+                        ) : jobsWithPending.length === 0 ? (
+                            <div className='flex flex-col items-center justify-center text-center py-12 bg-gray-50/50 rounded-2xl px-4 border border-dashed border-gray-200'>
+                                <span className='text-gray-500 text-lg font-semibold'>No pending invoices.</span>
+                            </div>
+                        ) : (
+                            <div className='space-y-3'>
+                                {jobsWithPending
+                                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                    .map((job) => (
+                                        <InvoiceCard key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
+                                    ))}
+                            </div>
+                        )}
+                    </section>
+
+                    {fullyPaidJobs.length > 0 && (
+                        <section>
+                            <span
+                                onClick={() => setShowHistory((prev) => !prev)}
+                                className='text-gray-400 font-semibold cursor-pointer hover:text-gray-500 transition-all flex items-center gap-1.5 text-lg mb-2'
+                            >
+                                <h2 className=''>History</h2>
+                                <motion.div animate={{ rotate: showHistory ? 180 : 0 }}>
+                                    <ChevronDown />
+                                </motion.div>
+                            </span>
+                            <AnimatePresence>
+                                {showHistory && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className='space-y-3 overflow-hidden pb-0.5 px-0.5'
+                                    >
+                                        {fullyPaidJobs
+                                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                            .map((job) => (
+                                                <InvoiceCard key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
+                                            ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </section>
+                    )}
+                </div>
+            </div>
             <Modal isOpen={pendingModalOpen} setIsOpen={setPendingModalOpen} className='max-w-2xl w-full p-6 rounded-[18px] primary-border-bold'>
                 <div className='font-figtree'>
                     <div className='flex justify-between items-center mb-6'>
@@ -393,17 +445,100 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                     checkMarkedCompleted={checkMarkedCompleted}
                     setCheckMarkedCompleted={setCheckMarkedCompleted}
                     handleMarkJobCompleted={handleMarkJobCompleted}
+                    handleOpenAddChargeModal={handleOpenAddChargeModal}
                     exactTime={exactTime}
                     role={role}
                     userEmail={userEmail}
                     setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
                 />
             </Modal>
-        </div>
+
+            <Modal isOpen={chargeModalOpen} setIsOpen={setChargeModalOpen} className='max-w-md p-6 rounded-3xl primary-border-bold bg-white'>
+                <div className='space-y-1 font-figtree'>
+                    <div className='flex justify-between items-center'>
+                        <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Extra Expense</h3>
+                        <button onClick={() => setChargeModalOpen(false)} className='p-2 text-gray-400 hover:text-gray-600 cursor-pointer'>
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <p className='text-sm text-gray-500 mb-2'>This allows you to add charges for equipment, travel, or other extra costs.</p>
+                    <div className='space-y-3'>
+                        <div className='flex flex-col gap-1'>
+                            <label className='text-sm font-bold text-gray-500 uppercase ml-1'>Reason / Expense Name</label>
+                            <input
+                                type='text'
+                                value={chargeName}
+                                onChange={(e) => setChargeName(e.target.value)}
+                                className='w-full outline-none shadow-sm border border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                placeholder='e.g. Extra Equipment, Extended Prep'
+                            />
+                        </div>
+                        <div className='flex flex-col gap-1'>
+                            <label className='text-sm font-bold text-gray-500 uppercase ml-1'>Amount ($)</label>
+                            <div className='relative'>
+                                <DollarSign className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4', chargeAmount.length > 0 ? 'text-black' : 'text-gray-400')} />
+                                <input
+                                    className='w-full flex items-center outline-none shadow-sm border border-gray-200 pl-8 pr-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'
+                                    name='price'
+                                    inputMode='numeric'
+                                    value={chargeAmount}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        let val = e.target.value.replace(/[^0-9.]/g, '');
+
+                                        if (val.split('.').length > 2) val = val.substring(0, val.length - 1);
+                                        if (val.indexOf('.') !== -1 && val.substring(val.indexOf('.') + 1).length > 2) val = val.substring(0, val.length - 1);
+
+                                        setChargeAmount(val);
+                                    }}
+                                    placeholder='00.00'
+                                />
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleAddCharge}
+                            disabled={chargeLoading || !chargeName || !chargeAmount}
+                            className='w-full mt-2 py-2 bg-primary-light text-background rounded-[10px] font-bold primary-border-hover cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                        >
+                            {chargeLoading ? <Loader className='animate-spin inline mr-2' size={18} /> : null}
+                            Add to Assignment
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+        </>
     );
 };
 
 const getInvoiceInfo = (assignments: any[]) => {
+    const validAssignments = assignments
+        .filter((a) => !a.canceledAt && (a.status === 'completed' || a.status === 'accepted') && a.services.length !== a.canceledServiceIds.length)
+        .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
+
+    const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
+    const horseExpenses: Record<string, { name: string; id: string; amount: number }[]> = {};
+    const horseIds: Record<string, string> = {};
+    for (const horse of validAssignments) {
+        const showName = horse.horse.showName;
+        const barnName = horse.horse.barnName;
+        const nameKey = `${showName}/////(${barnName})`;
+
+        if (!horseExpenses[nameKey]) horseExpenses[nameKey] = [];
+        if (horse.customCharges.length > 0) horseExpenses[nameKey].push(...horse.customCharges.map((c: any) => ({ name: c.name, amount: c.amount, id: c.id })));
+
+        horseIds[nameKey] = horse.id;
+
+        if (!horseDetails[nameKey]) horseDetails[nameKey] = {};
+
+        for (const service of horse.services) {
+            const serviceName = service.name;
+            if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
+
+            horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+            horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+            horseDetails[nameKey][serviceName].price += service.priceUSD;
+        }
+    }
+
     return {
         earnings: assignments.reduce((acc: number, a: any) => {
             const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
@@ -413,22 +548,9 @@ const getInvoiceInfo = (assignments: any[]) => {
         horses: assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
         // @ts-ignore
         services: assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
-        clientBreakdown: assignments.reduce((acc: any, a: any) => {
-            const clientId = a.horse.clientId || 'barn';
-            const clientName = a.horse.client?.name || 'Barn / No Client';
-
-            if (!acc[clientId]) {
-                acc[clientId] = {
-                    id: clientId,
-                    name: clientName,
-                    assignments: [],
-                    isPaid: true,
-                };
-            }
-            acc[clientId].assignments.push(a);
-            if (!a.paidAt) acc[clientId].isPaid = false;
-            return acc;
-        }, {}),
+        horseDetails,
+        horseExpenses,
+        horseIds,
     };
 };
 
@@ -436,6 +558,7 @@ const CheckMarkedCompletedModal = ({
     checkMarkedCompleted,
     setCheckMarkedCompleted,
     handleMarkJobCompleted,
+    handleOpenAddChargeModal,
     exactTime,
     role,
     userEmail,
@@ -449,6 +572,7 @@ const CheckMarkedCompletedModal = ({
     setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; assignments: any[] }) => void;
     role: string;
     handleMarkJobCompleted: (id: string, thanksMessage: string) => void;
+    handleOpenAddChargeModal: (assignmentId: string, refreshFn: () => void) => void;
     exactTime: Date;
     userEmail: string;
     setSettingsOpen: (page: Tab) => void;
@@ -463,7 +587,7 @@ const CheckMarkedCompletedModal = ({
 
     useEffect(() => {
         setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
-    }, [checkMarkedCompleted.open]);
+    }, [checkMarkedCompleted.open, checkMarkedCompleted.assignments]);
 
     const [loadingDetails, setLoadingDetails] = useState(true);
     const [hasPayoutInfo, setHasPayoutInfo] = useState(false);
@@ -492,6 +616,14 @@ const CheckMarkedCompletedModal = ({
         getThanksMessage();
     }, [checkMarkedCompleted.id]);
 
+    const refresh = async () => {
+        const job = await getJobById(checkMarkedCompleted.id);
+        if (job && job.success && job.job) {
+            setCheckMarkedCompleted({ ...checkMarkedCompleted, assignments: job.job.assignments });
+            setInvoiceInfo(getInvoiceInfo(job.job.assignments));
+        }
+    };
+
     const setNewThanksMessage = async () => {
         setLoadingThanksMessage(true);
         const result = await changeThanksMessage(thanksMessage);
@@ -506,6 +638,16 @@ const CheckMarkedCompletedModal = ({
         }
     };
 
+    const handleRemoveCharge = async (id: string) => {
+        const res = await removeCustomCharge(id);
+        if (res.success) {
+            successToast('Charge removed');
+            refresh();
+        } else {
+            failToast(res.error || 'Failed to remove charge');
+        }
+    };
+
     return loadingDetails ? (
         <div className='w-full h-48 flex items-center justify-center'>
             <span className='loader-primary'></span>
@@ -513,18 +655,18 @@ const CheckMarkedCompletedModal = ({
     ) : checkMarkedCompleted.id.length > 0 && role === 'braider' && hasPayoutInfo ? (
         <div>
             <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
-                Have you completed this service?
+                Have you completed these services?
             </h1>
             <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
                 <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
                 <p className='mt-2'>
-                    Payments occur outside of the ManeAccount platform, but we offer the ability to track them in the <span className='font-bold'>Invoices</span> panel. Please ensure
-                    that all reported services were actually completed.
+                    Payments occur outside of the ManeAccount platform, but we offer the ability to track them here in the <span className='font-bold'>Invoices</span> panel. Please
+                    ensure that all reported services were actually completed.
                 </p>
             </div>
             <div className='flex flex-col gap-2 mt-4'>
-                <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase'>Invoice Preview</p>
-                <div className='p-4 w-full font-figtree bg-primary-extra-light/60 border border-[#dae3de] shadow-sm rounded-[14px] text-primary font-bold'>
+                <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase text-[15.5px]'>Preview & Adjust Invoice</p>
+                <div className='w-full font-figtree border border-gray-50 p-1.5 shadow-sm rounded-[14px] text-primary font-bold'>
                     <div className='flex items-center gap-3 flex-wrap'>
                         <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
                             {new Intl.NumberFormat('en-US', {
@@ -546,33 +688,75 @@ const CheckMarkedCompletedModal = ({
                             </span>
                         </div>
                     </div>
-                    <div className='ml-1'>
-                        <p className='font-figtree text-purple-600 font-bold tracking-wide uppercase text-sm mt-3'>Client Breakdown</p>
-                        {Object.values(invoiceInfo.clientBreakdown)
-                            .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
-                            .map((group: any) => {
-                                const groupTotal = group.assignments.reduce((acc: number, a: any) => {
-                                    const servicesTotal = a.services
-                                        .filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt)
-                                        .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
-                                    const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
-                                    return acc + servicesTotal + customTotal;
-                                }, 0);
-
-                                if (groupTotal === 0) return null;
-
-                                return (
-                                    <div key={group.id} className='flex items-center py-2 pl-1 @min-[380px]/check-completed:p-3 gap-1 rounded-lg flex-wrap'>
-                                        <div className='font-lusitana text-2xl py-1.5 px-3.5 bg-purple-200 border border-purple-400 text-purple-600 shadow-sm rounded-[14px]'>
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}
-                                        </div>
-                                        <div className='pl-1 w-[101%] @min-[315px]/check-completed:w-fit'>
-                                            <p className='font-semibold text-[15px] text-purple-600'>{group.name}</p>
-                                            <p className='text-[13px] font-normal text-purple-600'>{group.assignments.length} Horses</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                    <div className=''>
+                        <p className='font-figtree text-purple-600 font-bold tracking-wide uppercase text-[14px] min-[280px]/check-completed:text-[15px] mt-3'>
+                            Horse-By-Week Breakdown
+                        </p>
+                        {invoiceInfo.horseDetails && (
+                            <div className='ml-5 mt-2'>
+                                {Object.entries(invoiceInfo.horseDetails)
+                                    .sort(([aName], [bName]) => aName.split('/////')[0].localeCompare(bName.split('/////')[0]))
+                                    .map(([horseName, serviceDetails], i) => (
+                                        <Fragment key={horseName + i}>
+                                            <span className='font-figtree my-3 text-violet-400 font-bold text-[15px]'>
+                                                {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
+                                            </span>
+                                            <div>
+                                                <div className='ml-2'>
+                                                    <ul className='mt-1'>
+                                                        {Object.entries(serviceDetails).map(([service, { days, price }], j) => (
+                                                            <li key={j + service + price} className='mb-0.5 font-normal text-violet-950 text-sm flex items-start gap-1.5'>
+                                                                <CheckCircle className='min-w-3.5 h-3.5 w-fit flex mt-1' strokeWidth={2.25} />
+                                                                <span>
+                                                                    <span className='font-bold'>{service}&nbsp;-&nbsp;</span>
+                                                                    {days.map((day, k) => (
+                                                                        <span key={k + day.getTime()}>
+                                                                            {format(parseUTCToLocal(day) || day, 'EEEE')}
+                                                                            {k === days.length - 1 ? '' : ', '}
+                                                                        </span>
+                                                                    ))}{' '}
+                                                                    ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)})
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                        {invoiceInfo.horseExpenses !== undefined &&
+                                                            invoiceInfo.horseExpenses[horseName] !== undefined &&
+                                                            invoiceInfo.horseExpenses[horseName].length > 0 &&
+                                                            invoiceInfo.horseExpenses[horseName].map((expense, i) => (
+                                                                <li key={i + expense.name + expense.amount} className='mb-0.5 text-amber-600 font-bold text-sm flex items-center gap-1'>
+                                                                    <MinusCircle className='min-w-3.5 h-3.5 w-fit' strokeWidth={2.25} />
+                                                                    <span>
+                                                                        {expense.name} - {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(expense.amount)}
+                                                                    </span>
+                                                                    <Trash2
+                                                                        onClick={() => handleRemoveCharge(expense.id)}
+                                                                        className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500'
+                                                                        strokeWidth={2.25}
+                                                                    />
+                                                                </li>
+                                                            ))}
+                                                        <li
+                                                            onClick={() => handleOpenAddChargeModal(invoiceInfo.horseIds[horseName], refresh)}
+                                                            className='text-amber-600 w-fit cursor-pointer hover:bg-amber-100 transition-all text-sm px-3 py-0.5 border border-amber-100 bg-amber-50 rounded-full mt-3'
+                                                        >
+                                                            Add Custom Expense
+                                                        </li>
+                                                    </ul>
+                                                    <p className='text-sm px-3 py-0.5 bg-violet-50 w-fit rounded-full border border-violet-100 text-violet-900 mt-2 mb-2'>
+                                                        Subtotal:{' '}
+                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                                                            Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
+                                                                (invoiceInfo.horseExpenses !== undefined && invoiceInfo.horseExpenses[horseName] !== undefined
+                                                                    ? invoiceInfo.horseExpenses[horseName].reduce((acc, expense) => acc + expense.amount, 0)
+                                                                    : 0),
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </Fragment>
+                                    ))}
+                            </div>
+                        )}
                     </div>
                     <div className='ml-1'>
                         <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-1'>Thank-you Message (optional)</p>

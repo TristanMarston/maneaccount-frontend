@@ -320,7 +320,6 @@ export const JobDetailSubpage = ({
     refresh,
     handleCancelJobModal,
     setSelectedHorse,
-    setCheckMarkedCompleted,
     canMarkCompleted = true,
     subscriptionTier,
 }: {
@@ -331,13 +330,6 @@ export const JobDetailSubpage = ({
     refresh: () => void;
     handleCancelJobModal: () => void;
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
-    setCheckMarkedCompleted: React.Dispatch<
-        React.SetStateAction<{
-            open: boolean;
-            id: string;
-            assignments: any[];
-        }>
-    >;
     canMarkCompleted?: boolean;
     subscriptionTier?: SubscriptionTier;
 }) => {

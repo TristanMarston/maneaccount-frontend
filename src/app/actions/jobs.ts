@@ -1002,3 +1002,31 @@ export async function adjustServices(assignmentId: string, newServiceIds: string
         return { error: 'Error adjusting services' };
     }
 }
+
+export async function getJobById(jobId: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Unauthorized' };
+
+    try {
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            include: {
+                barn: true,
+                braider: true,
+                show: true,
+                assignments: {
+                    include: {
+                        horse: true,
+                        services: true,
+                        customCharges: true,
+                    },
+                },
+            },
+        });
+
+        return { success: true, job };
+    } catch (error) {
+        console.error('Error getting job:', error);
+        return null;
+    }
+}

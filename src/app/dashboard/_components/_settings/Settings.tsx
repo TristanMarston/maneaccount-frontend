@@ -994,7 +994,6 @@ const Settings = ({
                                                     autoCorrect='on'
                                                     autoComplete='on'
                                                     spellCheck={true}
-                                                    required
                                                 />
                                                 <p className={cn('text-xs -mt-1 ml-1 text-gray-500', thanksMessageWords === 150 ? 'text-red-400' : '')}>
                                                     {thanksMessageWords} / 150 words

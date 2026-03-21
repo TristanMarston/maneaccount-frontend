@@ -436,7 +436,7 @@ export async function applyOneOffCoupon(code: string) {
 
             const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             let newPeriodEnd = user.currentPeriodEnd || new Date();
-w
+
             // If they have an active stripe subscription, we update trial_end
             if (user.stripeSubscriptionId && user.subscriptionStatus === 'active') {
                 // To extend their current period end by daysToTarget days:

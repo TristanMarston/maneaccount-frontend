@@ -56,7 +56,6 @@ import { getHorses } from '@/app/actions/horses';
 import Modal from '../../Modal';
 import { AnimatePresence, motion, Variants } from 'motion/react';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import { parseUTCToLocal } from '@/lib/date-utils';
 
 const JobNotesModal = ({ job, role, onClose, refresh }: { job: Job; role: string; onClose: () => void; refresh: () => void }) => {
     const [note, setNote] = useState('');
@@ -311,6 +310,7 @@ const SelectSubcontractorDropdown = ({
 import { SubscriptionTier } from '@prisma/client';
 import { formatPhoneNumber } from '../_settings/Settings';
 import EditAssignmentForm from './EditAssignmentForm';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 export const JobDetailSubpage = ({
     job: initialJob,
@@ -492,7 +492,7 @@ export const JobDetailSubpage = ({
                 a.completedServiceIds.length === a.services.length - a.canceledServiceIds.length,
         ).length;
 
-    const assignmentDates = job.assignments.map((a) => parseUTCToLocal(a.assignmentDate)?.getTime() || new Date(a.assignmentDate).getTime());
+    const assignmentDates = job.assignments.map((a) => calendarDateToLocal(a.assignmentDate).getTime());
     const minDate = assignmentDates.length > 0 ? new Date(Math.min(...assignmentDates)) : null;
     const maxDate = assignmentDates.length > 0 ? new Date(Math.max(...assignmentDates)) : null;
 
@@ -805,7 +805,7 @@ export const JobDetailSubpage = ({
                             job.assignments
                                 .filter((a) => role !== 'subcontractor' || a.subcontractor?.id === userId)
                                 .reduce((acc: any, a) => {
-                                    const parsedDate = parseUTCToLocal(a.assignmentDate);
+                                    const parsedDate = calendarDateToLocal(a.assignmentDate);
                                     const dateKey = parsedDate ? format(parsedDate, 'yyyy-MM-dd') : format(new Date(a.assignmentDate), 'yyyy-MM-dd');
                                     if (!acc[dateKey]) acc[dateKey] = {};
                                     const clientKey = a.horse.client?.name || 'No Client';
@@ -819,7 +819,7 @@ export const JobDetailSubpage = ({
                                 <div key={dateKey} className='rounded-[14px] border border-primary/10 w-full'>
                                     <span className='w-fit py-2 px-3 flex items-center text-xs font-bold text-primary-extra-light uppercase bg-primary-light shadow-md rounded-tl-[14px] rounded-br-[14px]'>
                                         <Calendar className='w-3.5 h-3.5 mr-1' strokeWidth={2.5} />
-                                        {format(parseUTCToLocal(new Date(dateKey + 'T12:00:00')) || new Date(dateKey + 'T12:00:00'), 'EEEE, MMMM d')}
+                                        {format(calendarDateToLocal(new Date(dateKey)), 'EEEE, MMMM d')}
                                     </span>
 
                                     <div className='space-y-6 p-4'>
@@ -1050,9 +1050,7 @@ export const JobDetailSubpage = ({
                                                                                             onClick={() =>
                                                                                                 setEditingHorse({
                                                                                                     ...assignment.horse,
-                                                                                                    date:
-                                                                                                        parseUTCToLocal(new Date(dateKey + 'T12:00:00')) ||
-                                                                                                        new Date(dateKey + 'T12:00:00'),
+                                                                                                    date: new Date(dateKey),
                                                                                                     assignment,
                                                                                                 })
                                                                                             }
@@ -1623,32 +1621,39 @@ export const JobDetailSubpage = ({
 
 const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: { job: Job; horses: any[]; braiderServices: any[]; onClose: () => void; refresh: () => void }) => {
     const [assignments, setAssignments] = useState<{ horseId: string; clientName: string; serviceIds: string[]; date: Date }[]>([]);
-    const [selectedHorseId, setSelectedHorseId] = useState('');
+    const [selectedHorseIds, setSelectedHorseIds] = useState<string[]>([]);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
     const showDates = eachDayOfInterval({
-        start: parseUTCToLocal(new Date(job.show.startDate)) || new Date(job.show.startDate),
-        end: parseUTCToLocal(new Date(job.show.endDate)) || new Date(job.show.endDate),
+        start: calendarDateToLocal(new Date(job.show.startDate)),
+        end: calendarDateToLocal(new Date(job.show.endDate)),
     });
 
     const handleAddToList = () => {
-        if (!selectedHorseId || !selectedDate || selectedServiceIds.length === 0) return;
-        const horse = horses.find((h) => h.id === selectedHorseId);
-        if (!horse) return;
+        if (selectedHorseIds.length === 0 || !selectedDate || selectedServiceIds.length === 0) return;
+        const existingAssignment = assignments.some((a) => selectedHorseIds.includes(a.horseId) && isSameDay(a.date, selectedDate));
+        if (existingAssignment) {
+            failToast('One or more horses already added for this date');
+            return;
+        }
 
-        setAssignments((prev) => [
-            ...prev,
-            {
-                horseId: selectedHorseId,
-                clientName: horse.client?.name || 'No Client',
-                serviceIds: selectedServiceIds,
-                date: selectedDate,
-            },
-        ]);
+        setAssignments((prev) =>
+            existingAssignment
+                ? prev
+                : [
+                      ...prev,
+                      ...selectedHorseIds.map((horseId) => ({
+                          clientName: horses.find((h) => h.id === horseId)?.client.name,
+                          horseId: horseId,
+                          serviceIds: selectedServiceIds,
+                          date: selectedDate,
+                      })),
+                  ],
+        );
 
-        setSelectedHorseId('');
+        setSelectedHorseIds([]);
         setSelectedServiceIds([]);
     };
 
@@ -1680,7 +1685,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
     const groupedAssignments = React.useMemo(() => {
         const groups: Record<string, Record<string, typeof assignments>> = {};
         assignments.forEach((a) => {
-            const dateKey = format(parseUTCToLocal(a.date) || a.date, 'yyyy-MM-dd HH:mm:ss');
+            const dateKey = format(calendarDateToLocal(a.date), 'yyyy-MM-dd HH:mm:ss');
             if (!groups[dateKey]) groups[dateKey] = {};
             if (!groups[dateKey][a.clientName]) groups[dateKey][a.clientName] = [];
             groups[dateKey][a.clientName].push(a);
@@ -1722,6 +1727,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                                         const d = new Date(date);
                                         d.setHours(12, 0, 0, 0);
                                         setSelectedDate(d);
+                                        setSelectedHorseIds([]);
                                     }}
                                     className={cn(
                                         'shrink-0 w-20 py-3 rounded-2xl flex flex-col items-center border transition-all cursor-pointer',
@@ -1730,8 +1736,8 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                                             : 'border-gray-200 shadow-sm text-gray-600 hover:border-primary-light',
                                     )}
                                 >
-                                    <span className='text-[10px] uppercase font-bold opacity-60'>{format(parseUTCToLocal(date) || date, 'eee')}</span>
-                                    <span className='text-xl font-bold font-lusitana'>{format(parseUTCToLocal(date) || date, 'd')}</span>
+                                    <span className='text-[10px] uppercase font-bold opacity-60'>{format(calendarDateToLocal(date), 'eee')}</span>
+                                    <span className='text-xl font-bold font-lusitana'>{format(calendarDateToLocal(date), 'd')}</span>
                                 </button>
                             );
                         })}
@@ -1746,16 +1752,14 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                         {horses.map((horse) => (
                             <button
                                 key={horse.id}
-                                onClick={() => setSelectedHorseId(horse.id)}
+                                onClick={() => setSelectedHorseIds((prev) => [...prev, horse.id])}
                                 className={cn(
                                     'p-3 rounded-2xl border transition-all flex flex-col items-center gap-2 group cursor-pointer',
-                                    selectedHorseId === horse.id
+                                    selectedHorseIds.includes(horse.id)
                                         ? 'border-primary bg-primary-extra-light text-primary shadow-md'
                                         : 'border-gray-200 shadow-sm text-gray-600 hover:border-primary-light',
                                     !selectedDate ||
-                                        job.assignments
-                                            .filter((a) => isSameDay(parseUTCToLocal(a.assignmentDate) || a.assignmentDate, selectedDate))
-                                            .some((a) => a.horse.id === horse.id) ||
+                                        job.assignments.filter((a) => isSameDay(calendarDateToLocal(a.assignmentDate), selectedDate)).some((a) => a.horse.id === horse.id) ||
                                         assignments.some((a) => a.horseId === horse.id && isSameDay(a.date, selectedDate))
                                         ? 'opacity-20 pointer-events-none'
                                         : '',
@@ -1768,7 +1772,7 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                                         <div className='w-full h-full flex items-center justify-center font-bold text-primary bg-primary/5 text-xl'>{horse.barnName[0]}</div>
                                     )}
                                 </div>
-                                <span className={cn('text-[14px] font-bold truncate w-full text-center', selectedHorseId === horse.id ? 'text-primary' : 'text-gray-700')}>
+                                <span className={cn('text-[14px] font-bold truncate w-full text-center', selectedHorseIds.includes(horse.id) ? 'text-primary' : 'text-gray-700')}>
                                     {horse.barnName}
                                 </span>
                             </button>
@@ -1810,11 +1814,11 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                 <div className='mt-6'>
                     <button
                         onClick={handleAddToList}
-                        disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
+                        disabled={!selectedDate || selectedHorseIds.length === 0 || selectedServiceIds.length === 0}
                         className='bg-background primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
                     >
                         <Plus size={18} />
-                        Add to List
+                        Add to List{selectedHorseIds.length > 0 ? ` (${selectedHorseIds.length})` : ''}
                     </button>
                 </div>
 

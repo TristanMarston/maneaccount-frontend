@@ -30,9 +30,9 @@ import {
     Icon,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { getDashboardData } from '@/app/actions/dashboard';
-import { parseUTCToLocal } from '@/lib/date-utils';
+import { calendarDateToLocal } from '@/lib/date-utils';
 import { Show } from './_calendar/Calendar';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
@@ -91,7 +91,7 @@ const DashboardHome = ({
             const { shows: showsData, jobs: jobsData } = result;
 
             const mappedJobs: Show[] = (jobsData as any[]).flatMap((job) => {
-                const assignmentDates = [...new Set(job.assignments.map((a: any) => format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd')))];
+                const assignmentDates = [...new Set(job.assignments.map((a: any) => format(calendarDateToLocal(new Date(a.assignmentDate)), 'yyyy-MM-dd')))];
 
                 if (assignmentDates.length === 0) return [];
 
@@ -127,7 +127,7 @@ const DashboardHome = ({
 
     const upcomingShows = shows
         .filter((s) => {
-            const endDate = parseUTCToLocal(s.endDate);
+            const endDate = calendarDateToLocal(s.endDate);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             return endDate && endDate >= today;
@@ -896,7 +896,7 @@ const BarnView = ({ upcomingShows, jobs, setSelectedPage }: { upcomingShows: Sho
                 />
                 <StatCard
                     title='Next Event'
-                    value={upcomingShows[0] ? format(parseUTCToLocal(upcomingShows[0].startDate) || new Date(), 'MMM d') : '-'}
+                    value={upcomingShows[0] ? format(calendarDateToLocal(upcomingShows[0].startDate), 'MMM d') : '-'}
                     icon={Calendar}
                     color='primary'
                     subtext={`${upcomingShows[0]?.name || 'No upcoming events'}${upcomingShows[0]?.type === 'job' ? ' • Job' : ''}`}
@@ -1030,8 +1030,8 @@ const ShowCard = ({ show }: { show: Show }) => {
                     show.type === 'job' ? 'bg-blue-100 text-blue-600' : 'bg-primary-extra-light text-primary',
                 )}
             >
-                <span className='text-xs font-bold uppercase'>{format(parseUTCToLocal(show.startDate) || new Date(), 'MMM')}</span>
-                <span className='text-xl font-black'>{format(parseUTCToLocal(show.startDate) || new Date(), 'd')}</span>
+                <span className='text-xs font-bold uppercase'>{format(calendarDateToLocal(show.startDate), 'MMM')}</span>
+                <span className='text-xl font-black'>{format(calendarDateToLocal(show.startDate), 'd')}</span>
             </div>
             <div className='min-w-0 flex-1'>
                 <div className='flex items-center gap-2'>
@@ -1063,12 +1063,10 @@ const InvoicePreviewCard = ({ showName, amount, date, dateText, color }: { showN
                     <DollarSign size={20} strokeWidth={2.5} />
                 </div>
                 <div className='min-w-0'>
-                    {/* <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{role === 'barn' ? job.braider.name : job.barn.name}</p> */}
                     <p className='font-bold text-gray-900 font-figtree truncate pr-2'>{showName}</p>
-                    {/* <p className='text-xs text-gray-500 font-medium'>{format(parseUTCToLocal(job.scheduledDate) || new Date(), 'MMM d, yyyy')}</p> */}
                     <p className='text-xs text-gray-500 font-medium'>
                         {dateText ? `${dateText} • ` : ''}
-                        {format(parseUTCToLocal(date) || new Date(), 'MMM d, yyyy')}
+                        {format(calendarDateToLocal(date), 'MMM d, yyyy')}
                     </p>
                 </div>
             </div>

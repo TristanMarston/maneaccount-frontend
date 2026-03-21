@@ -17,7 +17,6 @@ import Invoices from '../_invoices/Invoices';
 import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
 import { getSubscriptionDetails, startFreeTrial } from '@/app/actions/billing';
 import { cn } from '@/lib/utils';
-import { parseUTCToLocal } from '@/lib/date-utils';
 
 export type Tab = 'profile' | 'account' | 'invoicing' | 'notifications' | 'subscription';
 
@@ -79,10 +78,10 @@ const BraiderDashboard = ({
                 setSubscription(subscriptionDetails);
 
                 const now = new Date();
-                const trialEndsAtDate = subscriptionDetails.trialEndsAt ? parseUTCToLocal(new Date(subscriptionDetails.trialEndsAt)) : null;
+                const trialEndsAtDate = subscriptionDetails.trialEndsAt ? new Date(subscriptionDetails.trialEndsAt) : null;
                 const isTrial =
                     subscriptionDetails.subscriptionStatus === 'trialing' && trialEndsAtDate && Math.ceil((trialEndsAtDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) > 0;
-                const currentPeriodEndDate = subscriptionDetails.currentPeriodEnd ? parseUTCToLocal(new Date(subscriptionDetails.currentPeriodEnd)) : null;
+                const currentPeriodEndDate = subscriptionDetails.currentPeriodEnd ? new Date(subscriptionDetails.currentPeriodEnd) : null;
                 const isActive =
                     subscriptionDetails.subscriptionStatus === 'active' &&
                     currentPeriodEndDate &&
@@ -136,7 +135,7 @@ const BraiderDashboard = ({
                     />
                 );
             case 'Calendar':
-                return <Calendar role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Calendar key='braider-calendar' role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
                 return (
                     <Tasks

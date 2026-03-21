@@ -1,13 +1,13 @@
 'use server';
 
 import { auth } from '@/lib/auth';
-import { parseUTCToLocal } from '@/lib/date-utils';
 import { sendConnectionRequestEmail } from '@/lib/email';
 import { getBraiderUsage } from '@/lib/limits';
 import { prisma } from '@/lib/prisma';
 import { NotificationType } from '@prisma/client';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { revalidatePath } from 'next/cache';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 export async function getNotifications() {
     const session = await auth();
@@ -231,8 +231,8 @@ export async function createNotification(
                         await sendCalendarInviteEmail({
                             to: user.email,
                             eventName: show.name,
-                            startDate: parseUTCToLocal(show.startDate) || show.startDate,
-                            endDate: parseUTCToLocal(show.endDate) || show.endDate,
+                            startDate: calendarDateToLocal(show.startDate),
+                            endDate: calendarDateToLocal(show.endDate),
                             location: `${show.city}, ${show.state || show.country}`,
                             inviterName,
                             message,
@@ -337,7 +337,7 @@ export async function createNotification(
                             .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
 
                         for (const horse of validAssignments) {
-                            const dateKey = format(parseUTCToLocal(horse.assignmentDate) || horse.assignmentDate, 'yyyy-MM-dd');
+                            const dateKey = format(calendarDateToLocal(horse.assignmentDate), 'yyyy-MM-dd');
                             if (!mainServiceDetails[dateKey]) {
                                 mainServiceDetails[dateKey] = [];
                             }

@@ -1,5 +1,5 @@
 import { MapPin, X, CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 
 export const ViewShowDetailsModal = ({
     show,
@@ -60,4 +60,4 @@ export const ViewShowDetailsModal = ({
             </div>
         </div>
     );
-}
+};

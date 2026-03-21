@@ -273,7 +273,11 @@ export async function getSubscriptionDetails() {
                     const stripeCancelAtPeriodEnd = (sub as any).cancel_at_period_end || false;
 
                     // Sync with DB if different (basic check, or just always update to be safe and simple)
-                    if (stripeCurrentPeriodEnd?.getTime() !== user.currentPeriodEnd?.getTime() || stripeStatus !== user.subscriptionStatus || stripeCancelAtPeriodEnd !== user.cancelAtPeriodEnd) {
+                    if (
+                        stripeCurrentPeriodEnd?.getTime() !== user.currentPeriodEnd?.getTime() ||
+                        stripeStatus !== user.subscriptionStatus ||
+                        stripeCancelAtPeriodEnd !== user.cancelAtPeriodEnd
+                    ) {
                         await prisma.user.update({
                             where: { id: user.id },
                             data: {
@@ -329,15 +333,15 @@ export async function cancelSubscription() {
                 cancel_at_period_end: true,
             });
         } else if (user.stripeCustomerId) {
-             const subscriptions = await stripe.subscriptions.list({
-                 customer: user.stripeCustomerId,
-                 limit: 1,
-             });
-             if (subscriptions.data.length > 0) {
-                 await stripe.subscriptions.update(subscriptions.data[0].id, {
-                     cancel_at_period_end: true,
-                 });
-             }
+            const subscriptions = await stripe.subscriptions.list({
+                customer: user.stripeCustomerId,
+                limit: 1,
+            });
+            if (subscriptions.data.length > 0) {
+                await stripe.subscriptions.update(subscriptions.data[0].id, {
+                    cancel_at_period_end: true,
+                });
+            }
         }
 
         await prisma.user.update({
@@ -364,57 +368,107 @@ export async function applyOneOffCoupon(code: string) {
 
     if (!user) return { error: 'User not found' };
 
-    
-    if (!process.env.COUPON_ONE || code.trim().toLowerCase() !== process.env.COUPON_ONE.toLowerCase()) {
+    if (
+        (!process.env.COUPON_ONE || code.trim().toLowerCase() !== process.env.COUPON_ONE.toLowerCase()) &&
+        (!process.env.COUPON_TWO || code.trim().toLowerCase() !== process.env.COUPON_TWO.toLowerCase())
+    ) {
         return { error: 'Invalid coupon code.' };
     }
-    
-    if (user.hasUsedPromoOne) {
-        return { error: 'You have already used this coupon code.' };
-    }
-    
+
     try {
-        const targetDate = new Date('2026-03-24T00:00:00Z'); // March 23rd 2026, inclusive end of day UTC
-        const now = new Date();
+        if (process.env.COUPON_ONE && code.trim().toLowerCase() === process.env.COUPON_ONE.toLowerCase()) {
+            if (user.hasUsedPromoOne) {
+                return { error: 'You have already used this coupon code.' };
+            }
 
-        if (now > targetDate) {
-            return { error: 'This coupon has expired.' };
-        }
+            const targetDate = new Date('2026-03-24T00:00:00Z'); // March 23rd 2026, inclusive end of day UTC
+            const now = new Date();
 
-        const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        let newPeriodEnd = user.currentPeriodEnd || new Date();
+            if (now > targetDate) {
+                return { error: 'This coupon has expired.' };
+            }
 
-        // If they have an active stripe subscription, we update trial_end
-        if (user.stripeSubscriptionId && user.subscriptionStatus === 'active') {
-             // To extend their current period end by daysToTarget days:
-             // We can schedule a trial end. Stripe allows `trial_end` on update for active subs
-             // `trial_end` must be in the future. We can set it to the current period end + daysToTarget * 24h
-             const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
-             const newTrialEndMs = currentEndMs + (daysToTarget * 24 * 60 * 60 * 1000);
-             const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
-             newPeriodEnd = new Date(newTrialEndMs);
+            const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            let newPeriodEnd = user.currentPeriodEnd || new Date();
 
-             await stripe.subscriptions.update(user.stripeSubscriptionId, {
-                 trial_end: newTrialEndUnix,
-             });
-        } else if (user.subscriptionStatus === 'trialing') {
-            const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
-            newPeriodEnd = new Date(currentEndMs + (daysToTarget * 24 * 60 * 60 * 1000));
-        } else {
-            // Not active or trialing
-            return { error: 'You must have an active subscription or trial to apply this coupon.' };
-        }
+            // If they have an active stripe subscription, we update trial_end
+            if (user.stripeSubscriptionId && user.subscriptionStatus === 'active') {
+                // To extend their current period end by daysToTarget days:
+                // We can schedule a trial end. Stripe allows `trial_end` on update for active subs
+                // `trial_end` must be in the future. We can set it to the current period end + daysToTarget * 24h
+                const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
+                const newTrialEndMs = currentEndMs + daysToTarget * 24 * 60 * 60 * 1000;
+                const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
+                newPeriodEnd = new Date(newTrialEndMs);
 
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                hasUsedPromoOne: true,
-                currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
-                trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
-            },
-        });
+                await stripe.subscriptions.update(user.stripeSubscriptionId, {
+                    trial_end: newTrialEndUnix,
+                });
+            } else if (user.subscriptionStatus === 'trialing') {
+                const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
+                newPeriodEnd = new Date(currentEndMs + daysToTarget * 24 * 60 * 60 * 1000);
+            } else {
+                // Not active or trialing
+                return { error: 'You must have an active subscription or trial to apply this coupon.' };
+            }
 
-        return { success: true };
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    hasUsedPromoOne: true,
+                    currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
+                    trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
+                },
+            });
+
+            return { success: true, message: 'Coupon applied! Your trial has been extended until March 23rd, 2026.' };
+        } else if (process.env.COUPON_TWO && code.trim().toLowerCase() === process.env.COUPON_TWO.toLowerCase()) {
+            if (user.hasUsedPromoTwo) {
+                return { error: 'You have already used this coupon code.' };
+            }
+
+            const targetDate = new Date('2026-04-12T00:00:00Z');
+            const now = new Date();
+
+            if (now > targetDate) {
+                return { error: 'This coupon has expired.' };
+            }
+
+            const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            let newPeriodEnd = user.currentPeriodEnd || new Date();
+
+            // If they have an active stripe subscription, we update trial_end
+            if (user.stripeSubscriptionId && user.subscriptionStatus === 'active') {
+                // To extend their current period end by daysToTarget days:
+                // We can schedule a trial end. Stripe allows `trial_end` on update for active subs
+                // `trial_end` must be in the future. We can set it to the current period end + daysToTarget * 24h
+                const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
+                const newTrialEndMs = currentEndMs + daysToTarget * 24 * 60 * 60 * 1000;
+                const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
+                newPeriodEnd = new Date(newTrialEndMs);
+
+                await stripe.subscriptions.update(user.stripeSubscriptionId, {
+                    trial_end: newTrialEndUnix,
+                });
+            } else if (user.subscriptionStatus === 'trialing') {
+                const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
+                newPeriodEnd = new Date(currentEndMs + daysToTarget * 24 * 60 * 60 * 1000);
+            } else {
+                // Not active or trialing
+                return { error: 'You must have an active subscription or trial to apply this coupon.' };
+            }
+
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    hasUsedPromoTwo: true,
+                    currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
+                    trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
+                },
+            });
+
+            return { success: true, message: 'Coupon applied! Your trial has been extended until April 12th, 2026.' };
+        } else return { error: 'No coupons matched' };
     } catch (error: any) {
         console.error('Error applying coupon:', error);
         return { error: error.message };

@@ -55,7 +55,8 @@ import {
 import Modal from '../../Modal';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { format, eachDayOfInterval, isSameDay, addHours } from 'date-fns';
+import { eachDayOfInterval, isSameDay, addHours } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { JobDetailSubpage } from './JobDetailSubpage';
 import { ViewShowDetailsModal } from './RequestWorkModals';
 import { failToast, successToast, scrollVariants, loadingToast } from '@/app/context';
@@ -66,8 +67,8 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { formatPhoneNumber } from '../_settings/Settings';
 import RequestWorkSubpage from './RequestWorkSubpage';
-import { parseUTCToLocal } from '@/lib/date-utils';
 import { Tab } from '../_braider/BraiderDashboard';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 export type Job = {
     id: string;
@@ -351,16 +352,8 @@ const Tasks = ({
                                         )
                                         .sort(
                                             (a, b) =>
-                                                Math.min(
-                                                    ...a.assignments.map(
-                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                    ),
-                                                ) -
-                                                Math.min(
-                                                    ...b.assignments.map(
-                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                    ),
-                                                ),
+                                                Math.min(...a.assignments.map((assignment) => assignment.assignmentDate.getTime())) -
+                                                Math.min(...b.assignments.map((assignment) => assignment.assignmentDate.getTime())),
                                         )
                                         .map((job) => (
                                             <JobCard
@@ -382,16 +375,8 @@ const Tasks = ({
                                     {jobs
                                         .sort(
                                             (a, b) =>
-                                                Math.min(
-                                                    ...b.assignments.map(
-                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                    ),
-                                                ) -
-                                                Math.min(
-                                                    ...a.assignments.map(
-                                                        (assignment) => parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                    ),
-                                                ),
+                                                Math.min(...b.assignments.map((assignment) => assignment.assignmentDate.getTime())) -
+                                                Math.min(...a.assignments.map((assignment) => assignment.assignmentDate.getTime())),
                                         )
                                         .filter((j) => j.assignments.every((a) => a.paidAt)).length > 0 && (
                                         <>
@@ -430,18 +415,8 @@ const Tasks = ({
                                                             .filter((j) => j.assignments.every((a) => a.paidAt))
                                                             .sort(
                                                                 (a, b) =>
-                                                                    Math.min(
-                                                                        ...a.assignments.map(
-                                                                            (assignment) =>
-                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                                        ),
-                                                                    ) -
-                                                                    Math.min(
-                                                                        ...b.assignments.map(
-                                                                            (assignment) =>
-                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                                        ),
-                                                                    ),
+                                                                    Math.min(...a.assignments.map((assignment) => assignment.assignmentDate.getTime())) -
+                                                                    Math.min(...b.assignments.map((assignment) => assignment.assignmentDate.getTime())),
                                                             )
                                                             .map((job) => (
                                                                 <JobCard
@@ -499,18 +474,8 @@ const Tasks = ({
                                                             .filter((j) => j.assignments.length > 0 && j.assignments.every((a) => a.status === 'canceled' || a.status === 'denied'))
                                                             .sort(
                                                                 (a, b) =>
-                                                                    Math.min(
-                                                                        ...a.assignments.map(
-                                                                            (assignment) =>
-                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                                        ),
-                                                                    ) -
-                                                                    Math.min(
-                                                                        ...b.assignments.map(
-                                                                            (assignment) =>
-                                                                                parseUTCToLocal(assignment.assignmentDate)?.getTime() || new Date(assignment.assignmentDate).getTime(),
-                                                                        ),
-                                                                    ),
+                                                                    Math.min(...a.assignments.map((assignment) => assignment.assignmentDate.getTime())) -
+                                                                    Math.min(...b.assignments.map((assignment) => assignment.assignmentDate.getTime())),
                                                             )
                                                             .map((job) => (
                                                                 <JobCard
@@ -1089,15 +1054,16 @@ const JobCard = ({
                                 {job.assignments.length > 0 ? (
                                     <>
                                         {(() => {
-                                            const dates = job.assignments.map((a) => parseUTCToLocal(a.assignmentDate)?.getTime() || new Date(a.assignmentDate).getTime());
+                                            const dates = job.assignments.map((a) => a.assignmentDate.getTime());
                                             const min = Math.min(...dates);
                                             const max = Math.max(...dates);
+
                                             return (
                                                 <>
-                                                    {format(new Date(min), 'MMM d')}
-                                                    {min !== max && ` - ${format(new Date(max), 'MMM d')}`}
+                                                    {format(calendarDateToLocal(new Date(min)), 'MMM d')}
+                                                    {min !== max && ` - ${format(calendarDateToLocal(new Date(max)), 'MMM d')}`}
                                                     {', '}
-                                                    {format(new Date(min), 'yyyy')}
+                                                    {format(calendarDateToLocal(new Date(max)), 'yyyy')}
                                                 </>
                                             );
                                         })()}

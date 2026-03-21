@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Job } from './Tasks';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { cn } from '@/lib/utils';
 import { Calendar, Check, CheckCircle2, PlusCircle, Trash, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';

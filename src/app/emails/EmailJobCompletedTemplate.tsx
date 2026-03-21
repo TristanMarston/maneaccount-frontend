@@ -1,6 +1,6 @@
-import { parseUTCToLocal } from '@/lib/date-utils';
+import { calendarDateToLocal } from '@/lib/date-utils';
 import { Body, Container, Head, Heading, Html, Preview, Section, Text, Button, Img, Hr, Link } from '@react-email/components';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { Fragment } from 'react/jsx-runtime';
 
 interface ManeAccountEmailProps {
@@ -123,7 +123,7 @@ export const ManeAccountJobCompletedEmail = ({
                                                                         {service}&nbsp;-&nbsp;
                                                                         {days.map((day, k) => (
                                                                             <span key={k + day.getTime()}>
-                                                                                {format(parseUTCToLocal(day) || day, 'EEEE')}
+                                                                                {format(calendarDateToLocal(day) || day, 'EEEE')}
                                                                                 {k === days.length - 1 ? '' : ', '}
                                                                             </span>
                                                                         ))}{' '}
@@ -150,47 +150,6 @@ export const ManeAccountJobCompletedEmail = ({
                                             ))}
                                     </>
                                 )}
-                                {/* ) : (
-                                    !isClient && (
-                                        <>
-                                            {serviceDetails.map((dayRecord, i) =>
-                                                Object.entries(dayRecord).map(([date, horses], j) => (
-                                                    <div key={`${i}-${j}`}>
-                                                        <Text
-                                                            style={{
-                                                                ...detailRow,
-                                                                fontWeight: 'bold',
-                                                                fontSize: '16px',
-                                                                marginTop: '12px',
-                                                                borderBottom: '1px solid #ccc',
-                                                                paddingBottom: '4px',
-                                                            }}
-                                                        >
-                                                            {format(parseUTCToLocal(new Date(date)) || new Date(date), 'PPPP')}
-                                                        </Text>
-                                                        {horses.map((horseData, k) => (
-                                                            <div key={k} style={{ marginBottom: '12px', paddingLeft: '12px', marginTop: '8px' }}>
-                                                                <Text style={{ ...detailRow, fontWeight: 'bold', margin: '0 0 4px 0' }}>
-                                                                    {horseData.horseName.barnName}{' '}
-                                                                    <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#666' }}>({horseData.horseName.showName})</span>
-                                                                </Text>
-                                                                <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-                                                                    {horseData.services.map((svc, l) => (
-                                                                        <li key={l} style={{ fontSize: '14px', color: '#444', marginBottom: '2px' }}>
-                                                                            {svc.name}{' '}
-                                                                            {svc.subCharge && <span style={{ color: '#d97706', fontWeight: 'bold', fontSize: '12px' }}>(Expense)</span>}{' '}
-                                                                            - {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(svc.price)}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )),
-                                            )}
-                                        </>
-                                    )
-                                )} */}
 
                                 <Hr style={hr} />
                                 <Text style={{ ...detailRow, fontSize: '18px', fontWeight: 'bold', textAlign: 'left' }}>

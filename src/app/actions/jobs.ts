@@ -3,12 +3,13 @@
 import { JobStatus, JobAssignment, AssignmentStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { format, subDays } from 'date-fns';
+import { subDays } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
 import { getBraiderUsage } from '@/lib/limits';
-import { normalizeDateToUTC, getLocalTodayStart, parseUTCToLocal } from '@/lib/date-utils';
+import { formatCalendarDate, getUTCStartOfUserDay, toCalendarDateUTC } from '@/lib/date-utils';
 
 export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[]; date: Date }[] }, timezoneOffset: number = 0) {
     const session = await auth();
@@ -34,7 +35,7 @@ export async function createJob(data: { braiderId: string; showId: string; assig
                         services: {
                             connect: assignment.serviceIds.map((id) => ({ id })),
                         },
-                        assignmentDate: assignment.date,
+                        assignmentDate: toCalendarDateUTC(assignment.date),
                     })),
                 },
             },
@@ -73,7 +74,7 @@ export async function updateJobDraft(jobId: string, assignments: { horseId: stri
                         services: {
                             connect: assignment.serviceIds.map((id) => ({ id })),
                         },
-                        assignmentDate: assignment.date,
+                        assignmentDate: toCalendarDateUTC(assignment.date),
                     })),
                 },
             },
@@ -104,7 +105,7 @@ export async function submitJob(jobId: string, timezoneOffset: number = 0) {
 
         if (!job) return { error: 'Job not found' };
 
-        const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date(), timezoneOffset);
+        const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date());
         const newHorsesCount = job.assignments.length;
 
         if (period !== 'unlimited' && count + newHorsesCount > limit) {
@@ -207,8 +208,8 @@ export async function updateAssignmentStatus(assignmentId: string, status: Assig
                 originalJob.barnId,
                 NotificationType.horse_status_change,
                 status === 'accepted'
-                    ? `${originalJob.braider.name} accepted ${horse.barnName} for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`
-                    : `${originalJob.braider.name} declined ${horse.barnName} for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`,
+                    ? `${originalJob.braider.name} accepted ${horse.barnName} for ${format(assignmentDate, 'EEE do', { timeZone: 'UTC' })} for ${originalJob.show.name}`
+                    : `${originalJob.braider.name} declined ${horse.barnName} for ${format(assignmentDate, 'EEE do', { timeZone: 'UTC' })} for ${originalJob.show.name}`,
                 null,
                 originalJob.braiderId,
                 null,
@@ -280,7 +281,7 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
                 [...new Set(completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length && completedServiceIds.length > 0;
 
         if (isComplete) {
-            const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date(), timezoneOffset);
+            const { count, limit, period } = await getBraiderUsage(assignment.job.braiderId, assignment.job.braider.subscriptionTier, new Date());
             const newCount = successMessage === 'Marked as incomplete' ? count - 1 : successMessage === 'Marked as complete' ? count + 1 : count;
 
             if (period !== 'unlimited') {
@@ -317,7 +318,7 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
                 await createNotification(
                     originalJob.braiderId,
                     NotificationType.horse_sub_completed,
-                    `${subcontractor.name} has finished servicing ${horse.barnName} for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`,
+                    `${subcontractor.name} has finished servicing ${horse.barnName} for ${format(assignmentDate, 'EEE do', { timeZone: 'UTC' })} for ${originalJob.show.name}`,
                     null,
                     subcontractor.id,
                 );
@@ -486,7 +487,7 @@ export async function addAssignmentsToJob(jobId: string, assignments: { horseId:
 
         const timezoneOffset = new Date().getTimezoneOffset();
 
-        const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date(), timezoneOffset);
+        const { count, limit, period } = await getBraiderUsage(job.braiderId, job.braider.subscriptionTier, new Date());
         const newHorsesCount = assignments.length;
 
         if (period !== 'unlimited' && count + newHorsesCount > limit) {
@@ -505,7 +506,7 @@ export async function addAssignmentsToJob(jobId: string, assignments: { horseId:
                 data: {
                     jobId,
                     horseId: a.horseId,
-                    assignmentDate: a.date,
+                    assignmentDate: toCalendarDateUTC(a.date),
                     status: 'pending',
                     services: {
                         connect: a.serviceIds.map((id) => ({ id })),
@@ -537,7 +538,7 @@ export async function getBraiderData(braiderId: string) {
             where: { id: braiderId },
             include: {
                 shows: {
-                    where: { endDate: { gte: getLocalTodayStart(0) } },
+                    where: { endDate: { gte: getUTCStartOfUserDay() } },
                     orderBy: { startDate: 'asc' },
                 },
                 services: true,
@@ -756,7 +757,7 @@ export async function cancelAssignment(assignmentId: string, barn: boolean) {
             await createNotification(
                 originalJob.barnId,
                 NotificationType.horse_status_change,
-                `${originalJob.braider.name} reinstated ${horse.barnName} as a service for ${format(parseUTCToLocal(assignmentDate) || assignmentDate, 'EEE do')} for ${originalJob.show.name}`,
+                `${originalJob.braider.name} reinstated ${horse.barnName} as a service for ${format(assignmentDate, 'EEE do', { timeZone: 'UTC' })} for ${originalJob.show.name}`,
                 null,
                 originalJob.braiderId,
                 null,
@@ -835,7 +836,7 @@ export async function getBraiderUsageAction(email: string, timezoneOffset: numbe
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
 
-        const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date(), timezoneOffset);
+        const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date());
         return { count, limit, period };
     } catch (error) {
         console.error('Get braider usage error:', error);
@@ -972,7 +973,6 @@ export async function adjustServices(assignmentId: string, newServiceIds: string
                     updatedAssignment.job.braiderId,
                     updatedAssignment.job.braider.subscriptionTier,
                     new Date(),
-                    new Date().getTimezoneOffset(),
                 );
                 const newCount = count + 1;
 

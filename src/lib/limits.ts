@@ -1,82 +1,47 @@
+// limits.ts
+
 import { prisma } from './prisma';
 import { SubscriptionTier } from '@prisma/client';
-import { startOfWeek, endOfWeek, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
-import { parseUTCToLocal } from './date-utils';
+import { getUserDayBoundsUTC, getUserWeekBoundsUTC } from './date-utils';
 
-export async function getBraiderUsage(
-    braiderId: string,
-    subscriptionTier: SubscriptionTier,
-    referenceDate: Date = new Date(),
-    timezoneOffset: number = 0, // Minutes from UTC (e.g. 480 for PST)
-) {
+export async function getBraiderUsage(braiderId: string, subscriptionTier: SubscriptionTier, referenceDate: Date = new Date()) {
+    if (subscriptionTier === 'enterprise') {
+        return { count: 0, limit: Infinity, period: 'unlimited' as const };
+    }
+
+    // browser's getTimezoneOffset() is the negation of the UTC offset:
+    // PST = UTC-8, getTimezoneOffset() = +480. We need utcOffset = -480.
+    const utcOffsetMinutes = -new Date().getTimezoneOffset();
+
     let startDate: Date;
     let endDate: Date;
     let limit: number;
-    let period: 'week' | 'day' | 'unlimited';
-
-    if (subscriptionTier === 'enterprise') {
-        return { count: 0, limit: Infinity, period: 'unlimited' };
-    }
-
-    const localDate = new Date(referenceDate.getTime() - timezoneOffset * 60000);
+    let period: 'week' | 'day';
 
     if (subscriptionTier === 'starter') {
-        // Weekly limit (Sunday start)
-        const localStart = startOfWeek(localDate, { weekStartsOn: 0 });
-        const localEnd = endOfWeek(localDate, { weekStartsOn: 0 });
-
-        // Convert back to UTC for database comparison
-        // startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
-        // endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
-        startDate = localStart;
-        endDate = localEnd;
+        [startDate, endDate] = getUserWeekBoundsUTC(referenceDate);
         limit = 50;
         period = 'week';
     } else {
-        // Professional: Daily limit
-        const localStart = startOfDay(localDate);
-        const localEnd = endOfDay(localDate);
-
-        // Convert back to UTC for database comparison
-        // startDate = new Date(localStart.getTime() + timezoneOffset * 60000);
-        // endDate = new Date(localEnd.getTime() + timezoneOffset * 60000);
-        startDate = localStart;
-        endDate = localEnd;
+        // professional
+        [startDate, endDate] = getUserDayBoundsUTC(referenceDate);
         limit = 50;
         period = 'day';
     }
 
-    const assignments = await prisma.jobAssignment.findMany({
+    // Query only the relevant window directly in the DB — no in-memory filtering
+    const count = await prisma.jobAssignment.count({
         where: {
-            job: {
-                braiderId: braiderId,
-            },
+            job: { braiderId, status: { not: 'editing' } },
             canceledAt: null,
-        },
-        include: {
-            job: {
-                include: {
-                    show: true,
-                },
+            status: { notIn: ['denied', 'canceled', 'pending'] },
+            completedAt: {
+                gte: startDate,
+                lt: endDate,
             },
-            services: true,
+            completedServiceIds: { isEmpty: false },
         },
     });
 
-    const count = assignments.filter(
-        (assignment) =>
-            assignment.job.status !== 'editing' &&
-            assignment.status !== 'denied' &&
-            assignment.status !== 'canceled' &&
-            assignment.status !== 'pending' &&
-            !assignment.canceledAt &&
-            assignment.services.filter((s) => !assignment.canceledServiceIds.includes(s.id)).length ===
-                [...new Set(assignment.completedServiceIds.filter((id) => !assignment.canceledServiceIds.includes(id)))].length &&
-            assignment.completedServiceIds.length > 0 &&
-            assignment.completedAt &&
-            isAfter(parseUTCToLocal(assignment.completedAt) || assignment.completedAt, startDate) &&
-            isBefore(parseUTCToLocal(assignment.completedAt) || assignment.completedAt, endDate),
-    ).length;
-    
     return { count, limit, period };
 }

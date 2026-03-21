@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { getJobs, markClientPaid, getEarningsHistory, getUserByEmail, markJobCompleted, removeCustomCharge, getJobById, addCustomCharge } from '@/app/actions/jobs';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Modal from '../../Modal';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,7 +43,7 @@ import { changeThanksMessage, getUserSettings } from '@/app/actions/settings';
 import { formatPhoneNumber } from '../_settings/Settings';
 import { failToast, successToast } from '@/app/context';
 import { Tab } from '../_braider/BraiderDashboard';
-import { parseUTCToLocal } from '@/lib/date-utils';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string; userEmail: string; setView: (view: string) => void; setSettingsOpen: (page: Tab) => void }) => {
     const [jobs, setJobs] = useState<any[]>([]);
@@ -106,7 +106,6 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
     );
 
     const refreshCheckMarkedCompletedModal = async (jobId: string) => {
-        console.log(jobId);
         const job = await getJobById(jobId);
         if (job && job.success && job.job) {
             setCheckMarkedCompleted({ ...checkMarkedCompleted, assignments: job.job.assignments });
@@ -711,7 +710,7 @@ const CheckMarkedCompletedModal = ({
                                                                     <span className='font-bold'>{service}&nbsp;-&nbsp;</span>
                                                                     {days.map((day, k) => (
                                                                         <span key={k + day.getTime()}>
-                                                                            {format(parseUTCToLocal(day) || day, 'EEEE')}
+                                                                            {format(calendarDateToLocal(day), 'EEEE')}
                                                                             {k === days.length - 1 ? '' : ', '}
                                                                         </span>
                                                                     ))}{' '}

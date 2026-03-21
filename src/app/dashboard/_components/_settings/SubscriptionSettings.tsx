@@ -218,7 +218,7 @@ const SubscriptionSettings = ({
         setApplyingCoupon(true);
         const res = await applyOneOffCoupon(couponCode);
         if (res.success) {
-            successToast('Coupon applied! Your trial has been extended until March 23rd, 2026.');
+            successToast(res.message);
             setCouponCode('');
             const sub = await getSubscriptionDetails();
             updateSubscriptionTier(sub);
@@ -335,7 +335,9 @@ const SubscriptionSettings = ({
                                 )}
                             >
                                 <Calendar size={16} />
-                                <span className='text-sm font-bold'>{daysLeft} days remaining in free trial</span>
+                                <span className='text-sm font-bold'>
+                                    {daysLeft} days remaining{isTrial ? ' in free trial' : ''}
+                                </span>
                             </div>
                         )}
                         {isActive && (

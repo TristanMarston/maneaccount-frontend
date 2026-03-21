@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { deleteGoogleCalendarEvent, updateGoogleCalendarEvent } from './google-calendar';
 import { NotificationType } from '@prisma/client';
-import { normalizeDateToUTC, getLocalTodayStart } from '@/lib/date-utils';
+import { toCalendarDateUTC, getUTCStartOfUserDay } from '@/lib/date-utils';
 
 type CreateShowInput = {
     name: string;
@@ -46,8 +46,8 @@ export async function createShow(data: CreateShowInput) {
                 country: data.country,
                 state: data.state,
                 city: data.city,
-                startDate: normalizeDateToUTC(data.startDate) || data.startDate,
-                endDate: normalizeDateToUTC(data.endDate) || data.endDate,
+                startDate: toCalendarDateUTC(data.startDate),
+                endDate: toCalendarDateUTC(data.endDate),
                 invites: {
                     create: connectedUserIds.map((inviteeId) => ({
                         inviterId: user.id,
@@ -93,7 +93,7 @@ export async function syncCalendar(connectionId: string, timezoneOffset: number 
             where: {
                 userId: braiderId,
                 startDate: {
-                    gte: getLocalTodayStart(timezoneOffset),
+                    gte: getUTCStartOfUserDay(),
                 },
             },
             select: { id: true },
@@ -310,8 +310,8 @@ export async function updateShow(id: string, data: CreateShowInput) {
                     country: data.country,
                     state: data.state,
                     city: data.city,
-                    startDate: normalizeDateToUTC(data.startDate)!,
-                    endDate: normalizeDateToUTC(data.endDate)!,
+                    startDate: toCalendarDateUTC(data.startDate)!,
+                    endDate: toCalendarDateUTC(data.endDate)!,
                 },
                 include: { invites: true },
             });

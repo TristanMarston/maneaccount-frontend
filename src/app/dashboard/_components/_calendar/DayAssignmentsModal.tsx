@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Job, statusColors } from '../_tasks/Tasks';
 import { format, isSameDay, eachDayOfInterval } from 'date-fns';
 import {
@@ -30,7 +30,7 @@ import { addAssignmentsToJob } from '@/app/actions/jobs';
 import { successToast, failToast } from '@/app/context';
 import Modal from '../../Modal';
 import { Show } from './Calendar';
-import { parseUTCToLocal } from '@/lib/date-utils';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 export const DayAssignmentsModal = ({
     jobs,
@@ -53,7 +53,7 @@ export const DayAssignmentsModal = ({
     const [horsesRef, setHorsesRef] = useState<any[]>([]);
     const jobInfo = jobs.map((job) => {
         const dateAssignments = job.assignments.filter((a) => {
-            const aDate = format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd');
+            const aDate = format(calendarDateToLocal(new Date(a.assignmentDate)), 'yyyy-MM-dd');
             const targetDate = format(date, 'yyyy-MM-dd');
             return aDate === targetDate && (role !== 'subcontractor' || a.subcontractor?.email === userEmail);
         });
@@ -120,17 +120,17 @@ export const DayAssignmentsModal = ({
                         </div>
                     </div>
                 )}
-                {jobInfo.map(({ sortedClients, barn }, i) =>
-                    !jobInfo.some((job) => job.sortedClients.length > 0) && i === 0 ? (
+                {jobInfo.map(({ sortedClients, barn }, i) => {
+                    return !jobInfo.some((job) => job.sortedClients.length > 0) && i === 0 ? (
                         <div className='text-center py-10 text-gray-400 italic'>No assignments for this day.</div>
                     ) : (
                         sortedClients.length > 0 && (
-                            <>
+                            <Fragment key={i}>
                                 {jobInfo.length > 0 && role !== 'barn' && (
                                     <h4 className='text-lg font-semibold mb-4 text-primary-light bg-primary-extra-light rounded-[10px] py-0.5 px-2'>{barn}</h4>
                                 )}
-                                {sortedClients.map(([clientName, assignments]: [string, any]) => (
-                                    <div key={clientName} className={cn('space-y-3', jobInfo.length > 0 && role !== 'barn' && 'pl-5 border-l border-gray-200')}>
+                                {sortedClients.map(([clientName, assignments]: [string, any], i: number) => (
+                                    <div key={clientName + i} className={cn('space-y-3', jobInfo.length > 0 && role !== 'barn' && 'pl-5 border-l border-gray-200')}>
                                         <div>
                                             <div className='flex items-center gap-2'>
                                                 <h4 className='font-bold text-lg text-gray-800 font-lusitana truncate min-w-0 text-nowrap'>{clientName}</h4>
@@ -260,10 +260,10 @@ export const DayAssignmentsModal = ({
                                         </div>
                                     </div>
                                 ))}
-                            </>
+                            </Fragment>
                         )
-                    ),
-                )}
+                    );
+                })}
             </div>
 
             {jobInfo[0].canAddHorse && (
@@ -311,14 +311,14 @@ const AddHorseToJobForm = ({
     preSelectedDate?: Date;
 }) => {
     const [assignments, setAssignments] = useState<{ horseId: string; clientName: string; serviceIds: string[]; date: Date }[]>([]);
-    const [selectedHorseId, setSelectedHorseId] = useState('');
+    const [selectedHorseIds, setSelectedHorseIds] = useState<string[]>([]);
     const [selectedDate, setSelectedDate] = useState<Date | null>(preSelectedDate || null);
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
     const showDates = React.useMemo(() => {
-        const start = parseUTCToLocal(job.show.startDate);
-        const end = parseUTCToLocal(job.show.endDate);
+        const start = calendarDateToLocal(job.show.startDate);
+        const end = calendarDateToLocal(job.show.endDate);
         if (!start || !end) return [];
         return eachDayOfInterval({
             start,
@@ -333,21 +333,29 @@ const AddHorseToJobForm = ({
     }, [preSelectedDate]);
 
     const handleAddToList = () => {
-        if (!selectedHorseId || !selectedDate || selectedServiceIds.length === 0) return;
-        const horse = horses.find((h) => h.id === selectedHorseId);
-        if (!horse) return;
+        if (selectedHorseIds.length === 0 || !selectedDate || selectedServiceIds.length === 0) return;
 
-        setAssignments((prev) => [
-            ...prev,
-            {
-                horseId: selectedHorseId,
-                clientName: horse.client?.name || 'No Client',
-                serviceIds: selectedServiceIds,
-                date: selectedDate,
-            },
-        ]);
+        const existingAssignment = assignments.some((a) => selectedHorseIds.includes(a.horseId) && isSameDay(a.date, selectedDate));
+        if (existingAssignment) {
+            failToast('One or more horses already added for this date');
+            return;
+        }
 
-        setSelectedHorseId('');
+        setAssignments((prev) =>
+            existingAssignment
+                ? prev
+                : [
+                      ...prev,
+                      ...selectedHorseIds.map((horseId) => ({
+                          clientName: horses.find((h) => h.id === horseId)?.client.name,
+                          horseId: horseId,
+                          serviceIds: selectedServiceIds,
+                          date: selectedDate,
+                      })),
+                  ],
+        );
+
+        setSelectedHorseIds([]);
         setSelectedServiceIds([]);
     };
 
@@ -379,7 +387,7 @@ const AddHorseToJobForm = ({
     const groupedAssignments = React.useMemo(() => {
         const groups: Record<string, Record<string, typeof assignments>> = {};
         assignments.forEach((a) => {
-            const dateKey = format(parseUTCToLocal(a.date) || a.date, 'yyyy-MM-dd HH:mm:ss');
+            const dateKey = format(calendarDateToLocal(a.date), 'yyyy-MM-dd HH:mm:ss');
             if (!groups[dateKey]) groups[dateKey] = {};
             if (!groups[dateKey][a.clientName]) groups[dateKey][a.clientName] = [];
             groups[dateKey][a.clientName].push(a);
@@ -400,7 +408,7 @@ const AddHorseToJobForm = ({
     return (
         <div className='flex flex-col max-h-[90vh] font-figtree'>
             <div className='px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-center bg-white'>
-                <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horse to Request</h3>
+                <h3 className='text-3xl font-bold text-gray-900 font-lusitana'>Add Horses to Request</h3>
                 <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600 transition-all cursor-pointer'>
                     <X size={20} />
                 </button>
@@ -421,6 +429,7 @@ const AddHorseToJobForm = ({
                                         const d = new Date(date);
                                         d.setHours(12, 0, 0, 0);
                                         setSelectedDate(d);
+                                        setSelectedHorseIds([]);
                                     }}
                                     className={cn(
                                         'shrink-0 w-20 py-3 rounded-2xl flex flex-col items-center border transition-all cursor-pointer',
@@ -445,16 +454,14 @@ const AddHorseToJobForm = ({
                         {horses.map((horse) => (
                             <button
                                 key={horse.id}
-                                onClick={() => setSelectedHorseId(horse.id)}
+                                onClick={() => setSelectedHorseIds((prev) => [...prev, horse.id])}
                                 className={cn(
                                     'p-3 rounded-2xl border transition-all flex flex-col items-center gap-2 group cursor-pointer',
-                                    selectedHorseId === horse.id
+                                    selectedHorseIds.includes(horse.id)
                                         ? 'border-primary bg-primary-extra-light text-primary shadow-md'
                                         : 'border-gray-200 shadow-sm text-gray-600 hover:border-primary-light',
                                     !selectedDate ||
-                                        job.assignments
-                                            .filter((a) => isSameDay(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), selectedDate))
-                                            .some((a) => a.horse.id === horse.id) ||
+                                        job.assignments.filter((a) => isSameDay(calendarDateToLocal(new Date(a.assignmentDate)), selectedDate)).some((a) => a.horse.id === horse.id) ||
                                         assignments.some((a) => a.horseId === horse.id && isSameDay(a.date, selectedDate))
                                         ? 'opacity-20 pointer-events-none'
                                         : '',
@@ -467,7 +474,7 @@ const AddHorseToJobForm = ({
                                         <div className='w-full h-full flex items-center justify-center font-bold text-primary bg-primary/5 text-xl'>{horse.barnName[0]}</div>
                                     )}
                                 </div>
-                                <span className={cn('text-[14px] font-bold truncate w-full text-center', selectedHorseId === horse.id ? 'text-primary' : 'text-gray-700')}>
+                                <span className={cn('text-[14px] font-bold truncate w-full text-center', selectedHorseIds.includes(horse.id) ? 'text-primary' : 'text-gray-700')}>
                                     {horse.barnName}
                                 </span>
                             </button>
@@ -509,11 +516,11 @@ const AddHorseToJobForm = ({
                 <div className='mt-6'>
                     <button
                         onClick={handleAddToList}
-                        disabled={!selectedDate || !selectedHorseId || selectedServiceIds.length === 0}
+                        disabled={!selectedDate || selectedHorseIds.length === 0 || selectedServiceIds.length === 0}
                         className='bg-background primary-border-hover text-primary cursor-pointer font-bold py-2 px-6 rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2'
                     >
                         <Plus size={18} />
-                        Add to List
+                        Add to List{selectedHorseIds.length > 0 ? ` (${selectedHorseIds.length})` : ''}
                     </button>
                 </div>
 

@@ -42,7 +42,7 @@ import {
 } from 'date-fns';
 import { deleteShow, getInvites, getShows, respondToShowInvite } from '@/app/actions/calendar';
 import { generateShowICS } from '@/app/actions/ics-calendar';
-import { parseUTCToLocal } from '@/lib/date-utils';
+import { calendarDateToLocal } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import Modal from '../../Modal';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
@@ -209,7 +209,7 @@ const ShowDetailsModal = ({
                                 <div>
                                     <p className='text-xs font-bold text-primary uppercase tracking-wide'>Dates</p>
                                     <p className='text-sm font-medium text-gray-900'>
-                                        {format(parseUTCToLocal(show.startDate) || new Date(), 'MMM d')} - {format(parseUTCToLocal(show.endDate) || new Date(), 'MMM d, yyyy')}
+                                        {format(calendarDateToLocal(show.startDate), 'MMM d')} - {format(calendarDateToLocal(show.endDate), 'MMM d, yyyy')}
                                     </p>
                                 </div>
                             </div>
@@ -429,23 +429,25 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
             const { shows: showsData, jobs: jobsData } = result;
 
             const mappedJobs: Show[] = (jobsData as any[]).flatMap((job) => {
-                const assignmentDates = [...new Set(job.assignments.map((a: any) => format(parseUTCToLocal(new Date(a.assignmentDate)) || new Date(a.assignmentDate), 'yyyy-MM-dd')))];
+                const assignmentDates = [...new Set(job.assignments.map((a: any) => a.assignmentDate))];
 
                 if (assignmentDates.length === 0) return [];
 
-                return assignmentDates.map((dateKey) => ({
-                    id: `${job.show.id}`,
-                    jobId: job.id,
-                    name: job.show?.name || 'Job',
-                    city: job.show?.city || '',
-                    state: job.show?.state || '',
-                    country: 'USA',
-                    startDate: new Date(dateKey + 'T12:00:00'),
-                    endDate: new Date(dateKey + 'T12:00:00'),
-                    type: 'job' as 'show' | 'job',
-                    jobData: job,
-                    isOwner: true,
-                }));
+                return assignmentDates
+                    .filter((obj, index, self) => index === self.findIndex((o) => isSameDay(o as Date, obj as Date)))
+                    .map((dateKey) => ({
+                        id: `${job.show.id}`,
+                        jobId: job.id,
+                        name: job.show?.name || 'Job',
+                        city: job.show?.city || '',
+                        state: job.show?.state || '',
+                        country: 'USA',
+                        startDate: calendarDateToLocal(new Date(dateKey as Date)),
+                        endDate: calendarDateToLocal(new Date(dateKey as Date)),
+                        type: 'job' as 'show' | 'job',
+                        jobData: job,
+                        isOwner: true,
+                    }));
             });
 
             // @ts-ignore
@@ -468,9 +470,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
 
     const handleShowClick = (show: Show, date?: Date) => {
         const jobsForDate = date
-            ? mappedJobShows.filter(
-                  (s) => s.type === 'job' && s.jobData.showId === show.id && isSameDay(parseUTCToLocal(new Date(s.startDate)) || new Date(s.startDate), parseUTCToLocal(date) || date),
-              )
+            ? mappedJobShows.filter((s) => s.type === 'job' && s.jobData.showId === show.id && isSameDay(calendarDateToLocal(new Date(s.startDate)), calendarDateToLocal(date)))
             : [];
 
         const jobsForShow = date ? mappedJobShows.filter((s) => s.type === 'job' && s.jobData.showId === show.id) : [];
@@ -1005,9 +1005,9 @@ const MonthView = ({
 
     const getShowsForDay = (day: Date) => {
         return shows.filter((show) => {
-            const start = parseUTCToLocal(show.startDate);
+            const start = calendarDateToLocal(show.startDate);
             if (start) start.setHours(0, 0, 0, 0);
-            const end = parseUTCToLocal(show.endDate);
+            const end = calendarDateToLocal(show.endDate);
             if (end) end.setHours(0, 0, 0, 0);
             const current = new Date(day);
             current.setHours(0, 0, 0, 0);
@@ -1144,9 +1144,9 @@ const WeekView = ({
 
     const getShowsForDay = (day: Date) => {
         return shows.filter((show) => {
-            const start = parseUTCToLocal(new Date(show.startDate)) || new Date(show.startDate);
+            const start = calendarDateToLocal(new Date(show.startDate));
             start.setHours(0, 0, 0, 0);
-            const end = parseUTCToLocal(new Date(show.endDate)) || new Date(show.endDate);
+            const end = calendarDateToLocal(new Date(show.endDate));
             end.setHours(0, 0, 0, 0);
             const current = new Date(day);
             current.setHours(0, 0, 0, 0);
@@ -1267,8 +1267,8 @@ const ListView = ({
     userEmail: string;
 }) => {
     const allOccurrences = shows.flatMap((show) => {
-        const start = parseUTCToLocal(show.startDate);
-        const end = parseUTCToLocal(show.endDate);
+        const start = calendarDateToLocal(show.startDate);
+        const end = calendarDateToLocal(show.endDate);
         if (!start || !end) return [];
         const days = eachDayOfInterval({ start, end });
         return days.map((day) => ({

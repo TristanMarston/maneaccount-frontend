@@ -5,15 +5,15 @@ import { generateShowICS } from '@/app/actions/ics-calendar';
 import { failToast, successToast, usaStates } from '@/app/context';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format } from 'date-fns-tz';
 import { CalendarIcon, MapPin, ChevronsRight, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DatePicker from '../DatePicker';
 import { Show } from '@/app/dashboard/_components/_calendar/Calendar';
-import { parseUTCToLocal } from '@/lib/date-utils';
 import CalendarIntegrationModal from './CalendarIntegrationModal';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 const AddShowForm = ({
     onClose,
@@ -31,8 +31,8 @@ const AddShowForm = ({
         country: initialData?.country || 'USA',
         state: initialData?.state || '',
         city: initialData?.city || '',
-        startDate: initialData?.startDate ? parseUTCToLocal(initialData.startDate) : null,
-        endDate: initialData?.endDate ? parseUTCToLocal(initialData.endDate) : null,
+        startDate: initialData?.startDate ? calendarDateToLocal(initialData.startDate) : null,
+        endDate: initialData?.endDate ? calendarDateToLocal(initialData.endDate) : null,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [startDateSelectorOpen, setStartDateSelectorOpen] = useState(false);
@@ -96,8 +96,8 @@ const AddShowForm = ({
                     formData.country !== initialData.country ||
                     formData.state !== initialData.state ||
                     formData.city !== initialData.city ||
-                    formData.startDate?.getTime() !== parseUTCToLocal(initialData.startDate)?.getTime() ||
-                    formData.endDate?.getTime() !== parseUTCToLocal(initialData.endDate)?.getTime(),
+                    formData.startDate?.getTime() !== calendarDateToLocal(initialData.startDate).getTime() ||
+                    formData.endDate?.getTime() !== calendarDateToLocal(initialData.endDate).getTime(),
             );
         } else {
             setChangesMade(!!formData.name || !!formData.state || !!formData.city || !!formData.startDate || !!formData.endDate);

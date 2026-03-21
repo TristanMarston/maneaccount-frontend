@@ -14,7 +14,7 @@ import { successToast, failToast } from '@/app/context';
 import DatePicker from '../DatePicker';
 import { ViewShowDetailsModal } from './RequestWorkModals';
 import Modal from '../../Modal';
-import { parseUTCToLocal, normalizeDateToUTC } from '@/lib/date-utils';
+import { calendarDateToLocal, toCalendarDateUTC } from '@/lib/date-utils';
 
 const RequestWorkSubpage = ({
     job: initialJob,
@@ -56,7 +56,7 @@ const RequestWorkSubpage = ({
                   horseId: a.horse.id,
                   clientName: a.horse.client.name,
                   serviceIds: a.services.map((s) => s.id),
-                  date: parseUTCToLocal(a.assignmentDate) || new Date(a.assignmentDate),
+                  date: calendarDateToLocal(a.assignmentDate),
                   id: a.id,
               }))
             : [],
@@ -129,7 +129,7 @@ const RequestWorkSubpage = ({
 
                         return (
                             curr.horseId !== prev.horse.id ||
-                            new Date(curr.date).getTime() !== (parseUTCToLocal(new Date(prev.assignmentDate)) || new Date(prev.assignmentDate)).getTime() ||
+                            new Date(curr.date).getTime() !== calendarDateToLocal(new Date(prev.assignmentDate)).getTime() ||
                             prevServiceIds.length !== currServiceIds.length ||
                             currServiceIds.some((id, idx) => id !== prevServiceIds[idx])
                         );
@@ -175,8 +175,8 @@ const RequestWorkSubpage = ({
 
     const showDates = useMemo(() => {
         if (!selectedShow) return [];
-        const start = parseUTCToLocal(selectedShow.startDate);
-        const end = parseUTCToLocal(selectedShow.endDate);
+        const start = calendarDateToLocal(selectedShow.startDate);
+        const end = calendarDateToLocal(selectedShow.endDate);
         if (!start || !end) return [];
         return eachDayOfInterval({
             start,
@@ -234,7 +234,7 @@ const RequestWorkSubpage = ({
             const assignmentData = assignments.map((a) => ({
                 horseId: a.horseId,
                 serviceIds: a.serviceIds,
-                date: normalizeDateToUTC(a.date) as Date,
+                date: toCalendarDateUTC(a.date) as Date,
             }));
 
             if (isEditing) {
@@ -293,7 +293,7 @@ const RequestWorkSubpage = ({
             const assignmentData = assignments.map((a) => ({
                 horseId: a.horseId,
                 serviceIds: a.serviceIds,
-                date: normalizeDateToUTC(a.date) as Date,
+                date: a.date as Date,
             }));
 
             let jobId = isEditing ? (initialJob as Job).id : '';
@@ -538,8 +538,7 @@ const RequestWorkSubpage = ({
                                                     </div>
                                                     <div className='flex items-center gap-1.5 text-sm text-gray-500 mt-1'>
                                                         <CalendarIcon size={14} />
-                                                        {format(parseUTCToLocal(new Date(s.startDate)) || new Date(s.startDate), 'MMM d')} -{' '}
-                                                        {format(parseUTCToLocal(new Date(s.endDate)) || s.endDate, 'MMM d')}
+                                                        {format(calendarDateToLocal(s.startDate), 'MMM d')} - {format(calendarDateToLocal(s.endDate), 'MMM d')}
                                                     </div>
                                                 </button>
                                             ))
@@ -581,8 +580,8 @@ const RequestWorkSubpage = ({
                                                         : 'border-gray-200 shadow-sm text-gray-600 hover:border-primary-light',
                                                 )}
                                             >
-                                                <span className='text-[10px] uppercase font-bold opacity-60'>{format(parseUTCToLocal(date) || date, 'eee')}</span>
-                                                <span className='text-[22px] leading-1.4 font-bold font-lusitana'>{format(parseUTCToLocal(date) || date, 'd')}</span>
+                                                <span className='text-[10px] uppercase font-bold opacity-60'>{format(calendarDateToLocal(date), 'eee')}</span>
+                                                <span className='text-[22px] leading-1.4 font-bold font-lusitana'>{format(calendarDateToLocal(date), 'd')}</span>
                                             </button>
                                         );
                                     })}

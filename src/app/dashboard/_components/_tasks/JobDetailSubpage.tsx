@@ -1116,7 +1116,7 @@ export const JobDetailSubpage = ({
                                                                             </div>
                                                                         ) : (
                                                                             !job.invoiceSentAt &&
-                                                                            role !== 'barn' && (
+                                                                            role === 'braider' && (
                                                                                 <button
                                                                                     onClick={() => handleCancelAssignment(assignment.id)}
                                                                                     className={cn(
@@ -1127,6 +1127,42 @@ export const JobDetailSubpage = ({
                                                                                     )}
                                                                                 >
                                                                                     {isGrayed ? 'Restore' : 'Cancel Horse'}
+                                                                                </button>
+                                                                            )
+                                                                        )}
+                                                                        {role === 'subcontractor' && assignment.subcontractorStatus === 'pending' ? (
+                                                                            <div className='grid @min-[490px]/job-subpage:hidden grid-cols-2 items-center gap-2 m-0 @min-[490px]/job-subpage:mr-2'>
+                                                                                <button
+                                                                                    onClick={() => handleSubcontractorResponse('accepted', assignment.id)}
+                                                                                    className='px-2 py-1.5 transition-colors text-sm cursor-pointer font-bold uppercase text-background bg-primary-light primary-border-hover rounded-[10px]'
+                                                                                >
+                                                                                    Accept
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => handleSubcontractorResponse('denied', assignment.id)}
+                                                                                    className='px-2 py-1.5 transition-colors text-sm cursor-pointer font-bold uppercase text-red-400 hover:text-red-500 red-border-hover rounded-[10px]'
+                                                                                >
+                                                                                    Deny
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            !job.invoiceSentAt &&
+                                                                            role === 'subcontractor' && (
+                                                                                <button
+                                                                                    onClick={() =>
+                                                                                        handleSubcontractorResponse(
+                                                                                            assignment.subcontractorStatus === 'redirected' ? 'accepted' : 'denied',
+                                                                                            assignment.id,
+                                                                                        )
+                                                                                    }
+                                                                                    className={cn(
+                                                                                        'p-1 mt-2 block @min-[490px]/job-subpage:hidden w-full transition-colors text-sm cursor-pointer font-bold uppercase px-2 py-1.5 rounded-[10px] text-nowrap',
+                                                                                        assignment.subcontractorStatus === 'redirected'
+                                                                                            ? 'text-primary hover:text-primary-dark border border-primary/20 hover:bg-primary-extra-light'
+                                                                                            : 'text-red-500 red-border-hover',
+                                                                                    )}
+                                                                                >
+                                                                                    {assignment.subcontractorStatus === 'redirected' ? 'Restore' : 'Cancel Horse'}
                                                                                 </button>
                                                                             )
                                                                         )}

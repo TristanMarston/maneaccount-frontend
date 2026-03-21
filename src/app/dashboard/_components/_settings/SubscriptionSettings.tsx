@@ -336,7 +336,7 @@ const SubscriptionSettings = ({
                             >
                                 <Calendar size={16} />
                                 <span className='text-sm font-bold'>
-                                    {daysLeft} days remaining{isTrial ? ' in free trial' : ''}
+                                    {daysLeft} days remaining in free trial
                                 </span>
                             </div>
                         )}

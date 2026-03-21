@@ -495,7 +495,7 @@ export async function createNotification(
             } else if (type === NotificationType.limit_approaching && user.allowedNotifications.includes('limit_approaching')) {
                 const { sendLimitEmail } = await import('@/lib/email');
 
-                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date(), timezoneOffset);
+                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date());
 
                 await sendLimitEmail({
                     to: user.email,
@@ -507,7 +507,7 @@ export async function createNotification(
             } else if (type === NotificationType.limit_exceeded && user.allowedNotifications.includes('limit_exceeded')) {
                 const { sendLimitEmail } = await import('@/lib/email');
 
-                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date(), timezoneOffset);
+                const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date());
 
                 const barn = await prisma.user.findUnique({ where: { id: senderId || '' } });
 

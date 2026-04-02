@@ -178,7 +178,7 @@ export async function createNotification(
     targetId?: string | null,
     senderId?: string | null,
     image?: string | null,
-    timezoneOffset: number = 0,
+    sendToHorseOwners?: boolean | null,
 ) {
     try {
         await prisma.notification.create({
@@ -408,64 +408,66 @@ export async function createNotification(
                             horseExpenses,
                         });
 
-                        const notifiedClientIds = new Set<string>();
-                        for (const assignment of job.assignments) {
-                            if (
-                                assignment.canceledAt ||
-                                !(assignment.status === 'completed' || assignment.status === 'accepted') ||
-                                assignment.canceledServiceIds.length === assignment.services.length
-                            )
-                                continue;
+                        if (sendToHorseOwners !== false) {
+                            const notifiedClientIds = new Set<string>();
+                            for (const assignment of job.assignments) {
+                                if (
+                                    assignment.canceledAt ||
+                                    !(assignment.status === 'completed' || assignment.status === 'accepted') ||
+                                    assignment.canceledServiceIds.length === assignment.services.length
+                                )
+                                    continue;
 
-                            const client = assignment.horse.client;
-                            if (client && client.email && !notifiedClientIds.has(client.id)) {
-                                const clientServiceDetails: Record<string, any[]> = {};
+                                const client = assignment.horse.client;
+                                if (client && client.email && !notifiedClientIds.has(client.id)) {
+                                    const clientServiceDetails: Record<string, any[]> = {};
 
-                                for (const [date, horsesInDay] of Object.entries(mainServiceDetails)) {
-                                    const clientHorses = horsesInDay.filter((h) => h.client?.id === client.id);
-                                    if (clientHorses.length > 0) {
-                                        clientServiceDetails[date] = clientHorses;
+                                    for (const [date, horsesInDay] of Object.entries(mainServiceDetails)) {
+                                        const clientHorses = horsesInDay.filter((h) => h.client?.id === client.id);
+                                        if (clientHorses.length > 0) {
+                                            clientServiceDetails[date] = clientHorses;
+                                        }
                                     }
-                                }
 
-                                const clientHorseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
-                                const clientHorseExpenses: Record<string, number> = {};
-                                for (const horse of validAssignments.filter((a) => a.horse.clientId === client.id)) {
-                                    const showName = horse.horse.showName;
-                                    const barnName = horse.horse.barnName;
-                                    const nameKey = `${showName}/////(${barnName})`;
+                                    const clientHorseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
+                                    const clientHorseExpenses: Record<string, number> = {};
+                                    for (const horse of validAssignments.filter((a) => a.horse.clientId === client.id)) {
+                                        const showName = horse.horse.showName;
+                                        const barnName = horse.horse.barnName;
+                                        const nameKey = `${showName}/////(${barnName})`;
 
-                                    if (!clientHorseExpenses[nameKey]) clientHorseExpenses[nameKey] = 0;
-                                    if (horse.customCharges.length > 0) clientHorseExpenses[nameKey] += horse.customCharges.reduce((acc, c) => acc + c.amount, 0);
+                                        if (!clientHorseExpenses[nameKey]) clientHorseExpenses[nameKey] = 0;
+                                        if (horse.customCharges.length > 0) clientHorseExpenses[nameKey] += horse.customCharges.reduce((acc, c) => acc + c.amount, 0);
 
-                                    if (!clientHorseDetails[nameKey]) clientHorseDetails[nameKey] = {};
+                                        if (!clientHorseDetails[nameKey]) clientHorseDetails[nameKey] = {};
 
-                                    for (const service of horse.services) {
-                                        const serviceName = service.name;
-                                        if (!clientHorseDetails[nameKey][serviceName]) clientHorseDetails[nameKey][serviceName] = { days: [], price: 0 };
+                                        for (const service of horse.services) {
+                                            const serviceName = service.name;
+                                            if (!clientHorseDetails[nameKey][serviceName]) clientHorseDetails[nameKey][serviceName] = { days: [], price: 0 };
 
-                                        clientHorseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
-                                        clientHorseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
-                                        clientHorseDetails[nameKey][serviceName].price += service.priceUSD;
+                                            clientHorseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+                                            clientHorseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+                                            clientHorseDetails[nameKey][serviceName].price += service.priceUSD;
+                                        }
                                     }
-                                }
 
-                                if (Object.keys(clientServiceDetails).length > 0) {
-                                    await sendJobCompletedEmail({
-                                        to: client.email,
-                                        braiderName: job.braider.name || 'Braider',
-                                        showName: job.show.name,
-                                        horseName: assignment.horse.showName,
-                                        thanksMessage: job.thanksMessage || '',
-                                        isClient: true,
-                                        image: image || '',
-                                        paymentInformation,
-                                        serviceDetails: [clientServiceDetails],
-                                        horseDetails: clientHorseDetails,
-                                        horseExpenses: clientHorseExpenses,
-                                    });
+                                    if (Object.keys(clientServiceDetails).length > 0) {
+                                        await sendJobCompletedEmail({
+                                            to: client.email,
+                                            braiderName: job.braider.name || 'Braider',
+                                            showName: job.show.name,
+                                            horseName: assignment.horse.showName,
+                                            thanksMessage: job.thanksMessage || '',
+                                            isClient: true,
+                                            image: image || '',
+                                            paymentInformation,
+                                            serviceDetails: [clientServiceDetails],
+                                            horseDetails: clientHorseDetails,
+                                            horseExpenses: clientHorseExpenses,
+                                        });
+                                    }
+                                    notifiedClientIds.add(client.id);
                                 }
-                                notifiedClientIds.add(client.id);
                             }
                         }
                     }

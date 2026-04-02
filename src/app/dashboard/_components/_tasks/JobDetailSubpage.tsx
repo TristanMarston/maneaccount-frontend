@@ -269,7 +269,7 @@ const SelectSubcontractorDropdown = ({
                     >
                         <button
                             type='button'
-                            onClick={() => handleSelect('')}
+                            onClick={() => handleSelect('myself-assignment')}
                             className='w-full cursor-pointer text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex gap-3 items-center justify-between transition-colors font-medium font-figtree'
                         >
                             <div className='flex items-center gap-2'>
@@ -337,7 +337,7 @@ export const JobDetailSubpage = ({
     const [team, setTeam] = useState<any[]>([]);
     const [userId, setUserId] = useState('');
     const [notesModalOpen, setNotesModalOpen] = useState(false);
-    const [subcontractorLoading, setSubcontractorLoading] = useState(-1);
+    const [subcontractorLoading, setSubcontractorLoading] = useState<{ assignmentId: string; index: number } | null>(null);
     const [acceptJobHeight, setAcceptJobHeight] = useState(0);
     const [messagesPrescrolled, setMessagesPrescrolled] = useState(false);
     const acceptJobRef = useRef<HTMLDivElement>(null);
@@ -510,14 +510,14 @@ export const JobDetailSubpage = ({
     };
 
     const handleAssignSub = async (assignmentId: string, subId: string, index: number) => {
-        setSubcontractorLoading(index);
+        setSubcontractorLoading({ assignmentId, index });
         const res = await assignSubcontractorToAssignment(assignmentId, subId);
         if (res.success) {
             refresh();
         } else {
             failToast('Failed to assign');
         }
-        setSubcontractorLoading(-1);
+        setSubcontractorLoading(null);
     };
 
     const handleToggleService = async (e: React.MouseEvent, assignmentId: string, serviceId: string) => {
@@ -1025,7 +1025,9 @@ export const JobDetailSubpage = ({
                                                                                             value={assignment.subcontractor?.id || ''}
                                                                                             subImage={assignment.subcontractor?.image || ''}
                                                                                             onChange={(val) => handleAssignSub(assignment.id, val, i)}
-                                                                                            loading={subcontractorLoading === i}
+                                                                                            loading={
+                                                                                                subcontractorLoading?.assignmentId === assignment.id && subcontractorLoading?.index === i
+                                                                                            }
                                                                                             team={team}
                                                                                             disabled={assignment.status !== 'accepted'}
                                                                                             completed={
@@ -1088,7 +1090,7 @@ export const JobDetailSubpage = ({
                                                                                     value={assignment.subcontractor?.id || ''}
                                                                                     subImage={assignment.subcontractor?.image || ''}
                                                                                     onChange={(val) => handleAssignSub(assignment.id, val, i)}
-                                                                                    loading={subcontractorLoading === i}
+                                                                                    loading={subcontractorLoading?.assignmentId === assignment.id && subcontractorLoading?.index === i}
                                                                                     team={team}
                                                                                     disabled={assignment.status !== 'accepted'}
                                                                                     completed={
@@ -1788,7 +1790,10 @@ const AddHorseToJobForm = ({ job, horses, braiderServices, onClose, refresh }: {
                         {horses.map((horse) => (
                             <button
                                 key={horse.id}
-                                onClick={() => setSelectedHorseIds((prev) => [...prev, horse.id])}
+                                onClick={() => {
+                                    if (selectedHorseIds.includes(horse.id)) setSelectedHorseIds((prev) => prev.filter((id) => id !== horse.id));
+                                    else setSelectedHorseIds((prev) => [...prev, horse.id]);
+                                }}
                                 className={cn(
                                     'p-3 rounded-2xl border transition-all flex flex-col items-center gap-2 group cursor-pointer',
                                     selectedHorseIds.includes(horse.id)

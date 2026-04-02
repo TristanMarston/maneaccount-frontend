@@ -454,7 +454,10 @@ const AddHorseToJobForm = ({
                         {horses.map((horse) => (
                             <button
                                 key={horse.id}
-                                onClick={() => setSelectedHorseIds((prev) => [...prev, horse.id])}
+                                onClick={() => {
+                                    if (selectedHorseIds.includes(horse.id)) setSelectedHorseIds((prev) => prev.filter((id) => id !== horse.id));
+                                    else setSelectedHorseIds((prev) => [...prev, horse.id]);
+                                }}
                                 className={cn(
                                     'p-3 rounded-2xl border transition-all flex flex-col items-center gap-2 group cursor-pointer',
                                     selectedHorseIds.includes(horse.id)

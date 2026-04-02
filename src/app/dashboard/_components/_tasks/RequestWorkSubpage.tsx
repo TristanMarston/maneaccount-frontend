@@ -596,7 +596,8 @@ const RequestWorkSubpage = ({
                                             <div
                                                 key={h.id}
                                                 onClick={() => {
-                                                    setSelectedHorseIds((prev) => [...prev, h.id]);
+                                                    if (selectedHorseIds.includes(h.id)) setSelectedHorseIds((prev) => prev.filter((id) => id !== h.id));
+                                                    else setSelectedHorseIds((prev) => [...prev, h.id]);
                                                 }}
                                                 className={cn(
                                                     'flex flex-col items-center gap-2 p-3 rounded-xl shadow-sm border cursor-pointer transition-all relative group',

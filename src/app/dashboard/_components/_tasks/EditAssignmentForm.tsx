@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { adjustServices, cancelAssignment } from '@/app/actions/jobs';
 import { failToast, successToast } from '@/app/context';
+import { calendarDateToLocal } from '@/lib/date-utils';
 
 const EditAssignmentForm = ({
     job,
@@ -95,16 +96,16 @@ const EditAssignmentForm = ({
                             className='object-cover static! rounded-full w-full h-full max-w-36 max-h-36 @min-[450px]/edit-assignment:max-w-40 @min-[450px]/edit-assignment:max-h-40 aspect-square'
                         />
                         <div className='absolute top-0 left-0 bg-black/70 rounded-full w-full h-full max-w-36 max-h-36 @min-[450px]/edit-assignment:max-w-40 @min-[450px]/edit-assignment:max-h-40 aspect-square flex flex-col items-center justify-between p-4 py-5 shadow-lg'>
-                            <span className='font-figtree text-gray-300 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(horse.date, 'EEE')}</span>
-                            <h3 className='font-lusitana text-white font-bold text-[44px] @min-[450px]/edit-assignment:text-5xl leading-[1.1]'>{format(horse.date, 'd')}</h3>
-                            <span className='font-figtree text-gray-300 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(horse.date, 'MMM')}</span>
+                            <span className='font-figtree text-gray-300 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(calendarDateToLocal(new Date(horse.date)), 'EEE')}</span>
+                            <h3 className='font-lusitana text-white font-bold text-[44px] @min-[450px]/edit-assignment:text-5xl leading-[1.1]'>{format(calendarDateToLocal(new Date(horse.date)), 'd')}</h3>
+                            <span className='font-figtree text-gray-300 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(calendarDateToLocal(new Date(horse.date)), 'MMM')}</span>
                         </div>
                     </div>
                 ) : (
                     <div className='static! bg-white rounded-full w-full h-full max-w-36 max-h-36 @min-[450px]/edit-assignment:max-w-40 @min-[450px]/edit-assignment:max-h-40 aspect-square flex flex-col items-center justify-between p-4 py-5 shadow-lg'>
-                        <span className='font-figtree text-gray-600 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(horse.date, 'EEE')}</span>
-                        <h3 className='font-lusitana text-black font-bold text-[44px] @min-[450px]/edit-assignment:text-5xl leading-[1.1]'>{format(horse.date, 'd')}</h3>
-                        <span className='font-figtree text-gray-600 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(horse.date, 'MMM')}</span>
+                        <span className='font-figtree text-gray-600 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(calendarDateToLocal(new Date(horse.date)), 'EEE')}</span>
+                        <h3 className='font-lusitana text-black font-bold text-[44px] @min-[450px]/edit-assignment:text-5xl leading-[1.1]'>{format(calendarDateToLocal(new Date(horse.date)), 'd')}</h3>
+                        <span className='font-figtree text-gray-600 font-semibold text-base @min-[450px]/edit-assignment:text-xl uppercase'>{format(calendarDateToLocal(new Date(horse.date)), 'MMM')}</span>
                     </div>
                 )}
             </div>

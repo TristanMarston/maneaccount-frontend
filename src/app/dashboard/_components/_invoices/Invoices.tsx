@@ -121,8 +121,8 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
 
     useAutoRefresh(() => refreshJobsFn(false));
 
-    const handleMarkJobCompleted = async (jobID: string, thanksMessage: string) => {
-        const res = await markJobCompleted(jobID, thanksMessage);
+    const handleMarkJobCompleted = async (jobID: string, thanksMessage: string, sendToHorseOwners: boolean) => {
+        const res = await markJobCompleted(jobID, sendToHorseOwners, thanksMessage);
         if (res.success) {
             successToast('Invoice sent!');
             setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
@@ -295,9 +295,9 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                                         }, 0);
 
                                         return (
-                                            <div key={job.id} className={cn('bg-violet-50 rounded-[14px] border border-violet-100 shadow-sm overflow-hidden transition-all')}>
+                                            <div key={job.id} className={cn('bg-violet-50 min-w-0 rounded-[14px] border border-violet-100 shadow-sm overflow-hidden transition-all')}>
                                                 <div
-                                                    className='p-4 flex items-center justify-between cursor-pointer transition-all'
+                                                    className='p-4 min-w-0 flex justify-between cursor-pointer flex-wrap flex-col items-start @min-[500px]/invoices:flex-row @min-[500px]/invoices:items-center gap-3 transition-all'
                                                     onClick={() => {
                                                         setCheckMarkedCompleted({
                                                             open: true,
@@ -306,15 +306,15 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                                                         });
                                                     }}
                                                 >
-                                                    <div className='flex items-center gap-4'>
+                                                    <div className='flex items-center gap-4 min-w-0 max-w-full'>
                                                         <div className='w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0 bg-violet-200 border border-violet-200 text-violet-500'>
                                                             {new Intl.NumberFormat('en-US', {
                                                                 style: 'currency',
                                                                 currency: 'USD',
                                                             }).format(totalRevenue)}
                                                         </div>
-                                                        <div>
-                                                            <h3 className='font-bold text-gray-900'>{job.show.name}</h3>
+                                                        <div className='min-w-0 truncate'>
+                                                            <h3 className='font-bold text-gray-900 truncate min-w-0'>{job.show.name}</h3>
                                                             <p className='text-xs text-gray-500'>
                                                                 {format(new Date(job.invoiceSentAt), 'MMM d, yyyy')} • {job.assignments.length} Horses
                                                             </p>
@@ -322,9 +322,9 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                                                     </div>
                                                     <button
                                                         type='button'
-                                                        className='px-5 cursor-pointer py-2 violet-border-hover text-[17px] bg-violet-400 text-white font-bold font-figtree rounded-[10px]'
+                                                        className='px-5 cursor-pointer py-2 w-full @min-[500px]/invoices:w-fit violet-border-hover text-[17px] bg-violet-400 text-white font-bold font-figtree rounded-[10px]'
                                                     >
-                                                        Send Invoice
+                                                        Review & Send
                                                     </button>
                                                     {/* <motion.div
                                                     className='text-gray-400 mr-2 bg-gray-100 p-1 rounded-full'
@@ -513,10 +513,13 @@ const getInvoiceInfo = (assignments: any[]) => {
         .filter((a) => !a.canceledAt && (a.status === 'completed' || a.status === 'accepted') && a.services.length !== a.canceledServiceIds.length)
         .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
 
+    const horseOwnerNames: string[] = [];
     const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
     const horseExpenses: Record<string, { name: string; id: string; amount: number }[]> = {};
     const horseIds: Record<string, string> = {};
     for (const horse of validAssignments) {
+        if (horse && horse.horse && horse.horse.client && horse.horse.client.name && !horseOwnerNames.includes(horse.horse.client.name)) horseOwnerNames.push(horse.horse.client.name);
+
         const showName = horse.horse.showName;
         const barnName = horse.horse.barnName;
         const nameKey = `${showName}/////(${barnName})`;
@@ -550,6 +553,7 @@ const getInvoiceInfo = (assignments: any[]) => {
         horseDetails,
         horseExpenses,
         horseIds,
+        horseOwnerNames: horseOwnerNames.filter((name) => name !== null && name !== undefined && name.trim() !== ''),
     };
 };
 
@@ -570,7 +574,7 @@ const CheckMarkedCompletedModal = ({
     };
     setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; assignments: any[] }) => void;
     role: string;
-    handleMarkJobCompleted: (id: string, thanksMessage: string) => void;
+    handleMarkJobCompleted: (id: string, thanksMessage: string, sendToHorseOwners: boolean) => void;
     handleOpenAddChargeModal: (assignmentId: string, refreshFn: () => void) => void;
     exactTime: Date;
     userEmail: string;
@@ -583,6 +587,7 @@ const CheckMarkedCompletedModal = ({
     const [thanksMessage, setThanksMessage] = useState('');
     const [loadingThanksMessage, setLoadingThanksMessage] = useState(true);
     const [thanksMessageWords, setThanksMessageWords] = useState(0);
+    const [sendToHorseOwners, setSendToHorseOwners] = useState(true);
 
     useEffect(() => {
         setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
@@ -657,11 +662,41 @@ const CheckMarkedCompletedModal = ({
                 Have you completed these services?
             </h1>
             <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
-                <p className='font-semibold'>This action will send an invoice to the barn and related horse owners.</p>
+                <p className='font-semibold'>This action will send an invoice to the barn{sendToHorseOwners ? ' and related horse owners' : ''}.</p>
                 <p className='mt-2'>
                     Payments occur outside of the ManeAccount platform, but we offer the ability to track them here in the <span className='font-bold'>Invoices</span> panel. Please
                     ensure that all reported services were actually completed.
                 </p>
+
+                <span className='flex items-start gap-2 my-4'>
+                    <button
+                        type='button'
+                        onClick={() => setSendToHorseOwners((prev) => !prev)}
+                        className={cn(
+                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm',
+                            sendToHorseOwners ? 'bg-primary text-background border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
+                        )}
+                    >
+                        <Check className={cn('transition-all w-4 h-4', sendToHorseOwners ? 'opacity-100' : 'opacity-0')} strokeWidth={2.5} />
+                    </button>
+                    <span className={cn('text-sm -mt-px transition-all', sendToHorseOwners ? 'text-primary-dark font-medium' : 'text-gray-600 font-normal')}>
+                        Send the invoice to{' '}
+                        {invoiceInfo.horseOwnerNames.length > 0
+                            ? invoiceInfo.horseOwnerNames.map((name, index) => (
+                                  <span key={name + index}>
+                                      {index === invoiceInfo.horseOwnerNames.length - 1 ? 'and ' : ''}
+                                      {name}
+                                      {index !== invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length > 2
+                                          ? ', '
+                                          : index !== invoiceInfo.horseOwnerNames.length - 1
+                                            ? ' '
+                                            : ''}
+                                  </span>
+                              ))
+                            : 'the horse owners/trainers.'}
+                        {invoiceInfo.horseOwnerNames.length > 0 ? ' (horse owners/trainers).' : ''}
+                    </span>
+                </span>
             </div>
             <div className='flex flex-col gap-2 mt-4'>
                 <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase text-[15.5px]'>Preview & Adjust Invoice</p>
@@ -692,12 +727,12 @@ const CheckMarkedCompletedModal = ({
                             Horse-By-Week Breakdown
                         </p>
                         {invoiceInfo.horseDetails && (
-                            <div className='ml-5 mt-2'>
+                            <div className='mx-1 @min-[290px]/check-completed:mx-3 mt-2 space-y-2'>
                                 {Object.entries(invoiceInfo.horseDetails)
                                     .sort(([aName], [bName]) => aName.split('/////')[0].localeCompare(bName.split('/////')[0]))
                                     .map(([horseName, serviceDetails], i) => (
-                                        <Fragment key={horseName + i}>
-                                            <span className='font-figtree my-3 text-violet-400 font-bold text-[15px]'>
+                                        <div key={horseName + i} className='p-1.5 rounded-xl border border-violet-200'>
+                                            <span className='font-figtree ml-1 my-3 text-violet-400 font-bold text-[15px]'>
                                                 {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
                                             </span>
                                             <div>
@@ -741,7 +776,7 @@ const CheckMarkedCompletedModal = ({
                                                             Add Custom Expense
                                                         </li>
                                                     </ul>
-                                                    <p className='text-sm px-3 py-0.5 bg-violet-50 w-fit rounded-full border border-violet-100 text-violet-900 mt-2 mb-2'>
+                                                    <p className='text-sm px-3 py-0.5 bg-violet-50 w-fit rounded-full border border-violet-100 text-violet-900 mt-2 mb-1'>
                                                         Subtotal:{' '}
                                                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
                                                             Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
@@ -752,13 +787,13 @@ const CheckMarkedCompletedModal = ({
                                                     </p>
                                                 </div>
                                             </div>
-                                        </Fragment>
+                                        </div>
                                     ))}
                             </div>
                         )}
                     </div>
                     <div className='ml-1'>
-                        <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-1'>Thank-you Message (optional)</p>
+                        <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-3'>Thank-you Message (optional)</p>
                         <p className='font-figtree text-primary font-semibold text-[13px] mt-0.5'>Write a custom thank-you message for your clients to see in the invoice.</p>
                         <textarea
                             value={loadingThanksMessage ? 'Loading...' : thanksMessage}
@@ -806,7 +841,7 @@ const CheckMarkedCompletedModal = ({
                     Cancel
                 </button>
                 <button
-                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage)}
+                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage, sendToHorseOwners)}
                     className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                 >
                     Send Invoice

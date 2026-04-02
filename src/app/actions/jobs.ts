@@ -293,7 +293,6 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
                         null,
                         null,
                         null,
-                        timezoneOffset,
                     );
                 } else if (newCount > 50) {
                     return {
@@ -403,7 +402,7 @@ export async function revertJobReview(jobId: string) {
     }
 }
 
-export async function markJobCompleted(jobId: string, thanksMessage?: string) {
+export async function markJobCompleted(jobId: string, sendToHorseOwners: boolean, thanksMessage?: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -420,10 +419,11 @@ export async function markJobCompleted(jobId: string, thanksMessage?: string) {
         await createNotification(
             job.barnId,
             NotificationType.job_completed,
-            `Job completed by ${job.braider.name}. Clients have received the invoice.`,
+            `Job completed by ${job.braider.name}. ${sendToHorseOwners ? 'Clients have received the invoice.' : "Clients did not receive the invoice per the braider's wishes."}`,
             job.id,
             job.braiderId,
             job.braider.image,
+            sendToHorseOwners,
         );
 
         revalidatePath('/dashboard');
@@ -632,36 +632,60 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
 
         const previousSubcontractorId = currentAssignment?.subcontractorId || '';
 
-        const assignment = await prisma.jobAssignment.update({
-            where: { id: assignmentId },
-            data: { subcontractorId: subcontractorId, subcontractorStatus: 'pending' },
-            include: { job: { include: { braider: true, subcontractors: true } } },
-        });
+        if (subcontractorId === 'myself-assignment' && currentAssignment) {
+            await prisma.jobAssignment.update({
+                where: { id: assignmentId },
+                data: { subcontractorId: null, subcontractorStatus: 'braider_control' },
+            });
 
-        await prisma.job.update({
-            where: { id: assignment.jobId },
-            data: { subcontractors: { connect: { id: subcontractorId } } },
-        });
-        await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
-
-        if (previousSubcontractorId && previousSubcontractorId !== subcontractorId) {
             const remainingCount = await prisma.jobAssignment.count({
                 where: {
-                    jobId: assignment.jobId,
+                    jobId: currentAssignment.jobId,
                     subcontractorId: previousSubcontractorId,
                 },
             });
 
             if (remainingCount === 0) {
                 await prisma.job.update({
-                    where: { id: assignment.jobId },
+                    where: { id: currentAssignment.jobId },
                     data: { subcontractors: { disconnect: { id: previousSubcontractorId } } },
                 });
             }
-        }
 
-        revalidatePath('/dashboard');
-        return { success: true };
+            revalidatePath('/dashboard');
+            return { success: true };
+        } else {
+            const assignment = await prisma.jobAssignment.update({
+                where: { id: assignmentId },
+                data: { subcontractorId: subcontractorId, subcontractorStatus: 'pending' },
+                include: { job: { include: { braider: true, subcontractors: true } } },
+            });
+
+            await prisma.job.update({
+                where: { id: assignment.jobId },
+                data: { subcontractors: { connect: { id: subcontractorId } } },
+            });
+            await createNotification(subcontractorId, NotificationType.job_request, `${assignment.job.braider.name} assigned you a horse`, assignment.jobId, assignment.job.braiderId);
+
+            if (previousSubcontractorId && previousSubcontractorId !== subcontractorId) {
+                const remainingCount = await prisma.jobAssignment.count({
+                    where: {
+                        jobId: assignment.jobId,
+                        subcontractorId: previousSubcontractorId,
+                    },
+                });
+
+                if (remainingCount === 0) {
+                    await prisma.job.update({
+                        where: { id: assignment.jobId },
+                        data: { subcontractors: { disconnect: { id: previousSubcontractorId } } },
+                    });
+                }
+            }
+
+            revalidatePath('/dashboard');
+            return { success: true };
+        }
     } catch (error) {
         console.error('Assign sub error:', error);
         return { error: 'Failed to assign subcontractor' };
@@ -969,11 +993,7 @@ export async function adjustServices(assignmentId: string, newServiceIds: string
             });
 
             if (isComplete) {
-                const { count, limit, period } = await getBraiderUsage(
-                    updatedAssignment.job.braiderId,
-                    updatedAssignment.job.braider.subscriptionTier,
-                    new Date(),
-                );
+                const { count, limit, period } = await getBraiderUsage(updatedAssignment.job.braiderId, updatedAssignment.job.braider.subscriptionTier, new Date());
                 const newCount = count + 1;
 
                 if (period !== 'unlimited') {
@@ -985,7 +1005,6 @@ export async function adjustServices(assignmentId: string, newServiceIds: string
                             null,
                             null,
                             null,
-                            new Date().getTimezoneOffset(),
                         );
                     } else if (newCount > 50) {
                         return {
@@ -1016,7 +1035,9 @@ export async function getJobById(jobId: string) {
                 show: true,
                 assignments: {
                     include: {
-                        horse: true,
+                        horse: {
+                            include: { client: true },
+                        },
                         services: true,
                         customCharges: true,
                     },

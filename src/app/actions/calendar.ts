@@ -171,7 +171,6 @@ export async function acceptRelationRequest(connectionId: string, timezoneOffset
             null,
             connection.receiverId,
             connection.receiver.image,
-            timezoneOffset,
         );
         revalidatePath('/dashboard');
         return { success: true };

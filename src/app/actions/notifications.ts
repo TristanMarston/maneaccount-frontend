@@ -178,7 +178,7 @@ export async function createNotification(
     targetId?: string | null,
     senderId?: string | null,
     image?: string | null,
-    sendToHorseOwners?: boolean | null,
+    sendInvoiceTo?: 'client' | 'barn' | 'both' | null,
 ) {
     try {
         await prisma.notification.create({
@@ -394,21 +394,23 @@ export async function createNotification(
                             }
                         }
 
-                        await sendJobCompletedEmail({
-                            to: user.email,
-                            braiderName: job.braider.name || 'Braider',
-                            showName: job.show.name,
-                            horseName: 'your horses',
-                            thanksMessage: job.thanksMessage || '',
-                            isClient: false,
-                            image: image || '',
-                            paymentInformation,
-                            serviceDetails: [mainServiceDetails],
-                            horseDetails,
-                            horseExpenses,
-                        });
+                        if (sendInvoiceTo === 'barn' || sendInvoiceTo === 'both') {
+                            await sendJobCompletedEmail({
+                                to: user.email,
+                                braiderName: job.braider.name || 'Braider',
+                                showName: job.show.name,
+                                horseName: 'your horses',
+                                thanksMessage: job.thanksMessage || '',
+                                isClient: false,
+                                image: image || '',
+                                paymentInformation,
+                                serviceDetails: [mainServiceDetails],
+                                horseDetails,
+                                horseExpenses,
+                            });
+                        }
 
-                        if (sendToHorseOwners !== false) {
+                        if (sendInvoiceTo === 'client' || sendInvoiceTo === 'both') {
                             const notifiedClientIds = new Set<string>();
                             for (const assignment of job.assignments) {
                                 if (

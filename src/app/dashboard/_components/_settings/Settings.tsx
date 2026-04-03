@@ -84,6 +84,7 @@ export const formatPhoneNumber = (value: string) => {
 
 type ZelleOption = 'email' | 'phone' | 'disabled';
 type ZelleUpsetOption = 'phone' | 'email';
+type SendInvoiceOption = 'client' | 'barn' | 'both';
 
 const Settings = ({
     update,
@@ -136,6 +137,7 @@ const Settings = ({
     const [thanksMessage, setThanksMessage] = useState('');
     const [thanksMessageWords, setThanksMessageWords] = useState(0);
 
+    const [sendInvoiceTo, setSendInvoiceTo] = useState<SendInvoiceOption>('both');
     const [allowedNotifications, setAllowedNotifications] = useState<NotificationType[]>([]);
 
     const [imagePreview, setImagePreview] = useState<string>('');
@@ -161,6 +163,7 @@ const Settings = ({
         zelle: ZelleOption;
         venmoEnabled: boolean;
         allowedNotifications: NotificationType[];
+        sendInvoiceTo: SendInvoiceOption;
     }>({
         name: '',
         email: '',
@@ -174,6 +177,7 @@ const Settings = ({
         zelle: 'disabled',
         venmoEnabled: false,
         allowedNotifications: [],
+        sendInvoiceTo: 'both',
     });
     const [deleteAccountModal, setDeleteAccountModal] = useState(false);
     const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState<{ open: boolean; trial: boolean; onConfirm: (() => Promise<void>) | null; loading: boolean }>({
@@ -234,6 +238,7 @@ const Settings = ({
                     zelle: data.zelle || 'disabled',
                     venmoEnabled: data.venmoEnabled,
                     allowedNotifications: (data.allowedNotifications as NotificationType[]) || [],
+                    sendInvoiceTo: data.autoSendInvoiceTo || 'both',
                 };
 
                 setHasPassword(data.password !== null);
@@ -243,6 +248,8 @@ const Settings = ({
                 setPublicID(data.publicID || '');
                 setThanksMessage(data.thanksMessage || '');
                 setThanksMessageWords(data.thanksMessage ? data.thanksMessage.split(' ').filter((s) => s.trim().length > 0).length : 0);
+
+                setSendInvoiceTo(data.autoSendInvoiceTo || 'both');
 
                 setEmailVerified(data.emailVerified);
                 setEmail(data.email || '');
@@ -291,6 +298,7 @@ const Settings = ({
         originalInfo.current.role !== role ||
         (role === 'braider' && originalInfo.current.thanksMessage !== thanksMessage) ||
         (role === 'braider' && (originalInfo.current.venmo !== venmoLink || originalInfo.current.zelle !== zelle || originalInfo.current.venmoEnabled !== venmoEnabled)) ||
+        (role === 'braider' && originalInfo.current.sendInvoiceTo !== sendInvoiceTo) ||
         JSON.stringify(originalInfo.current.allowedNotifications.sort()) !== JSON.stringify(allowedNotifications.sort());
 
     useEffect(() => {
@@ -397,6 +405,7 @@ const Settings = ({
         if (email !== originalInfo.current.email) formData.email = email;
         if (publicID !== originalInfo.current.publicID) formData.publicID = publicID;
         if (phoneNumber !== originalInfo.current.phoneNumber) formData.phoneNumber = phoneNumber;
+        if (sendInvoiceTo !== originalInfo.current.sendInvoiceTo) formData.autoSendInvoiceTo = sendInvoiceTo;
         if (venmoLink !== originalInfo.current.venmo) formData.venmo = venmoLink;
         if (zelle !== originalInfo.current.zelle) formData.zelle = zelle;
         if (venmoEnabled !== originalInfo.current.venmoEnabled) formData.venmoEnabled = venmoEnabled;
@@ -433,6 +442,7 @@ const Settings = ({
                     venmoEnabled: venmoEnabled,
                     thanksMessage: thanksMessage.trim(),
                     allowedNotifications: [...allowedNotifications],
+                    sendInvoiceTo: sendInvoiceTo,
                 };
             } else {
                 failToast(result.error || 'Failed to update');
@@ -794,6 +804,64 @@ const Settings = ({
                                         className='space-y-6 @container/payments font-figtree'
                                     >
                                         <div className='flex flex-col gap-4'>
+                                            <div className='ml-1'>
+                                                <label className='text-sm font-bold text-gray-500 uppercase'>Sending Preferences</label>
+                                                <p className='text-xs font-semibold text-gray-500'>Choose whether you want to send invoices to your barns, their clients, or both.</p>
+                                            </div>
+
+                                            <div className='ml-2 flex flex-col gap-3'>
+                                                <span className='flex items-start gap-2'>
+                                                    <button
+                                                        type='button'
+                                                        onClick={() =>
+                                                            setSendInvoiceTo((prev) => (prev === 'both' ? 'client' : prev === 'client' ? 'both' : prev === 'barn' ? 'barn' : 'barn'))
+                                                        }
+                                                        disabled={sendInvoiceTo === 'barn'}
+                                                        className={cn(
+                                                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
+                                                            sendInvoiceTo === 'barn' || sendInvoiceTo === 'both'
+                                                                ? 'bg-primary border-primary'
+                                                                : 'bg-background hover:bg-gray-50 border-gray-400',
+                                                        )}
+                                                    >
+                                                        <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
+                                                    </button>
+                                                    <span
+                                                        className={cn(
+                                                            'text-sm -mt-px transition-all font-medium',
+                                                            sendInvoiceTo === 'barn' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600',
+                                                        )}
+                                                    >
+                                                        Send invoices to your connected barns
+                                                    </span>
+                                                </span>
+                                                <span className='flex items-start gap-2'>
+                                                    <button
+                                                        type='button'
+                                                        onClick={() =>
+                                                            setSendInvoiceTo((prev) => (prev === 'both' ? 'barn' : prev === 'barn' ? 'both' : prev === 'client' ? 'client' : 'client'))
+                                                        }
+                                                        disabled={sendInvoiceTo === 'client'}
+                                                        className={cn(
+                                                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
+                                                            sendInvoiceTo === 'client' || sendInvoiceTo === 'both'
+                                                                ? 'bg-primary border-primary'
+                                                                : 'bg-background hover:bg-gray-50 border-gray-400',
+                                                        )}
+                                                    >
+                                                        <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
+                                                    </button>
+                                                    <span
+                                                        className={cn(
+                                                            'text-sm -mt-px transition-all font-medium',
+                                                            sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600',
+                                                        )}
+                                                    >
+                                                        Send invoices to your barn&apos;s clients (horse owners/trainers)
+                                                    </span>
+                                                </span>
+                                            </div>
+
                                             <div className='ml-1'>
                                                 <label className='text-sm font-bold text-gray-500 uppercase'>Payment Links</label>
                                                 <p className='text-xs font-semibold text-gray-500'>Add links to your Venmo or Zelle to easily receive payments from barns.</p>

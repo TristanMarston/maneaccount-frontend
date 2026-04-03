@@ -169,6 +169,11 @@ export async function getJobs(email: string, role: string) {
                                 client: true,
                             },
                         },
+                        job: {
+                            include: {
+                                barn: true,
+                            },
+                        },
                         services: true,
                         subcontractor: true,
                         customCharges: true,
@@ -402,7 +407,7 @@ export async function revertJobReview(jobId: string) {
     }
 }
 
-export async function markJobCompleted(jobId: string, sendToHorseOwners: boolean, thanksMessage?: string) {
+export async function markJobCompleted(jobId: string, sendInvoiceTo: 'client' | 'barn' | 'both', thanksMessage?: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
@@ -419,11 +424,11 @@ export async function markJobCompleted(jobId: string, sendToHorseOwners: boolean
         await createNotification(
             job.barnId,
             NotificationType.job_completed,
-            `Job completed by ${job.braider.name}. ${sendToHorseOwners ? 'Clients have received the invoice.' : "Clients did not receive the invoice per the braider's wishes."}`,
+            `Job completed by ${job.braider.name}. ${sendInvoiceTo === 'client' ? 'Client(s) have received the invoice, but the barn did not.' : sendInvoiceTo === 'barn' ? 'The barn has received the invoice, but the client(s) did not.' : sendInvoiceTo === 'both' ? 'The barn and client(s) have received the invoice' : ''}`,
             job.id,
             job.braiderId,
             job.braider.image,
-            sendToHorseOwners,
+            sendInvoiceTo,
         );
 
         revalidatePath('/dashboard');
@@ -572,6 +577,7 @@ export async function getUserByEmail(email: string) {
             venmoEnabled: true,
             thanksMessage: true,
             allowedNotifications: true,
+            autoSendInvoiceTo: true,
         },
     });
 }
@@ -1040,6 +1046,9 @@ export async function getJobById(jobId: string) {
                         },
                         services: true,
                         customCharges: true,
+                        job: {
+                            include: { barn: true },
+                        },
                     },
                 },
             },

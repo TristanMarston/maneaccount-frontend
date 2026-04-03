@@ -36,8 +36,9 @@ export async function updateProfile(formData: any) {
     const venmoEnabled = formData.venmoEnabled as boolean | null;
     const allowedNotifications = formData.allowedNotifications as any[] | null;
     const thanksMessage = formData.thanksMessage as string | null;
+    const autoSendInvoiceTo = formData.autoSendInvoiceTo as 'client' | 'barn' | 'both' | null;
 
-    if (!name && !email && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications && !thanksMessage)
+    if (!name && !email && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications && !thanksMessage && !autoSendInvoiceTo)
         return { error: 'Update at least one field' };
 
     const updateData: any = {};
@@ -52,6 +53,7 @@ export async function updateProfile(formData: any) {
     if (venmoEnabled !== null) updateData.venmoEnabled = venmoEnabled;
     if (thanksMessage !== null) updateData.thanksMessage = thanksMessage;
     if (allowedNotifications) updateData.allowedNotifications = allowedNotifications;
+    if (autoSendInvoiceTo) updateData.autoSendInvoiceTo = autoSendInvoiceTo;
 
     if (publicID) {
         const sanitizedID = publicID.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -130,6 +132,7 @@ export async function getUserSettings() {
             zelle: true,
             venmoEnabled: true,
             thanksMessage: true,
+            autoSendInvoiceTo: true,
             allowedNotifications: true,
             subscriptionStatus: true,
             subscriptionTier: true,
@@ -301,7 +304,7 @@ export async function switchToEmailPassword(password: string) {
 
     try {
         const hashedPassword = await hash(password, 10);
-        
+
         await prisma.$transaction([
             prisma.user.update({
                 where: { email: session.user.email },
@@ -331,20 +334,20 @@ export async function cleanupExtraGoogleAccounts() {
             where: { email: session.user.email },
             include: {
                 accounts: {
-                    where: { provider: 'google' }
-                }
-            }
+                    where: { provider: 'google' },
+                },
+            },
         });
 
         if (user && user.accounts.length > 1) {
             // Sort by id descending (cuid encodes timestamp so it works well enough)
             const sortedAccounts = user.accounts.sort((a, b) => b.id.localeCompare(a.id));
-            const accountsToDelete = sortedAccounts.slice(1).map(a => a.id);
+            const accountsToDelete = sortedAccounts.slice(1).map((a) => a.id);
 
             await prisma.account.deleteMany({
                 where: {
-                    id: { in: accountsToDelete }
-                }
+                    id: { in: accountsToDelete },
+                },
             });
         }
         return { success: true };

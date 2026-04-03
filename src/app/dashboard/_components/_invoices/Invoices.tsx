@@ -121,8 +121,8 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
 
     useAutoRefresh(() => refreshJobsFn(false));
 
-    const handleMarkJobCompleted = async (jobID: string, thanksMessage: string, sendToHorseOwners: boolean) => {
-        const res = await markJobCompleted(jobID, sendToHorseOwners, thanksMessage);
+    const handleMarkJobCompleted = async (jobID: string, thanksMessage: string, sendInvoiceTo: 'client' | 'barn' | 'both') => {
+        const res = await markJobCompleted(jobID, sendInvoiceTo, thanksMessage);
         if (res.success) {
             successToast('Invoice sent!');
             setCheckMarkedCompleted((prev) => ({ ...prev, open: false }));
@@ -514,11 +514,13 @@ const getInvoiceInfo = (assignments: any[]) => {
         .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
 
     const horseOwnerNames: string[] = [];
+    let barnOwnerName: string = '';
     const horseDetails: Record<string, Record<string, { days: Date[]; price: number }>> = {};
     const horseExpenses: Record<string, { name: string; id: string; amount: number }[]> = {};
     const horseIds: Record<string, string> = {};
     for (const horse of validAssignments) {
         if (horse && horse.horse && horse.horse.client && horse.horse.client.name && !horseOwnerNames.includes(horse.horse.client.name)) horseOwnerNames.push(horse.horse.client.name);
+        if (barnOwnerName === '' && horse && horse.job && horse.job.barn && horse.job.barn.name) barnOwnerName = horse.job.barn.name;
 
         const showName = horse.horse.showName;
         const barnName = horse.horse.barnName;
@@ -554,6 +556,7 @@ const getInvoiceInfo = (assignments: any[]) => {
         horseExpenses,
         horseIds,
         horseOwnerNames: horseOwnerNames.filter((name) => name !== null && name !== undefined && name.trim() !== ''),
+        barnOwnerName,
     };
 };
 
@@ -574,7 +577,7 @@ const CheckMarkedCompletedModal = ({
     };
     setCheckMarkedCompleted: (checkMarkedCompleted: { open: boolean; id: string; assignments: any[] }) => void;
     role: string;
-    handleMarkJobCompleted: (id: string, thanksMessage: string, sendToHorseOwners: boolean) => void;
+    handleMarkJobCompleted: (id: string, thanksMessage: string, sendInvoiceTo: 'client' | 'barn' | 'both') => void;
     handleOpenAddChargeModal: (assignmentId: string, refreshFn: () => void) => void;
     exactTime: Date;
     userEmail: string;
@@ -587,7 +590,9 @@ const CheckMarkedCompletedModal = ({
     const [thanksMessage, setThanksMessage] = useState('');
     const [loadingThanksMessage, setLoadingThanksMessage] = useState(true);
     const [thanksMessageWords, setThanksMessageWords] = useState(0);
-    const [sendToHorseOwners, setSendToHorseOwners] = useState(true);
+    const originalSendInvoiceTo = useRef<'client' | 'barn' | 'both' | null>(null);
+    const [sendInvoiceTo, setSendInvoiceTo] = useState<'client' | 'barn' | 'both'>('both');
+    const [loadingAutoSendInvoice, setLoadingAutoSendInvoice] = useState(false);
 
     useEffect(() => {
         setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
@@ -597,27 +602,26 @@ const CheckMarkedCompletedModal = ({
     const [hasPayoutInfo, setHasPayoutInfo] = useState(false);
 
     useEffect(() => {
-        const getPayoutInfo = async () => {
+        const getUserInfo = async () => {
             setLoadingDetails(true);
+            setLoadingThanksMessage(true);
             const user = await getUserByEmail(userEmail);
 
             if (user && ((user.venmo && user.venmoEnabled) || user.zelle !== 'disabled')) setHasPayoutInfo(true);
-            setLoadingDetails(false);
-        };
-
-        const getThanksMessage = async () => {
-            setLoadingThanksMessage(true);
-            const user = await getUserByEmail(userEmail);
             if (user && user.thanksMessage) {
                 originalThanksMessage.current = user.thanksMessage;
                 setThanksMessage(user.thanksMessage);
                 setThanksMessageWords(user.thanksMessage.split(' ').filter((s) => s.trim().length > 0).length);
             }
+            if (user) {
+                originalSendInvoiceTo.current = user.autoSendInvoiceTo;
+                setSendInvoiceTo(user.autoSendInvoiceTo);
+            }
+            setLoadingDetails(false);
             setLoadingThanksMessage(false);
         };
 
-        getPayoutInfo();
-        getThanksMessage();
+        getUserInfo();
     }, [checkMarkedCompleted.id]);
 
     const refresh = async () => {
@@ -642,6 +646,8 @@ const CheckMarkedCompletedModal = ({
         }
     };
 
+    const setNewAutoInvoiceSendPreferences = async () => {};
+
     const handleRemoveCharge = async (id: string) => {
         const res = await removeCustomCharge(id);
         if (res.success) {
@@ -662,24 +668,51 @@ const CheckMarkedCompletedModal = ({
                 Have you completed these services?
             </h1>
             <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
-                <p className='font-semibold'>This action will send an invoice to the barn{sendToHorseOwners ? ' and related horse owners' : ''}.</p>
+                <p className='font-semibold'>
+                    This action will send an invoice
+                    {sendInvoiceTo === 'both'
+                        ? ' to the barn and related horse owners'
+                        : sendInvoiceTo === 'barn'
+                          ? ' to the barn'
+                          : sendInvoiceTo === 'client'
+                            ? ' to the related horse owners'
+                            : ''}
+                    .
+                </p>
                 <p className='mt-2'>
                     Payments occur outside of the ManeAccount platform, but we offer the ability to track them here in the <span className='font-bold'>Invoices</span> panel. Please
                     ensure that all reported services were actually completed.
                 </p>
 
-                <span className='flex items-start gap-2 my-4'>
+                <span className='flex items-start gap-2 mt-4 mb-2'>
                     <button
                         type='button'
-                        onClick={() => setSendToHorseOwners((prev) => !prev)}
+                        onClick={() => setSendInvoiceTo((prev) => (prev === 'both' ? 'client' : prev === 'client' ? 'both' : prev === 'barn' ? 'barn' : 'barn'))}
+                        disabled={sendInvoiceTo === 'barn'}
                         className={cn(
-                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm',
-                            sendToHorseOwners ? 'bg-primary text-background border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
+                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
+                            sendInvoiceTo === 'barn' || sendInvoiceTo === 'both' ? 'bg-primary border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
                         )}
                     >
-                        <Check className={cn('transition-all w-4 h-4', sendToHorseOwners ? 'opacity-100' : 'opacity-0')} strokeWidth={2.5} />
+                        <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
                     </button>
-                    <span className={cn('text-sm -mt-px transition-all', sendToHorseOwners ? 'text-primary-dark font-medium' : 'text-gray-600 font-normal')}>
+                    <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'barn' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
+                        Send invoice to {invoiceInfo.barnOwnerName && invoiceInfo.barnOwnerName.trim().length > 0 ? invoiceInfo.barnOwnerName : 'the barn.'}
+                    </span>
+                </span>
+                <span className='flex items-start gap-2 mt-2 mb-4'>
+                    <button
+                        type='button'
+                        onClick={() => setSendInvoiceTo((prev) => (prev === 'both' ? 'barn' : prev === 'barn' ? 'both' : prev === 'client' ? 'client' : 'client'))}
+                        disabled={sendInvoiceTo === 'client'}
+                        className={cn(
+                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
+                            sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'bg-primary border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
+                        )}
+                    >
+                        <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
+                    </button>
+                    <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
                         Send the invoice to{' '}
                         {invoiceInfo.horseOwnerNames.length > 0
                             ? invoiceInfo.horseOwnerNames.map((name, index) => (
@@ -697,6 +730,21 @@ const CheckMarkedCompletedModal = ({
                         {invoiceInfo.horseOwnerNames.length > 0 ? ' (horse owners/trainers).' : ''}
                     </span>
                 </span>
+                {/* <AnimatePresence>
+                    {originalSendInvoiceTo.current && originalSendInvoiceTo.current !== sendInvoiceTo && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            onClick={() => setNewAutoInvoiceSendPreferences()}
+                            className='text-sm uppercase ml-1 flex items-center gap-1 bg-primary/10 py-0.5 px-2 rounded-full hover:bg-primary/5 transition-colors cursor-pointer'
+                        >
+                            {loadingAutoSendInvoice ? <Loader2 className='animate-spin text-primary w-4 h-4' /> : <></>}
+                            {loadingAutoSendInvoice ? 'Loading...' : 'Set New Send Preferences'}
+                        </motion.div>
+                    )}
+                </AnimatePresence> */}
             </div>
             <div className='flex flex-col gap-2 mt-4'>
                 <p className='font-figtree text-gray-500 font-bold tracking-wide uppercase text-[15.5px]'>Preview & Adjust Invoice</p>
@@ -841,7 +889,7 @@ const CheckMarkedCompletedModal = ({
                     Cancel
                 </button>
                 <button
-                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage, sendToHorseOwners)}
+                    onClick={() => handleMarkJobCompleted(checkMarkedCompleted.id, thanksMessage, sendInvoiceTo)}
                     className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover'
                 >
                     Send Invoice

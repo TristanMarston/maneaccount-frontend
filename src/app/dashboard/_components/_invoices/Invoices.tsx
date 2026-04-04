@@ -77,7 +77,7 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
         const interval = setInterval(() => {
             if (!checkMarkedCompleted.open) return;
             setExactTime(new Date());
-        }, 60000);
+        }, 10000);
 
         return () => {
             clearInterval(interval);
@@ -697,7 +697,7 @@ const CheckMarkedCompletedModal = ({
                         <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
                     </button>
                     <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'barn' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
-                        Send invoice to {invoiceInfo.barnOwnerName && invoiceInfo.barnOwnerName.trim().length > 0 ? invoiceInfo.barnOwnerName : 'the barn.'}
+                        Send invoice to the barn {invoiceInfo.barnOwnerName && invoiceInfo.barnOwnerName.trim().length > 0 ? ` (${invoiceInfo.barnOwnerName})` : ''}
                     </span>
                 </span>
                 <span className='flex items-start gap-2 mt-2 mb-4'>
@@ -713,21 +713,26 @@ const CheckMarkedCompletedModal = ({
                         <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
                     </button>
                     <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
-                        Send the invoice to{' '}
-                        {invoiceInfo.horseOwnerNames.length > 0
-                            ? invoiceInfo.horseOwnerNames.map((name, index) => (
-                                  <span key={name + index}>
-                                      {index === invoiceInfo.horseOwnerNames.length - 1 ? 'and ' : ''}
-                                      {name}
-                                      {index !== invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length > 2
-                                          ? ', '
-                                          : index !== invoiceInfo.horseOwnerNames.length - 1
-                                            ? ' '
-                                            : ''}
-                                  </span>
-                              ))
-                            : 'the horse owners/trainers.'}
-                        {invoiceInfo.horseOwnerNames.length > 0 ? ' (horse owners/trainers).' : ''}
+                        Send the invoice to horse owners/trainers{' '}
+                        {invoiceInfo.horseOwnerNames.length > 0 ? (
+                            <>
+                                <span>(</span>
+                                {invoiceInfo.horseOwnerNames.map((name, index) => (
+                                    <span key={name + index}>
+                                        {index === invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length !== 1 ? 'and ' : ''}
+                                        {name}
+                                        {index !== invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length > 2
+                                            ? ', '
+                                            : index !== invoiceInfo.horseOwnerNames.length - 1
+                                              ? ' '
+                                              : ''}
+                                    </span>
+                                ))}
+                                <span>)</span>
+                            </>
+                        ) : (
+                            ''
+                        )}
                     </span>
                 </span>
                 {/* <AnimatePresence>

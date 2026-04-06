@@ -713,7 +713,7 @@ const CheckMarkedCompletedModal = ({
                         <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
                     </button>
                     <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
-                        Send the invoice to horse owners/trainers{' '}
+                        Send the invoice to horse owners{' '}
                         {invoiceInfo.horseOwnerNames.length > 0 ? (
                             <>
                                 <span>(</span>

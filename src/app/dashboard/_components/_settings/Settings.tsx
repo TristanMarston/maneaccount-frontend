@@ -857,7 +857,7 @@ const Settings = ({
                                                             sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600',
                                                         )}
                                                     >
-                                                        Send invoices to your barn&apos;s clients (horse owners/trainers)
+                                                        Send invoices to your barn&apos;s clients (horse owners)
                                                     </span>
                                                 </span>
                                             </div>

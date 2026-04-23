@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 model Account {
@@ -12,14 +12,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? 
-  access_token      String? 
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? 
+  id_token          String?
   session_state     String?
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -40,35 +40,35 @@ enum Role {
 }
 
 model Service {
-  id           String   @id @default(cuid())
-  userId       String
-  name         String
-  category     String
-  priceUSD     Float
-  duration     Int?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  userId   String
+  name     String
+  category String
+  priceUSD Float
+  duration Int?
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   jobAssignments JobAssignment[]
 }
 
 model Horse {
-  id                String   @id @default(cuid())
-  userId            String
-  showName          String
-  barnName          String
-  gender            Gender?
-  color             String? 
-  profileImage      String?
-  notes             String? 
-  
-  clientId          String?
-  client            Client?  @relation(fields: [clientId], references: [id])
+  id           String  @id @default(cuid())
+  userId       String
+  showName     String
+  barnName     String
+  gender       Gender?
+  color        String?
+  profileImage String?
+  notes        String?
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
 
-  jobAssignments    JobAssignment[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobAssignments JobAssignment[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 enum Gender {
@@ -80,15 +80,15 @@ enum Gender {
 }
 
 model Connection {
-  id          String              @id @default(cuid())
-  senderId    String    
-  receiverId  String    
-  status      ConnectionStatus    @default(pending)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id         String           @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     ConnectionStatus @default(pending)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 
-  sender      User                @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver    User                @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender   User @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
 }
@@ -125,64 +125,63 @@ enum SendInvoiceOption {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  publicID        String?   @unique
-  name            String?
-  email           String?   @unique
-  emailVerified   DateTime?
-  phoneNumber     String?
-  image           String?
-  password        String?
-  
-  venmo           String?
-  venmoEnabled    Boolean @default(false)
-  zelle           ZelleOption @default(disabled)
+  id            String    @id @default(cuid())
+  publicID      String?   @unique
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  phoneNumber   String?
+  image         String?
+  password      String?
 
-  role            Role      @default(braider)
-  services        Service[]
-  horses          Horse[]
-  clients         Client[]
-  shows           Show[]
+  venmo        String?
+  venmoEnabled Boolean     @default(false)
+  zelle        ZelleOption @default(disabled)
+
+  role     Role      @default(braider)
+  services Service[]
+  horses   Horse[]
+  clients  Client[]
+  shows    Show[]
 
   sentConnections     Connection[] @relation("sender")
   receivedConnections Connection[] @relation("receiver")
 
-  createdAt       DateTime  @default(now())
-  accounts        Account[]
-  sessions        Session[]
-  
-  barnJobs                    Job[] @relation("BarnJobs")
-  braiderJobs                 Job[] @relation("BraiderJobs")
-  subcontractorJobs           Job[] @relation("SubcontractorJobs")
-  subcontractorAssignments    JobAssignment[] @relation("SubcontractorAssignments")
-  notes                       Note[]
-  thanksMessage               String?
-  autoSendInvoiceTo           SendInvoiceOption @default(both)
-  
-  sentShowInvites      ShowInvite[] @relation("ShowInviter")
-  receivedShowInvites  ShowInvite[] @relation("ShowInvitee")
-  
-  notifications        Notification[] @relation("user")
-  sentNotifications    Notification[] @relation("sender")
+  createdAt DateTime  @default(now())
+  accounts  Account[]
+  sessions  Session[]
+
+  barnJobs                 Job[]             @relation("BarnJobs")
+  braiderJobs              Job[]             @relation("BraiderJobs")
+  subcontractorJobs        Job[]             @relation("SubcontractorJobs")
+  subcontractorAssignments JobAssignment[]   @relation("SubcontractorAssignments")
+  notes                    Note[]
+  thanksMessage            String?
+  autoSendInvoiceTo        SendInvoiceOption @default(both)
+
+  sentShowInvites     ShowInvite[] @relation("ShowInviter")
+  receivedShowInvites ShowInvite[] @relation("ShowInvitee")
+
+  notifications     Notification[] @relation("user")
+  sentNotifications Notification[] @relation("sender")
 
   allowedNotifications NotificationType[] @default([])
 
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
 
+  subscriptionTier   SubscriptionTier   @default(starter)
+  subscriptionStatus SubscriptionStatus @default(inactive)
 
-  stripeCustomerId       String?  @unique
-  stripeSubscriptionId   String?  @unique
-
-  subscriptionTier       SubscriptionTier @default(starter)
-  subscriptionStatus     SubscriptionStatus @default(inactive)
-
-  trialEndsAt            DateTime?
-  currentPeriodEnd       DateTime?
-  cancelAtPeriodEnd      Boolean  @default(false)
-  googleCalendarId       String?
-  hasUsedTrial           Boolean  @default(false)
-  hasUsedPromoOne        Boolean  @default(false)
-  hasUsedPromoTwo        Boolean  @default(false)
-  hasUsedPromoThree      Boolean  @default(false)
+  trialEndsAt       DateTime?
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean        @default(false)
+  googleCalendarId  String?
+  hasUsedTrial      Boolean        @default(false)
+  hasUsedPromoOne   Boolean        @default(false)
+  hasUsedPromoTwo   Boolean        @default(false)
+  hasUsedPromoThree Boolean        @default(false)
+  usedCoupons       OneOffCoupon[] @relation("OneOffCoupon")
 }
 
 model Notification {
@@ -190,14 +189,14 @@ model Notification {
   userId    String
   type      NotificationType
   senderId  String?
-  targetId  String?          // related job, show, etc.
+  targetId  String? // related job, show, etc.
   image     String?
   message   String
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
-  user      User             @relation("user", fields: [userId], references: [id], onDelete: Cascade)
-  sender    User?            @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  user   User  @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+  sender User? @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 enum NotificationType {
@@ -217,29 +216,28 @@ enum NotificationType {
 }
 
 model Show {
-  id          String    @id @default(cuid())
-  userId      String
-  name        String
-  
-  country     String
-  state       String?
-  city        String
+  id     String @id @default(cuid())
+  userId String
+  name   String
 
-  startDate   DateTime
-  endDate     DateTime
+  country String
+  state   String?
+  city    String
 
+  startDate DateTime
+  endDate   DateTime
 
   addedToAppleCalendar  Boolean @default(false)
   addedToOutlook        Boolean @default(false)
   addedToGoogleCalendar Boolean @default(false)
   googleEventId         String?
 
-  invites     ShowInvite[]
+  invites ShowInvite[]
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobs        Job[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs      Job[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ShowInviteStatus {
@@ -249,70 +247,70 @@ enum ShowInviteStatus {
 }
 
 model ShowInvite {
-  id          String            @id @default(cuid())
-  showId      String
-  inviterId   String
-  inviteeId   String
-  status      ShowInviteStatus  @default(pending)
+  id        String           @id @default(cuid())
+  showId    String
+  inviterId String
+  inviteeId String
+  status    ShowInviteStatus @default(pending)
 
   addedToAppleCalendar  Boolean @default(false)
   addedToOutlook        Boolean @default(false)
   addedToGoogleCalendar Boolean @default(false)
   googleEventId         String?
 
-  show        Show              @relation(fields: [showId], references: [id], onDelete: Cascade)
-  inviter     User              @relation("ShowInviter", fields: [inviterId], references: [id], onDelete: Cascade)
-  invitee     User              @relation("ShowInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  show    Show @relation(fields: [showId], references: [id], onDelete: Cascade)
+  inviter User @relation("ShowInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User @relation("ShowInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([showId, inviteeId])
 }
 
 model VerificationToken {
-  identifier  String
-  token       String   @id
-  expires     DateTime
+  identifier String
+  token      String   @id
+  expires    DateTime
 
   @@unique([identifier, token])
 }
 
 model Job {
-  id              String    @id @default(cuid())
-  barnId          String
-  braiderId       String
-  showId          String
-  
-  status          JobStatus @default(editing)
-  
-  assignedAt      DateTime  @default(now())
-  invoiceSentAt   DateTime?
-  thanksMessage   String?
+  id        String @id @default(cuid())
+  barnId    String
+  braiderId String
+  showId    String
 
-  paymentPlatform    String?
-  
-  assignments     JobAssignment[]
-  notes           Note[]
-  
-  barn            User      @relation("BarnJobs", fields: [barnId], references: [id], onDelete: Cascade)
-  braider         User      @relation("BraiderJobs", fields: [braiderId], references: [id], onDelete: Cascade)
-  subcontractors  User[]    @relation("SubcontractorJobs")
-  show            Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  status JobStatus @default(editing)
+
+  assignedAt    DateTime  @default(now())
+  invoiceSentAt DateTime?
+  thanksMessage String?
+
+  paymentPlatform String?
+
+  assignments JobAssignment[]
+  notes       Note[]
+
+  barn           User   @relation("BarnJobs", fields: [barnId], references: [id], onDelete: Cascade)
+  braider        User   @relation("BraiderJobs", fields: [braiderId], references: [id], onDelete: Cascade)
+  subcontractors User[] @relation("SubcontractorJobs")
+  show           Show   @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Note {
-  id        String   @id @default(cuid())
-  jobId     String
-  authorId  String
-  content   String
-  
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(cuid())
+  jobId    String
+  authorId String
+  content  String
+
+  job    Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 }
 
@@ -339,56 +337,69 @@ enum SubcontractorStatus {
 }
 
 model JobAssignment {
-  id        String   @id @default(cuid())
-  jobId     String
-  horseId   String
-  
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  horse     Horse    @relation(fields: [horseId], references: [id], onDelete: Cascade)
-  services  Service[]
+  id      String @id @default(cuid())
+  jobId   String
+  horseId String
 
-  subcontractorId String?
-  subcontractor   User?    @relation("SubcontractorAssignments", fields: [subcontractorId], references: [id])
+  job      Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  horse    Horse     @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  subcontractorId     String?
+  subcontractor       User?               @relation("SubcontractorAssignments", fields: [subcontractorId], references: [id])
   subcontractorStatus SubcontractorStatus @default(braider_control)
 
-  status     AssignmentStatus @default(pending)
-  assignmentDate DateTime @default(now())
+  status         AssignmentStatus @default(pending)
+  assignmentDate DateTime         @default(now())
 
-  completedServiceIds String[] @default([])
-  canceledServiceIds  String[] @default([])
+  completedServiceIds String[]       @default([])
+  canceledServiceIds  String[]       @default([])
   canceledAt          DateTime?
   completedAt         DateTime?
   customCharges       CustomCharge[]
 
-  paidAt              DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Client {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   barnId      String
   name        String
   email       String
   phoneNumber String?
-  
-  barn        User     @relation(fields: [barnId], references: [id], onDelete: Cascade)
-  horses      Horse[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  barn   User    @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  horses Horse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CustomCharge {
-  id            String   @id @default(cuid())
-  assignmentId  String
-  name          String
-  amount        Float
-  
-  assignment    JobAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String @id @default(cuid())
+  assignmentId String
+  name         String
+  amount       Float
+
+  assignment JobAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OneOffCoupon {
+  id        String   @id @default(cuid())
+  code      String
+  startDate DateTime
+  endDate   DateTime
+  days      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  users User[] @relation("OneOffCoupon")
 }
 
 // npx prisma migrate dev --name "description"

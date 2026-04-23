@@ -289,7 +289,7 @@ const wrapperVariants: Variants = {
     },
 };
 
-const DropdownPortal = ({
+export const DropdownPortal = ({
     isOpen,
     onClose,
     children,

@@ -4,7 +4,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe-init';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
-import { isAfter } from 'date-fns';
+import { addDays, format, isAfter, isBefore } from 'date-fns';
+import { revalidatePath } from 'next/cache';
 
 function mapStripeSubscriptionStatus(status: string, hasUsedTrial: boolean): SubscriptionStatus {
     switch (status) {
@@ -364,166 +365,149 @@ export async function cancelSubscription() {
     }
 }
 
+export async function getCoupons() {
+    const session = await auth();
+    if (!session?.user.email) return [];
+
+    try {
+        const coupons = await prisma.oneOffCoupon.findMany();
+        return coupons;
+    } catch (err) {
+        console.error(err);
+        return [];
+    }
+}
+
+export async function addCoupon(formData: { code: string; startDate: Date | null; endDate: Date | null; days: number }) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Not authenticated' };
+
+    const { code, startDate, endDate, days } = formData;
+    if (!code || !endDate) return { error: 'Missing required fields' };
+
+    try {
+        await prisma.oneOffCoupon.create({ data: { code, startDate: startDate ? startDate : new Date(new Date().setHours(0, 0, 0, 0)), endDate, days } });
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (err) {
+        console.error(err);
+        return { error: 'Failed to create coupon' };
+    }
+}
+
+export async function deleteCoupon(id: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Not authenticated.' };
+
+    try {
+        await prisma.oneOffCoupon.delete({ where: { id } });
+
+        return { success: true };
+    } catch (err) {
+        console.error(err);
+        return { error: 'Unable to delete coupon.' };
+    }
+}
+
+export async function editCoupon(data: any, id: string) {
+    const session = await auth();
+    if (!session?.user?.email) return { error: 'Not authenticated.' };
+
+    try {
+        if (!data.code && !data.startDate && !data.endDate && !data.days) return { error: 'No changes provided.' };
+        const updateData: any = {};
+
+        if (data.code && data.code.length > 0) updateData.code = data.code;
+        if (data.startDate) updateData.startDate = data.startDate;
+        if (data.endDate) updateData.endDate = data.endDate;
+        if (data.days) updateData.days = data.days;
+
+        await prisma.oneOffCoupon.update({ where: { id }, data: updateData });
+
+        return { success: true };
+    } catch (err) {
+        console.error(err);
+        return { error: 'Unable to edit coupon.' };
+    }
+}
+
 export async function applyOneOffCoupon(code: string) {
     const session = await auth();
     if (!session?.user?.email) return { error: 'Not authenticated' };
 
     const user = await prisma.user.findUnique({
         where: { email: session.user.email },
+        include: { usedCoupons: true },
     });
 
     if (!user) return { error: 'User not found' };
 
-    if (
-        (!process.env.COUPON_ONE || code.trim().toLowerCase() !== process.env.COUPON_ONE.toLowerCase()) &&
-        (!process.env.COUPON_TWO || code.trim().toLowerCase() !== process.env.COUPON_TWO.toLowerCase()) &&
-        (!process.env.COUPON_THREE || code.trim().toLowerCase() !== process.env.COUPON_THREE.toLowerCase())
-    ) {
-        return { error: 'Invalid coupon code.' };
-    }
-
     try {
-        if (process.env.COUPON_ONE && code.trim().toLowerCase() === process.env.COUPON_ONE.toLowerCase()) {
-            if (user.hasUsedPromoOne) {
-                return { error: 'You have already used this coupon code.' };
-            }
-
-            const targetDate = new Date('2026-03-24T00:00:00Z'); // March 23rd 2026, inclusive end of day UTC
-            const now = new Date();
-
-            if (isAfter(now, targetDate)) {
-                return { error: 'This coupon has expired.' };
-            }
-
-            const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            let newPeriodEnd = user.currentPeriodEnd || new Date();
-
-            if (user.subscriptionStatus === 'active') {
-                if (!user.stripeSubscriptionId) {
-                    return { error: 'No active Stripe subscription found for this customer.' };
-                }
-
-                const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
-                const newTrialEndMs = currentEndMs + daysToTarget * 24 * 60 * 60 * 1000;
-                const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
-                newPeriodEnd = new Date(newTrialEndMs);
-
-                await stripe.subscriptions.update(user.stripeSubscriptionId, {
-                    trial_end: newTrialEndUnix,
-                    proration_behavior: 'none',
-                });
-            } else if (user.subscriptionStatus === 'trialing') {
-                const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
-                newPeriodEnd = new Date(currentEndMs + daysToTarget * 24 * 60 * 60 * 1000);
-            } else {
-                return { error: 'This promo code can only be applied during an active subscription or trial.' };
-            }
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    hasUsedPromoOne: true,
-                    currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
-                    trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
+        const coupon = (
+            await prisma.oneOffCoupon.findMany({
+                where: {
+                    code: {
+                        equals: code,
+                        mode: 'insensitive',
+                    },
                 },
+            })
+        )[0];
+
+        if (!coupon) return { error: 'Invalid coupon code.' };
+        if (user.usedCoupons.some((c) => c.id === coupon.id)) return { error: 'Coupon code already used.' };
+
+        const now = new Date();
+        const startDate = coupon.startDate;
+        const targetDate = addDays(coupon.endDate, 1);
+
+        if (isAfter(now, targetDate)) return { error: 'This coupon has expired.' };
+        if (isBefore(now, startDate)) return { error: 'Invalid coupon code.' };
+
+        const daysToTarget = coupon.days && coupon.days !== 0 ? coupon.days : Math.ceil((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        let newPeriodEnd = user.currentPeriodEnd || new Date();
+
+        if (user.subscriptionStatus === 'active') {
+            if (!user.stripeSubscriptionId) {
+                return { error: 'No active Stripe subscription found for this customer.' };
+            }
+
+            const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
+            const newTrialEndMs = currentEndMs + daysToTarget * 24 * 60 * 60 * 1000;
+            const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
+            newPeriodEnd = new Date(newTrialEndMs);
+
+            await stripe.subscriptions.update(user.stripeSubscriptionId, {
+                trial_end: newTrialEndUnix,
+                proration_behavior: 'none',
             });
+        } else if (user.subscriptionStatus === 'trialing') {
+            const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
+            newPeriodEnd = new Date(currentEndMs + daysToTarget * 24 * 60 * 60 * 1000);
+        } else {
+            return { error: 'This promo code can only be applied during an active subscription or trial.' };
+        }
 
-            return { success: true, message: `Coupon applied! Your ${user.subscriptionStatus === 'trialing' ? 'trial' : 'subscription'} has been extended until March 23rd, 2026.` };
-        } else if (process.env.COUPON_TWO && code.trim().toLowerCase() === process.env.COUPON_TWO.toLowerCase()) {
-            if (user.hasUsedPromoTwo) {
-                return { error: 'You have already used this coupon code.' };
-            }
-
-            const targetDate = new Date('2026-04-13T00:00:00Z');
-            const now = new Date();
-
-            if (isAfter(now, targetDate)) {
-                return { error: 'This coupon has expired.' };
-            }
-
-            const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            let newPeriodEnd = user.currentPeriodEnd || new Date();
-
-            if (user.subscriptionStatus === 'active') {
-                if (!user.stripeSubscriptionId) {
-                    return { error: 'No active Stripe subscription found for this customer.' };
-                }
-
-                const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
-                const newTrialEndMs = currentEndMs + daysToTarget * 24 * 60 * 60 * 1000;
-                const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
-                newPeriodEnd = new Date(newTrialEndMs);
-
-                await stripe.subscriptions.update(user.stripeSubscriptionId, {
-                    trial_end: newTrialEndUnix,
-                    proration_behavior: 'none',
-                });
-            } else if (user.subscriptionStatus === 'trialing') {
-                const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
-                newPeriodEnd = new Date(currentEndMs + daysToTarget * 24 * 60 * 60 * 1000);
-            } else {
-                return { error: 'This promo code can only be applied during an active subscription or trial.' };
-            }
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    hasUsedPromoTwo: true,
-                    currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
-                    trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
+                trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
+                usedCoupons: {
+                    connect: {
+                        id: coupon.id,
+                    },
                 },
-            });
+            },
+        });
 
-            return { success: true, message: `Coupon applied! Your ${user.subscriptionStatus === 'trialing' ? 'trial' : 'subscription'} has been extended until April 12th, 2026.` };
-        } else if (process.env.COUPON_THREE && code.trim().toLowerCase() === process.env.COUPON_THREE.toLowerCase()) {
-            if (user.hasUsedPromoThree) {
-                return { error: 'You have already used this coupon code.' };
-            }
-
-            const targetDate = new Date('2026-04-21T00:00:00Z');
-            const now = new Date();
-
-            if (isAfter(now, targetDate)) {
-                return { error: 'This coupon has expired.' };
-            }
-
-            const daysToTarget = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            let newPeriodEnd = user.currentPeriodEnd || new Date();
-
-            if (user.subscriptionStatus === 'active') {
-                if (!user.stripeSubscriptionId) {
-                    return { error: 'No active Stripe subscription found for this customer.' };
-                }
-
-                const currentEndMs = user.currentPeriodEnd ? user.currentPeriodEnd.getTime() : now.getTime();
-                const newTrialEndMs = currentEndMs + daysToTarget * 24 * 60 * 60 * 1000;
-                const newTrialEndUnix = Math.floor(newTrialEndMs / 1000);
-                newPeriodEnd = new Date(newTrialEndMs);
-
-                await stripe.subscriptions.update(user.stripeSubscriptionId, {
-                    trial_end: newTrialEndUnix,
-                    proration_behavior: 'none',
-                });
-            } else if (user.subscriptionStatus === 'trialing') {
-                const currentEndMs = user.trialEndsAt ? user.trialEndsAt.getTime() : now.getTime();
-                newPeriodEnd = new Date(currentEndMs + daysToTarget * 24 * 60 * 60 * 1000);
-            } else {
-                return { error: 'This promo code can only be applied during an active subscription or trial.' };
-            }
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    hasUsedPromoThree: true,
-                    currentPeriodEnd: user.subscriptionStatus === 'active' ? newPeriodEnd : user.currentPeriodEnd,
-                    trialEndsAt: user.subscriptionStatus === 'trialing' ? newPeriodEnd : user.trialEndsAt,
-                },
-            });
-
-            return { success: true, message: `Coupon applied! Your ${user.subscriptionStatus === 'trialing' ? 'trial' : 'subscription'} has been extended until April 20th, 2026.` };
-        } else return { error: 'No coupons matched' };
-    } catch (error: any) {
-        console.error('Error applying coupon:', error);
-        return { error: error.message };
+        return {
+            success: true,
+            message: `Coupon applied! Your ${user.subscriptionStatus === 'trialing' ? 'trial' : 'subscription'} has been extended ${coupon.days && coupon.days !== 0 ? `by ${coupon.days} days` : `until ${format(targetDate, 'PPP')}`}.`,
+        };
+    } catch (err) {
+        console.error(err);
+        return { error: 'Unable to apply coupon code.' };
     }
 }

@@ -14,6 +14,7 @@ import { Tab } from '../_braider/BraiderDashboard';
 
 const SubcontractorDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
+    const [userId, setUserId] = useState('');
     const [name, setName] = useState('');
     const [image, setImage] = useState('');
     const [email, setEmail] = useState('');
@@ -27,6 +28,7 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
 
     useEffect(() => {
         if (session?.user) {
+            setUserId(session.user.id || '');
             setName(session.user.name || 'User');
             setImage(session.user.image || '');
             setEmail(session.user.email || '');
@@ -35,14 +37,14 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
 
     useEffect(() => {
         const fetchPublicID = async () => {
-            if (email.length > 0) {
-                const publicID = await getPublicID(email);
+            if (userId.length > 0) {
+                const publicID = await getPublicID(userId);
                 if (typeof publicID === 'string' && publicID.length > 0) setPublicID(publicID);
             }
         };
 
         fetchPublicID();
-    }, [email]);
+    }, [userId]);
 
     const renderContent = () => {
         switch (selectedPage) {
@@ -60,11 +62,11 @@ const SubcontractorDashboard = ({ session, loading, update }: { session: Session
                     />
                 );
             case 'Calendar':
-                return <Calendar role='subcontractor' userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Calendar role='subcontractor' userId={userId} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
-                return <Tasks role='subcontractor' userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Tasks role='subcontractor' userEmail={email} userId={userId} setSelectedPage={setSelectedPage} />;
             case 'Team':
-                return <Team userEmail={email} role='subcontractor' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
+                return <Team userId={userId} role='subcontractor' userPublicID={publicID} setSelectedPage={setSelectedPage} />;
             case 'Settings':
                 return <Settings update={update} role='subcontractor' setUnsavedChanges={setUnsavedChanges} activeTab={activeTab} setActiveTab={setActiveTab} userEmail={email} />;
             default:

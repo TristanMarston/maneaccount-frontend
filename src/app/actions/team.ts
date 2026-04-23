@@ -7,31 +7,33 @@ import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
 import { syncCalendar, desyncCalendar } from './barn-relations';
 
-export async function getUserByPublicID(publicID: string) {
+export async function getUserByPublicID(publicID: string, role: 'braider' | 'subcontractor') {
     if (!publicID) return;
 
     const session = await auth();
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { publicID },
+        const users = await prisma.user.findMany({
+            where: { publicID, role: role === 'braider' ? 'subcontractor' : 'braider' },
+            take: 2,
         });
-        if (!user) return { error: 'User not found', success: false, user: undefined };
+        if (users.length === 0) return { error: 'User not found', success: false, user: undefined };
+        if (users.length > 1) return { error: 'Multiple users found with that ID', success: false, user: undefined };
 
-        return { error: undefined, success: true, user };
+        return { error: undefined, success: true, user: users[0] };
     } catch (error) {
         console.error(error);
         return { error: 'Failed to fetch user', success: false, user: undefined };
     }
 }
 
-export async function getTeamMembers(email: string) {
-    if (!email) return [];
+export async function getTeamMembers(userId: string) {
+    if (!userId) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: {
                 sentConnections: { include: { receiver: true } },
                 receivedConnections: { include: { sender: true } },
@@ -57,12 +59,12 @@ export async function getTeamMembers(email: string) {
     }
 }
 
-export async function getTeamRequests(email: string) {
-    if (!email) return { incoming: [], outgoing: [] };
+export async function getTeamRequests(userId: string) {
+    if (!userId) return { incoming: [], outgoing: [] };
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: {
                 sentConnections: { include: { receiver: true } },
                 receivedConnections: { include: { sender: true } },
@@ -127,19 +129,22 @@ export async function getTeamRequests(email: string) {
 //     }
 // }
 
-export async function inviteUser(publicID: string) {
+export async function inviteUser(publicID: string, role: 'braider' | 'subcontractor') {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const sender = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
         });
         if (!sender) return { error: 'User not found' };
 
-        const receiver = await prisma.user.findUnique({
-            where: { publicID: publicID.toLowerCase() },
+        const receivers = await prisma.user.findMany({
+            where: { publicID: publicID.toLowerCase(), role: role === 'braider' ? 'subcontractor' : 'braider' },
+            take: 2,
         });
+        const receiver = receivers.length === 1 ? receivers[0] : null;
+        if (receivers.length > 1) return { error: 'Multiple users found with that ID' };
         if (!receiver) return { error: 'User not found with that ID' };
 
         if (sender.id === receiver.id) return { error: 'Cannot invite yourself' };

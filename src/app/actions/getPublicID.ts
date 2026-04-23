@@ -2,10 +2,10 @@
 
 import { prisma } from '@/lib/prisma';
 
-export async function getPublicID(email: string) {
+export async function getPublicID(userId: string) {
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             select: {
                 publicID: true,
             },

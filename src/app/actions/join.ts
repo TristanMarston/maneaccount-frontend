@@ -2,13 +2,18 @@
 
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
 
 export async function getUserByPublicID(publicID: string) {
     if (!publicID) return { error: 'Invalid ID' };
 
+    const session = await auth();
+    if (!session?.user?.role) return { error: 'Unauthorized' };
+    const role = session.user.role;
+
     try {
-        const user = await prisma.user.findUnique({
-            where: { publicID: publicID.toLowerCase() },
+        const users = await prisma.user.findMany({
+            where: { publicID: publicID.toLowerCase(), role: { in: role === 'barn' || role === 'subcontractor' ? ['braider'] : ['barn', 'subcontractor'] } },
             select: {
                 id: true,
                 name: true,
@@ -17,48 +22,33 @@ export async function getUserByPublicID(publicID: string) {
                 publicID: true,
                 subscriptionTier: true,
             },
+            take: 2,
         });
 
-        if (!user) return { error: 'User not found' };
+        if (users.length === 0) return { error: 'User not found' };
+        if (users.length > 1) return { error: 'Multiple users found with that public ID' };
 
-        return { user };
+        return { user: users[0] };
     } catch (error) {
         console.error('Failed to fetch inviter:', error);
         return { error: 'Failed to fetch inviter details' };
     }
 }
 
-export async function getIDByEmail(email: string) {
-    if (!email) return { error: 'No email found', success: undefined };
-
-    try {
-        const user = await prisma.user.findUnique({
-            where: { email },
-            select: {
-                id: true,
-            },
-        });
-
-        if (user) return { success: user, error: undefined };
-        else return { error: 'No user found with that email', success: undefined };
-    } catch (err) {
-        console.error('Error finding ID', err);
-        return { error: 'Error finding ID', success: undefined };
-    }
-}
-
-export async function getIDByPublicID(publicID: string) {
+export async function getIDByPublicID(publicID: string, role: string) {
     if (!publicID) return { error: 'No publicID found', success: undefined };
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { publicID },
+        const users = await prisma.user.findMany({
+            where: { publicID, role: { in: role === 'barn' || role === 'subcontractor' ? ['braider'] : ['barn', 'subcontractor'] } },
             select: {
                 id: true,
             },
+            take: 2,
         });
 
-        if (user) return { success: user, error: undefined };
+        if (users.length === 1) return { success: users[0], error: undefined };
+        if (users.length > 1) return { error: 'Multiple users found with that publicID', success: undefined };
         else return { error: 'No user found with that publicID', success: undefined };
     } catch (err) {
         console.error('Error finding ID', err);
@@ -87,12 +77,12 @@ export async function getConnection(userID: string, targetUserID: string) {
     }
 }
 
-export async function establishConnection(email: string) {
-    if (!email) return { error: 'No email found' };
+export async function establishConnection(userId: string) {
+    if (!userId) return { error: 'No user id found' };
 
     try {
         const dbUser = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             select: {
                 id: true,
                 role: true,
@@ -100,23 +90,25 @@ export async function establishConnection(email: string) {
             },
         });
 
-        if (!dbUser) return { error: 'No user found with that email address' };
+        if (!dbUser) return { error: 'No user found with that id' };
 
         const cookieStore = await cookies();
         const joinCookie = cookieStore.get('join_request_user');
         const targetPublicID = joinCookie?.value;
 
         if (targetPublicID) {
-            const targetUser = await prisma.user.findUnique({
-                where: { publicID: targetPublicID },
+            const targetUsers = await prisma.user.findMany({
+                where: { publicID: targetPublicID, role: { in: dbUser.role === 'barn' || dbUser.role === 'subcontractor' ? ['braider'] : ['barn', 'subcontractor'] } },
                 select: {
                     id: true,
                     role: true,
                     subscriptionTier: true,
                 },
+                take: 2,
             });
+            const targetUser = targetUsers.length === 1 ? targetUsers[0] : null;
 
-            if (!targetUser) return { error: 'No target user found' };
+            if (!targetUser) return { error: targetUsers.length > 1 ? 'Multiple target users found' : 'No target user found' };
 
             if (
                 (dbUser.role === 'braider' && targetUser.role === 'subcontractor' && dbUser.subscriptionTier === 'starter') ||
@@ -150,7 +142,7 @@ export async function establishConnection(email: string) {
                             where: { id: existing.success.id },
                             data: { status: 'accepted' },
                         });
-                    } else if (existing.success.status === 'pending') return { error: 'Existing connection' }
+                    } else if (existing.success.status === 'pending') return { error: 'Existing connection' };
 
                     cookieStore.delete('join_request_user');
                     return { success: true };

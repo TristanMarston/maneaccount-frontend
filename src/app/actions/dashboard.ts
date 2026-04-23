@@ -6,13 +6,11 @@ import { startOfDay } from 'date-fns';
 
 export async function getFullDashboardData(role: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
-
-    const email = session.user.email;
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: session.user.id },
             include: {
                 shows: {
                     include: {
@@ -99,14 +97,12 @@ export async function getFullDashboardData(role: string) {
 
 export async function getDashboardData(role: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
-
-    const email = session.user.email;
+    if (!session?.user?.id) return { error: 'Unauthorized' };
     const today = startOfDay(new Date());
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: session.user.id },
             include: {
                 shows: {
                     where: {

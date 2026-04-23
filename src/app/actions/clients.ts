@@ -4,12 +4,12 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-export async function getClients(email: string) {
-    if (!email) return [];
+export async function getClients(userId: string) {
+    if (!userId) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: { clients: { include: { horses: true } } },
         });
         return user?.clients || [];
@@ -37,7 +37,7 @@ export async function addClient(formData: any) {
     try {
         const client = await prisma.client.create({
             data: {
-                barn: { connect: { email: session.user.email } },
+                barn: { connect: { id: session.user.id } },
                 name,
                 email,
                 phoneNumber: phoneNumber || null,

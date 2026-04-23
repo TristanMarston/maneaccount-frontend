@@ -20,6 +20,7 @@ const RequestWorkSubpage = ({
     job: initialJob,
     role,
     userEmail,
+    userId,
     onBack,
     setSelectedHorse,
     refresh,
@@ -30,6 +31,7 @@ const RequestWorkSubpage = ({
     job: Job | 'creating';
     role: string;
     userEmail: string;
+    userId: string;
     onBack: () => void;
     setSelectedHorse: React.Dispatch<React.SetStateAction<any | null>>;
     refresh: () => void;
@@ -75,11 +77,11 @@ const RequestWorkSubpage = ({
         const init = async () => {
             setInitializing(true);
 
-            const horsesData = await getHorses(userEmail);
+            const horsesData = await getHorses(userId);
             if (horsesData) setHorses(horsesData);
 
             if (!isEditing) {
-                const rels = await getRelations(userEmail);
+                const rels = await getRelations(userId);
                 setBraiders(rels.filter((r) => r.role === 'braider'));
             } else {
                 const job = initialJob as Job;

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { signOut, useSession } from 'next-auth/react';
-import { getConnection, getIDByEmail, getIDByPublicID, getUserByPublicID } from '@/app/actions/join';
+import { getConnection, getIDByPublicID, getUserByPublicID } from '@/app/actions/join';
 
 type Inviter = {
     id: string;
@@ -31,19 +31,19 @@ const Join = ({ inviterID }: { inviterID: string }) => {
     useEffect(() => {
         const checkExistingConnection = async (publicID: string) => {
             if (status === 'authenticated' && session) {
-                const userEmail = session.user?.email;
-                if (userEmail) {
-                    const userID = await getIDByEmail(userEmail);
-                    const targetID = await getIDByPublicID(publicID);
+                const userId = session.user?.id;
+                const role = session.user?.role;
+                if (userId) {
+                    const targetID = await getIDByPublicID(publicID, role);
 
-                    if (userID && userID.success && userID.success.id && targetID && targetID.success && targetID.success.id) {
-                        if (userID.success.id === targetID.success.id) {
+                    if (userId && targetID && targetID.success && targetID.success.id) {
+                        if (userId === targetID.success.id) {
                             setAddingOneself(true);
                             setLoading(false);
                             return;
                         }
 
-                        const existing = await getConnection(userID.success.id, targetID.success.id);
+                        const existing = await getConnection(userId, targetID.success.id);
                         if (existing.success) setExistingConnection(true);
                         setLoading(false);
                     }

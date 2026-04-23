@@ -6,12 +6,12 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 
-export async function getHorses(email: string) {
-    if (!email) return [];
+export async function getHorses(userId: string) {
+    if (!userId) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: { horses: { include: { client: true } } },
         });
 
@@ -71,7 +71,7 @@ export async function addHorse(formData: any) {
 
         await prisma.horse.create({
             data: {
-                user: { connect: { email: session.user.email } },
+                user: { connect: { id: session.user.id } },
                 showName,
                 barnName,
                 gender: gender ? (gender as Gender) : null,

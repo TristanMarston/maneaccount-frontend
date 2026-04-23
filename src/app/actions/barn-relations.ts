@@ -7,12 +7,12 @@ import { prisma } from '@/lib/prisma';
 import { createNotification } from './notifications';
 import { NotificationType } from '@prisma/client';
 
-export async function getRelations(email: string) {
-    if (!email) return [];
+export async function getRelations(userId: string) {
+    if (!userId) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: {
                 sentConnections: { include: { receiver: true } },
                 receivedConnections: { include: { sender: true } },
@@ -40,12 +40,12 @@ export async function getRelations(email: string) {
     }
 }
 
-export async function getPendingRelations(email: string) {
-    if (!email) return { incoming: [], outgoing: [] };
+export async function getPendingRelations(userId: string) {
+    if (!userId) return { incoming: [], outgoing: [] };
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: {
                 receivedConnections: {
                     where: { status: 'pending' },
@@ -85,19 +85,22 @@ export async function getPendingRelations(email: string) {
     }
 }
 
-export async function inviteRelation(publicID: string) {
+export async function inviteRelation(publicID: string, role: 'braider' | 'barn') {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const sender = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
         });
         if (!sender) return { error: 'User not found' };
 
-        const receiver = await prisma.user.findUnique({
-            where: { publicID: publicID.toLowerCase() },
+        const receivers = await prisma.user.findMany({
+            where: { publicID: publicID.toLowerCase(), role: role === 'braider' ? 'barn' : 'braider' },
+            take: 2,
         });
+        const receiver = receivers.length === 1 ? receivers[0] : null;
+        if (receivers.length > 1) return { error: 'Multiple users found with that ID' };
         if (!receiver) return { error: 'User not found with that ID' };
 
         if (sender.id === receiver.id) return { error: 'Cannot invite yourself' };
@@ -261,7 +264,7 @@ export async function acceptRelationRequest(connectionId: string) {
             `${connection.receiver.name} accepted your connection request`,
             null,
             connection.receiverId,
-            connection.receiver.image
+            connection.receiver.image,
         );
         revalidatePath('/dashboard');
         return { success: true };
@@ -270,20 +273,22 @@ export async function acceptRelationRequest(connectionId: string) {
     }
 }
 
-export async function getRelationByPublicID(publicID: string) {
+export async function getRelationByPublicID(publicID: string, role: 'braider' | 'barn') {
     try {
-        const user = await prisma.user.findUnique({
-            where: { publicID: publicID.toLowerCase() },
+        const users = await prisma.user.findMany({
+            where: { publicID: publicID.toLowerCase(), role: role === 'braider' ? 'barn' : 'braider' },
             select: {
                 name: true,
                 image: true,
                 role: true,
                 publicID: true,
             },
+            take: 2,
         });
 
-        if (!user) return { error: 'User not found' };
-        return { user };
+        if (users.length === 0) return { error: 'User not found' };
+        if (users.length > 1) return { error: 'Multiple users found with that ID' };
+        return { user: users[0] };
     } catch (error) {
         return { error: 'Failed to fetch user' };
     }

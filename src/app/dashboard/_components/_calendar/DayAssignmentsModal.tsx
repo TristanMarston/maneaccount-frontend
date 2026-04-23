@@ -37,6 +37,7 @@ export const DayAssignmentsModal = ({
     date,
     role,
     userEmail,
+    userId,
     setViewingShow,
     onClose,
     refresh,
@@ -45,6 +46,7 @@ export const DayAssignmentsModal = ({
     date: Date;
     role: string;
     userEmail: string;
+    userId: string;
     setViewingShow: React.Dispatch<React.SetStateAction<Show | null>>;
     onClose: () => void;
     refresh: () => void;
@@ -73,7 +75,7 @@ export const DayAssignmentsModal = ({
 
     useEffect(() => {
         const fetchHorses = async () => {
-            const result = await getHorses(userEmail);
+            const result = await getHorses(userId);
             if (result) setHorsesRef(result);
         };
 

@@ -35,13 +35,13 @@ type PendingMember = TeamMember & { sentAt: Date };
 import { SubscriptionTier } from '@prisma/client';
 
 const Team = ({
-    userEmail,
+    userId,
     role,
     userPublicID,
     setSelectedPage,
     subscriptionTier,
 }: {
-    userEmail: string;
+    userId: string;
     role: string;
     userPublicID: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
@@ -64,7 +64,7 @@ const Team = ({
 
     const refreshDataFn = useCallback(async () => {
         setLoading(true);
-        const [memberData, pendingData] = await Promise.all([getTeamMembers(userEmail), getTeamRequests(userEmail)]);
+        const [memberData, pendingData] = await Promise.all([getTeamMembers(userId), getTeamRequests(userId)]);
 
         // @ts-ignore
         setMembers(memberData);
@@ -89,7 +89,7 @@ const Team = ({
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
         setInviteLoading(true);
-        const result = await inviteUser(inviteInput);
+        const result = await inviteUser(inviteInput, role as 'braider' | 'subcontractor');
 
         if (result.success) {
             successToast(result.message);
@@ -522,7 +522,7 @@ const InviteModal = ({
 
         setLoadingUser('loading');
         try {
-            const user = await getUserByPublicID(invitePublicID);
+            const user = await getUserByPublicID(invitePublicID, role as 'braider' | 'subcontractor');
 
             if (invitePublicID !== lastRequestValue.current) return;
 

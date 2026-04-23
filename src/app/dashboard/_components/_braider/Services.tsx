@@ -28,7 +28,7 @@ type ServiceFormData = {
     duration?: number | null;
 };
 
-const Services = ({ userEmail }: { userEmail: string }) => {
+const Services = ({ userId }: { userId: string }) => {
     const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -44,13 +44,13 @@ const Services = ({ userEmail }: { userEmail: string }) => {
 
     useEffect(() => {
         const loadServices = async () => {
-            const data = await getServices(userEmail);
+            const data = await getServices(userId);
 
             setServices(data);
             setLoading(false);
         };
         loadServices();
-    }, [userEmail]);
+    }, [userId]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -71,7 +71,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
             setServiceModalOpen(false);
             setFormData({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
 
-            const updated = await getServices(userEmail);
+            const updated = await getServices(userId);
             setServices(updated);
         } else {
             failToast(result.error || 'Failed to add service');
@@ -99,7 +99,7 @@ const Services = ({ userEmail }: { userEmail: string }) => {
             });
             setEditModalData({ name: '', category: 'Unspecified', priceUSD: '', duration: null });
 
-            const updated = await getServices(userEmail);
+            const updated = await getServices(userId);
             setServices(updated);
         } else {
             failToast(result.error || 'Failed to add service');

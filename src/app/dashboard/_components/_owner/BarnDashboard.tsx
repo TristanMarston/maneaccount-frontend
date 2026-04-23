@@ -18,6 +18,7 @@ import { Tab } from '../_braider/BraiderDashboard';
 
 const BarnDashboard = ({ session, loading, update }: { session: Session | null; loading: boolean; update: (data?: any) => Promise<Session | null> }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
+    const [userId, setUserId] = useState('');
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
@@ -33,6 +34,7 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
 
     useEffect(() => {
         if (session?.user) {
+            setUserId(session.user.id || '');
             setName(session.user.name || 'User');
             setEmail(session.user.email || '');
             setImage(session.user.image || '');
@@ -61,16 +63,17 @@ const BarnDashboard = ({ session, loading, update }: { session: Session | null; 
                     />
                 );
             case 'Horses':
-                return <Horses userEmail={email} />;
+                return <Horses userEmail={email} userId={userId} />;
             case 'Braiders':
-                return <Relations userEmail={email} role='barn' userPublicID='' setSelectedPage={setSelectedPage} selectBraider={selectBraider} />;
+                return <Relations userId={userId} role='barn' userPublicID='' setSelectedPage={setSelectedPage} selectBraider={selectBraider} />;
             case 'Calendar':
-                return <Calendar role='barn' userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Calendar role='barn' userId={userId} setSelectedPage={setSelectedPage} />;
             case 'Services':
                 return (
                     <Tasks
                         role='barn'
                         userEmail={email}
+                        userId={userId}
                         setSelectedPage={setSelectedPage}
                         requestingJob={requestingJob}
                         setRequestingJob={setRequestingJob}

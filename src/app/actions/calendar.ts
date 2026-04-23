@@ -20,7 +20,7 @@ type CreateShowInput = {
 
 export async function createShow(data: CreateShowInput) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const connections = await prisma.connection.findMany({
@@ -34,7 +34,7 @@ export async function createShow(data: CreateShowInput) {
             },
         });
 
-        const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (!user) return { error: 'User not found' };
 
         const connectedUserIds = connections.map((c) => (c.sender.email === session.user.email ? c.receiverId : c.senderId));
@@ -136,7 +136,7 @@ export async function addShowToCalendar(showId: string) {
                 invites: {
                     create: {
                         inviter: { connect: { id: show.userId } },
-                        invitee: { connect: { email: session.user.email! } },
+                        invitee: { connect: { id: session.user.id! } },
                         status: 'accepted',
                     },
                 },
@@ -179,14 +179,14 @@ export async function acceptRelationRequest(connectionId: string, timezoneOffset
     }
 }
 
-export async function getInvites(email: string) {
-    if (!email) return [];
+export async function getInvites(userId: string) {
+    if (!userId) return [];
     const session = await auth();
     if (!session?.user?.email) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: {
                 receivedShowInvites: {
                     where: { status: { in: ['accepted', 'pending'] } },
@@ -210,12 +210,12 @@ export async function getInvites(email: string) {
     }
 }
 
-export async function getShows(email: string) {
-    if (!email) return [];
+export async function getShows(userId: string) {
+    if (!userId) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: {
                 shows: {
                     include: {

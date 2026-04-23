@@ -48,7 +48,7 @@ type FormData = {
 
 const genderOptions = ['Mare', 'Gelding', 'Stallion', 'Filly', 'Colt', 'Unselected'];
 
-const Horses = ({ userEmail }: { userEmail: string }) => {
+const Horses = ({ userEmail, userId }: { userEmail: string; userId: string }) => {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
     const [checkModal, setCheckModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
@@ -85,7 +85,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
 
     useEffect(() => {
         const loadHorses = async () => {
-            const clientsData = await getClients(userEmail);
+            const clientsData = await getClients(userId);
 
             setClients(clientsData);
             setLoading(false);
@@ -135,7 +135,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                 setHorseModalOpen({ open: false, clientId: '' });
                 resetForm();
 
-                const updated = await getClients(userEmail);
+                const updated = await getClients(userId);
                 setClients(updated);
             } else {
                 failToast(result?.error || 'Failed to add horse');
@@ -174,7 +174,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
             setImagePreview(null);
             setFinalImageBlob(null);
 
-            const updated = await getClients(userEmail);
+            const updated = await getClients(userId);
             setClients(updated);
         } else {
             failToast(result.error || 'Failed to add service');
@@ -449,7 +449,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                         if (res?.success) {
                             successToast('Client added successfully');
                             setClientModalOpen(false);
-                            const [clientsData] = await Promise.all([getClients(userEmail)]);
+                            const [clientsData] = await Promise.all([getClients(userId)]);
                             setClients(clientsData);
 
                             if (horseModalOpen.open) {
@@ -487,7 +487,7 @@ const Horses = ({ userEmail }: { userEmail: string }) => {
                         if (res?.success) {
                             successToast('Client edited successfully');
                             setClientModalEdit({ open: false, id: '' });
-                            const [clientsData] = await Promise.all([getClients(userEmail)]);
+                            const [clientsData] = await Promise.all([getClients(userId)]);
                             setClients(clientsData);
                         } else {
                             failToast(res?.error || 'Failed to edit client');

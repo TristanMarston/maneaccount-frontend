@@ -37,6 +37,7 @@ import Modal from '../Modal';
 import { useNotifications } from '@/app/NotificationContext';
 import { NotificationType, SubscriptionTier } from '@prisma/client';
 import { Tab } from './_braider/BraiderDashboard';
+import { getLinkedRoleAccounts } from '@/app/actions/settings';
 
 type Page = {
     title: string;
@@ -151,6 +152,7 @@ const DashboardSidebar = ({
     };
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+    const [linkedAccounts, setLinkedAccounts] = useState<{ id: string; role: 'braider' | 'subcontractor'; name: string | null; email: string | null; image: string | null }[]>([]);
 
     const userDropdownRef = useRef<HTMLDivElement>(null);
     const userButtonRef = useRef<HTMLDivElement>(null);
@@ -167,6 +169,15 @@ const DashboardSidebar = ({
     }, []);
 
     useOnClickOutside(userDropdownRef, [userButtonRef], () => setUserDropdownOpen(false));
+
+    useEffect(() => {
+        const loadLinkedAccounts = async () => {
+            const accounts = await getLinkedRoleAccounts();
+            setLinkedAccounts(accounts);
+        };
+
+        loadLinkedAccounts();
+    }, [session?.user?.id]);
 
     useEffect(() => {
         const saved = localStorage.getItem('sidebar-open');
@@ -286,6 +297,18 @@ const DashboardSidebar = ({
                                                 }}
                                             />
                                         )}
+                                        {linkedAccounts.map((account) => (
+                                            <MobileDrawerItem
+                                                key={account.id}
+                                                icon={account.role === 'braider' ? Scissors : Users}
+                                                title={`Switch to ${account.role[0].toUpperCase() + account.role.substring(1)}`}
+                                                onClick={async () => {
+                                                    setUserDropdownOpen(false);
+                                                    setMobileMenuOpen(false);
+                                                    await update({ switchAccountId: account.id });
+                                                }}
+                                            />
+                                        ))}
                                         {dashboard === 'braider' && !isFrozen && (
                                             <MobileDrawerItem
                                                 icon={CreditCard}
@@ -512,6 +535,17 @@ const DashboardSidebar = ({
                                             </div>
 
                                             <div className='space-y-0.5'>
+                                                {linkedAccounts.map((account) => (
+                                                    <MenuItem
+                                                        key={account.id}
+                                                        icon={account.role === 'braider' ? Scissors : Users}
+                                                        onClick={async () => {
+                                                            setUserDropdownOpen(false);
+                                                            await update({ switchAccountId: account.id });
+                                                        }}
+                                                        label={`Switch to ${account.role[0].toUpperCase() + account.role.substring(1)}`}
+                                                    />
+                                                ))}
                                                 {!isFrozen && (
                                                     <MenuItem
                                                         icon={User}

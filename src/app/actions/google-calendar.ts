@@ -5,9 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { google } from 'googleapis';
 import { revalidatePath } from 'next/cache';
 
-async function getGoogleAuth(email: string) {
+async function getGoogleAuth(userId: string) {
     const user = await prisma.user.findUnique({
-        where: { email },
+        where: { id: userId },
         include: {
             accounts: {
                 where: { provider: 'google' },
@@ -65,10 +65,10 @@ async function getOrCreateCalendar(oauth2Client: any, user: any) {
 
 export async function addToGoogleCalendar(showId: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
-        const { oauth2Client, user } = await getGoogleAuth(session.user.email);
+        const { oauth2Client, user } = await getGoogleAuth(session.user.id);
         const { calendar, targetCalendarId } = await getOrCreateCalendar(oauth2Client, user);
 
         const show = await prisma.show.findUnique({
@@ -158,9 +158,9 @@ export async function addToGoogleCalendar(showId: string) {
     }
 }
 
-async function updateSingleEvent(email: string, eventId: string, eventDetails: any) {
+async function updateSingleEvent(userId: string, eventId: string, eventDetails: any) {
     try {
-        const { oauth2Client, user } = await getGoogleAuth(email);
+        const { oauth2Client, user } = await getGoogleAuth(userId);
         const { calendar, targetCalendarId } = await getOrCreateCalendar(oauth2Client, user);
 
         await calendar.events.patch({
@@ -170,7 +170,7 @@ async function updateSingleEvent(email: string, eventId: string, eventDetails: a
         });
         return { success: true };
     } catch (error: any) {
-        console.error(`Failed to update event for ${email}:`, error.message);
+        console.error(`Failed to update event for ${userId}:`, error.message);
         return { error: error.message };
     }
 }
@@ -210,17 +210,17 @@ export async function updateGoogleCalendarEvent(showId: string) {
             },
         };
 
-        const updatePromises = [];
+        const updatePromises: Promise<any>[] = [];
 
         // 1. Update owner's event if synced
-        if (show.addedToGoogleCalendar && show.googleEventId && show.user.email) {
-            updatePromises.push(updateSingleEvent(show.user.email, show.googleEventId, eventDetails));
+        if (show.addedToGoogleCalendar && show.googleEventId && show.user.id) {
+            updatePromises.push(updateSingleEvent(show.user.id, show.googleEventId, eventDetails));
         }
 
         // 2. Update all invitees' events
         for (const invite of show.invites) {
-            if (invite.googleEventId && invite.invitee.email) {
-                updatePromises.push(updateSingleEvent(invite.invitee.email, invite.googleEventId, eventDetails));
+            if (invite.googleEventId && invite.invitee.id) {
+                updatePromises.push(updateSingleEvent(invite.invitee.id, invite.googleEventId, eventDetails));
             }
         }
 
@@ -235,7 +235,7 @@ export async function updateGoogleCalendarEvent(showId: string) {
 
 export async function deleteGoogleCalendarEvent(showId: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const show = await prisma.show.findUnique({
@@ -258,7 +258,7 @@ export async function deleteGoogleCalendarEvent(showId: string) {
 
         if (!eventId) return { success: true }; // Nothing to delete
 
-        const { oauth2Client, user } = await getGoogleAuth(session.user.email);
+        const { oauth2Client, user } = await getGoogleAuth(session.user.id);
         const { calendar, targetCalendarId } = await getOrCreateCalendar(oauth2Client, user);
 
         await calendar.events.delete({

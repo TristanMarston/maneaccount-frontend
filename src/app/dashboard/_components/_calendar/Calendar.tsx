@@ -384,7 +384,7 @@ const DayDetailsModal = ({
     );
 };
 
-const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmail: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
+const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: string; setSelectedPage: React.Dispatch<React.SetStateAction<string>> }) => {
     const [view, setView] = useState<CalendarViewType>('list');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [shows, setShows] = useState<Show[]>([]);
@@ -536,7 +536,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                             <div className='flex gap-2 items-center'>
                                 {role.toLowerCase() !== 'braider' && (
                                     <Notifications
-                                        email={userEmail}
+                                        userId={userId}
                                         handleInviteResponse={handleInviteResponse}
                                         setSelectedShow={setViewingShow}
                                         showDetailsRef={showDetailsRef}
@@ -564,7 +564,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                     <div className='hidden @min-[400px]/calendar:flex items-start gap-3 h-full'>
                         {role.toLowerCase() !== 'braider' && (
                             <Notifications
-                                email={userEmail}
+                                userId={userId}
                                 handleInviteResponse={handleInviteResponse}
                                 setSelectedShow={setViewingShow}
                                 showDetailsRef={showDetailsRef}
@@ -611,7 +611,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                                     onEdit={handleEdit}
                                     onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
                                     onShowClick={handleShowClick}
-                                    userEmail={userEmail}
+                                    userEmail={userId}
                                     role={role}
                                 />
                             )}
@@ -632,7 +632,7 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                                     onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
                                     onShowClick={handleShowClick}
                                     role={role}
-                                    userEmail={userEmail}
+                                    userEmail={userId}
                                 />
                             )}
                         </>
@@ -703,7 +703,8 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
                         jobs={selectedJobs}
                         date={viewingJobDate || new Date(selectedJobs[0].assignments[0]?.assignmentDate || selectedJobs[0].createdAt)}
                         role={role}
-                        userEmail={userEmail}
+                        userEmail={userId}
+                        userId={userId}
                         setViewingShow={setViewingShow}
                         onClose={() => {
                             setSelectedJobs(null);
@@ -762,14 +763,14 @@ const Calendar = ({ role, userEmail, setSelectedPage }: { role: string; userEmai
 };
 
 const Notifications = ({
-    email,
+    userId,
     handleInviteResponse,
     setSelectedShow,
     showDetailsRef,
     className = '',
     anchor = 'left',
 }: {
-    email: string;
+    userId: string;
     handleInviteResponse: (showId: string, status: 'accepted' | 'declined') => void;
     setSelectedShow: React.Dispatch<React.SetStateAction<Show | null>>;
     showDetailsRef: React.RefObject<HTMLDivElement | null>;
@@ -783,7 +784,7 @@ const Notifications = ({
 
     useEffect(() => {
         const getCalendarInvites = async () => {
-            const inv = await getInvites(email);
+            const inv = await getInvites(userId);
             setInvites([...inv]);
         };
 

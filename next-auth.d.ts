@@ -4,8 +4,9 @@ declare module 'next-auth' {
     interface Session {
         user: {
             id: string;
-            role: string; // Or use your Role enum if you import it from @prisma/client
+            role: string;
         } & DefaultSession['user'];
+        switchAccountId?: string;
     }
     interface User {
         id: string;

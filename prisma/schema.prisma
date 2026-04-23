@@ -126,13 +126,14 @@ enum SendInvoiceOption {
 
 model User {
   id            String    @id @default(cuid())
-  publicID      String?   @unique
+  publicID      String?
   name          String?
-  email         String?   @unique
+  email         String?
   emailVerified DateTime?
   phoneNumber   String?
   image         String?
   password      String?
+  linkedAccountGroupId String?
 
   venmo        String?
   venmoEnabled Boolean     @default(false)
@@ -182,6 +183,19 @@ model User {
   hasUsedPromoTwo   Boolean        @default(false)
   hasUsedPromoThree Boolean        @default(false)
   usedCoupons       OneOffCoupon[] @relation("OneOffCoupon")
+  linkedAccountGroup LinkedAccountGroup? @relation(fields: [linkedAccountGroupId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([publicID])
+  @@index([linkedAccountGroupId])
+}
+
+model LinkedAccountGroup {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts User[]
 }
 
 model Notification {

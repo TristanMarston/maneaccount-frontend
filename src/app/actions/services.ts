@@ -4,12 +4,12 @@ import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 
-export async function getServices(email: string) {
-    if (!email) return [];
+export async function getServices(userId: string) {
+    if (!userId) return [];
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { id: userId },
             include: { services: true },
         });
         return user?.services || [];
@@ -38,7 +38,7 @@ export async function addService(formData: any) {
     try {
         await prisma.service.create({
             data: {
-                user: { connect: { email: session.user.email } },
+                user: { connect: { id: session.user.id } },
                 name,
                 category: category || 'Unspecified',
                 priceUSD: price,

@@ -48,7 +48,6 @@ import {
     toggleServiceCompletion,
     submitJob,
     markJobCompleted,
-    getUserByEmail,
     markJobReview,
     revertJobReview,
 } from '@/app/actions/jobs';
@@ -120,6 +119,7 @@ export const statusColors = {
 const Tasks = ({
     role,
     userEmail,
+    userId,
     setSelectedPage,
     subscriptionTier,
     requestingJob,
@@ -131,6 +131,7 @@ const Tasks = ({
 }: {
     role: string;
     userEmail: string;
+    userId: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
     subscriptionTier?: SubscriptionTier;
     requestingJob?: Job | null | 'creating';
@@ -153,19 +154,19 @@ const Tasks = ({
 
     useEffect(() => {
         const getUsages = async () => {
-            const res = await getBraiderUsageAction(userEmail, new Date().getTimezoneOffset());
+            const res = await getBraiderUsageAction(userId, new Date().getTimezoneOffset());
             if (res) setBraiderUsage(res);
         };
 
         if (role === 'braider') getUsages();
-    }, [userEmail, role, jobs]);
+    }, [userId, role, jobs]);
 
     const loadJobs = useCallback(async () => {
-        const data = await getJobs(userEmail, role);
+        const data = await getJobs(userId, role);
 
         setJobs(data as any);
         setLoading(false);
-    }, [userEmail, role]);
+    }, [userId, role]);
 
     useAutoRefresh(loadJobs);
 
@@ -176,7 +177,7 @@ const Tasks = ({
             successToast('Job canceled!');
             setCancelJobModal(false);
             setSelectedJob(null);
-            const updated = await getJobs(userEmail, role);
+            const updated = await getJobs(userId, role);
             setJobs(updated as any);
         } else {
             failToast(res.error || 'Failed to cancel job');
@@ -221,7 +222,7 @@ const Tasks = ({
     }, [selectedJob]);
 
     const refreshJobs = async () => {
-        const updated = await getJobs(userEmail, role);
+        const updated = await getJobs(userId, role);
         setJobs(updated as any);
 
         if (notesJob) {
@@ -519,6 +520,7 @@ const Tasks = ({
                                 setSelectedHorse={setSelectedHorse}
                                 role={role}
                                 userEmail={userEmail}
+                                userId={userId}
                                 onBack={() => setRequestingJob(null)}
                                 refresh={refreshJobs}
                                 selectedBraider={selectedBraider}
@@ -540,6 +542,7 @@ const Tasks = ({
                                     job={selectedJob}
                                     role={role}
                                     userEmail={userEmail}
+                                    userId={userId}
                                     onBack={() => setSelectedJob(null)}
                                     refresh={refreshJobs}
                                     handleCancelJobModal={handleCancelJobModal}

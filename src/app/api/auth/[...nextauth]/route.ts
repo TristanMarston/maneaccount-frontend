@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 import { generateUniquePublicID } from '@/app/actions/generatePublicID';
 import { establishConnection } from '@/app/actions/join';
 import { prisma } from '@/lib/prisma';
+import { canSwitchToLinkedAccount } from '@/lib/linked-accounts';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { stripe } from '@/lib/stripe-init';
@@ -39,23 +40,30 @@ export const authOptions: AuthOptions = {
                 }
 
                 const email = credentials.email.trim().toLowerCase();
-                const user = await prisma.user.findUnique({
+                const users = await prisma.user.findMany({
                     where: { email },
+                    orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
                 });
 
-                if (!user) {
+                if (users.length === 0) {
                     throw new Error('no_user');
                 }
 
-                if (!user.password) {
-                    throw new Error('no_password_set');
+                const matchedUsers: any[] = [];
+                for (const candidate of users) {
+                    if (!candidate.password) continue;
+                    const isValid = await bcryptjs.compare(credentials.password, candidate.password);
+                    if (isValid) matchedUsers.push(candidate);
                 }
 
-                if (!user || !user.password) return null;
-
-                const isValid = await bcryptjs.compare(credentials.password, user.password);
-                if (!isValid) {
+                if (matchedUsers.length === 0) {
                     throw new Error('wrong_password');
+                }
+
+                const user = matchedUsers.find((candidate) => candidate.role === 'braider') ?? matchedUsers[0];
+
+                if (!user.password) {
+                    throw new Error('no_password_set');
                 }
 
                 return user;
@@ -67,7 +75,7 @@ export const authOptions: AuthOptions = {
             if (user.email) {
                 try {
                     const dbUser = await prisma.user.findUnique({
-                        where: { email: user.email },
+                        where: { id: user.id },
                         select: {
                             id: true,
                             role: true,
@@ -81,7 +89,7 @@ export const authOptions: AuthOptions = {
                         const newID = await generateUniquePublicID(dbUser.name, dbUser.email);
 
                         await prisma.user.update({
-                            where: { email: user.email },
+                            where: { id: user.id },
                             data: { publicID: newID },
                         });
                     }
@@ -93,7 +101,7 @@ export const authOptions: AuthOptions = {
                 const joinCookie = cookieStore.get('join_request_user');
                 const targetPublicID = joinCookie?.value;
 
-                if (targetPublicID) establishConnection(user.email);
+                if (targetPublicID && user.id) establishConnection(user.id);
             }
         },
     },
@@ -106,12 +114,12 @@ export const authOptions: AuthOptions = {
                     const linkTargetEmail = cookieStore.get('link_target_email')?.value;
 
                     if (intent === 'link' && linkTargetEmail && profile?.email) {
-                        const existingUser = await prisma.user.findUnique({
+                        const existingUser = await prisma.user.findFirst({
                             where: { email: linkTargetEmail },
                         });
 
                         if (existingUser && profile.email.toLowerCase() !== existingUser.email?.toLowerCase()) {
-                            const emailTaken = await prisma.user.findUnique({
+                            const emailTaken = await prisma.user.findFirst({
                                 where: { email: profile.email.toLowerCase() },
                             });
 
@@ -156,7 +164,7 @@ export const authOptions: AuthOptions = {
 
                     if (intent === 'signin') {
                         const existingUser = await prisma.user.findUnique({
-                            where: { email: user.email as string },
+                            where: { id: user.id },
                         });
 
                         if (!existingUser) {
@@ -171,6 +179,29 @@ export const authOptions: AuthOptions = {
         },
         async jwt({ token, trigger, user, session, account }) {
             if (trigger === 'update' && session) {
+                if (session.switchAccountId && token.sub) {
+                    const allowed = await canSwitchToLinkedAccount(token.sub as string, session.switchAccountId);
+                    if (allowed) {
+                        const switchedUser = await prisma.user.findUnique({
+                            where: { id: session.switchAccountId },
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                                role: true,
+                                image: true,
+                            },
+                        });
+
+                        if (switchedUser) {
+                            token.sub = switchedUser.id;
+                            token.name = switchedUser.name;
+                            token.email = switchedUser.email;
+                            token.role = switchedUser.role;
+                            token.image = switchedUser.image;
+                        }
+                    }
+                }
                 if (session.name && session.name.length > 0) token.name = session.name;
                 if (session.email && session.email.length > 0) token.email = session.email;
                 if (session.image && session.image.length > 0) token.image = session.image;
@@ -213,7 +244,7 @@ export const authOptions: AuthOptions = {
                                 }
 
                                 await prisma.user.update({
-                                    where: { email: user.email },
+                                    where: { id: user.id },
                                     data: updateData,
                                 });
                                 token.role = role;

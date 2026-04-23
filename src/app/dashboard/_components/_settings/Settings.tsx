@@ -127,6 +127,8 @@ const Settings = ({
     const [verificationCode, setVerificationCode] = useState('');
     const [role, setRole] = useState<'braider' | 'subcontractor' | 'barn' | 'admin'>('barn');
     const [roleModal, setRoleModal] = useState(false);
+    const [linkedAccounts, setLinkedAccounts] = useState<{ id: string; role: 'braider' | 'subcontractor'; name: string | null; email: string | null; image: string | null }[]>([]);
+    const [isCreatingLinkedAccount, setIsCreatingLinkedAccount] = useState(false);
 
     const [venmoLink, setVenmoLink] = useState('');
     const [venmo, setVenmo] = useState('');
@@ -243,6 +245,7 @@ const Settings = ({
 
                 setHasPassword(data.password !== null);
                 setHasGoogleAccount(data.accounts && data.accounts.length > 0);
+                setLinkedAccounts(data.linkedAccounts || []);
 
                 setName(data.name || '');
                 setPublicID(data.publicID || '');
@@ -295,7 +298,6 @@ const Settings = ({
         originalInfo.current.publicID !== publicID ||
         originalInfo.current.phoneNumber !== phoneNumber ||
         originalInfo.current.image !== imagePreview ||
-        originalInfo.current.role !== role ||
         (role === 'braider' && originalInfo.current.thanksMessage !== thanksMessage) ||
         (role === 'braider' && (originalInfo.current.venmo !== venmoLink || originalInfo.current.zelle !== zelle || originalInfo.current.venmoEnabled !== venmoEnabled)) ||
         (role === 'braider' && originalInfo.current.sendInvoiceTo !== sendInvoiceTo) ||
@@ -398,7 +400,6 @@ const Settings = ({
         }
 
         setIsSaving(true);
-        let switchResult = null;
 
         const formData: any = {};
         if (name !== originalInfo.current.name) formData.name = name;
@@ -413,7 +414,6 @@ const Settings = ({
         if (JSON.stringify(originalInfo.current.allowedNotifications.sort()) !== JSON.stringify(allowedNotifications.sort())) {
             formData.allowedNotifications = allowedNotifications;
         }
-        if (role !== originalInfo.current.role) switchResult = await switchAccountRole();
 
         if (finalImageBlob) formData.image = finalImageBlob;
 
@@ -436,7 +436,6 @@ const Settings = ({
                     publicID: publicID,
                     phoneNumber: phoneNumber,
                     image: imagePreview,
-                    role: role,
                     venmo: venmoLink,
                     zelle: zelle,
                     venmoEnabled: venmoEnabled,
@@ -447,15 +446,44 @@ const Settings = ({
             } else {
                 failToast(result.error || 'Failed to update');
             }
-        } else if (switchResult && switchResult.success && switchResult.newRole) {
-            successToast('Profile updated!');
-            await update({ role: switchResult.newRole });
-            originalInfo.current.role = role;
         } else {
             failToast('Failed to update');
         }
 
         setIsSaving(false);
+    };
+
+    const handleCreateLinkedAccount = async () => {
+        setIsCreatingLinkedAccount(true);
+        const result = await switchAccountRole();
+
+        if (result.success && result.linkedAccount) {
+            successToast(`${result.linkedAccount.role === 'braider' ? 'Braider' : 'Subcontractor'} account created!`);
+            setLinkedAccounts((prev) => [
+                ...prev,
+                {
+                    id: result.linkedAccount.id,
+                    role: result.linkedAccount.role as 'braider' | 'subcontractor',
+                    name: result.linkedAccount.name,
+                    email: result.linkedAccount.email,
+                    image: result.linkedAccount.image,
+                },
+            ]);
+            setRoleModal(false);
+        } else {
+            failToast(result.error || 'Failed to create linked account');
+        }
+
+        setIsCreatingLinkedAccount(false);
+    };
+
+    const handleSwitchAccount = async (accountId: string) => {
+        const updatedSession = await update({ switchAccountId: accountId });
+        if (updatedSession?.user) {
+            successToast('Switched account');
+        } else {
+            failToast('Failed to switch account');
+        }
     };
 
     return (
@@ -743,16 +771,39 @@ const Settings = ({
                                                         </div>
                                                     </div>
 
-                                                    {role !== 'barn' && originalInfo.current.role === role && (
+                                                    {role !== 'barn' && linkedAccounts.length === 0 && (
                                                         <button
                                                             type='button'
                                                             onClick={() => setRoleModal(true)}
                                                             className='px-4 py-2 bg-white border border-blue-200 text-blue-700 font-bold text-sm cursor-pointer rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50'
                                                         >
-                                                            Change
+                                                            Add {role === 'braider' ? 'Subcontractor' : 'Braider'} Account
                                                         </button>
                                                     )}
                                                 </div>
+                                                {linkedAccounts.length > 0 && (
+                                                    <div className='mt-4 border-t border-blue-100 pt-4 space-y-3'>
+                                                        <p className='text-xs font-bold uppercase tracking-wide text-blue-500'>Linked Account</p>
+                                                        {linkedAccounts.map((account) => (
+                                                            <div
+                                                                key={account.id}
+                                                                className='flex flex-col @min-[500px]/account:flex-row @min-[500px]/account:items-center justify-between gap-3 rounded-xl bg-white/80 border border-blue-100 px-3 py-3'
+                                                            >
+                                                                <div className='min-w-0'>
+                                                                    <p className='font-semibold text-gray-900 capitalize'>{account.role}</p>
+                                                                    <p className='text-sm text-gray-500 truncate'>{account.email || email}</p>
+                                                                </div>
+                                                                <button
+                                                                    type='button'
+                                                                    onClick={() => handleSwitchAccount(account.id)}
+                                                                    className='px-4 py-2 bg-blue-500 text-white font-bold text-sm cursor-pointer rounded-lg hover:opacity-95 transition-colors font-figtree tracking-wide'
+                                                                >
+                                                                    Switch To {account.role === 'braider' ? 'Braider' : 'Subcontractor'}
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1161,21 +1212,10 @@ const Settings = ({
             </Modal>
             <Modal isOpen={roleModal} setIsOpen={setRoleModal} className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative'>
                 <div className='@container/change-role'>
-                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Are you sure?</h1>
+                    <h1 className='text-4xl font-lusitana font-bold text-gray-900'>Create Linked Account?</h1>
                     <p className='text-gray-800 text-[17px] font-figtree mt-2'>
-                        {originalInfo.current.role === 'subcontractor' ? (
-                            <span>
-                                You are currently a subcontractor. By switching to braider, you will gain barn management features but{' '}
-                                <span className='font-bold'>lose access to subcontractor functionalities and user connections.</span> You may switch back at any time.
-                            </span>
-                        ) : (
-                            originalInfo.current.role === 'braider' && (
-                                <span>
-                                    You are currently a braider. By switching to subcontractor, you will{' '}
-                                    <span className='font-bold'>lose barn management features and any existing user connections.</span> You may switch back at any time.
-                                </span>
-                            )
-                        )}
+                        This will create a separate {role === 'braider' ? 'subcontractor' : 'braider'} account under the same sign-in. Your name, email, public ID, and profile picture
+                        will stay synced across both accounts, while everything else remains separate.
                     </p>
                     <div className='grid grid-cols-1 @min-[285px]/change-role:grid-cols-2 mt-4 gap-3 @min-[285px]:gap-2.5 @min-[315px]/change-role:gap-4'>
                         <button
@@ -1185,13 +1225,11 @@ const Settings = ({
                             Cancel
                         </button>
                         <button
-                            onClick={() => {
-                                setRole((prev) => (prev === 'braider' ? 'subcontractor' : prev === 'subcontractor' ? 'braider' : prev));
-                                setRoleModal(false);
-                            }}
-                            className='font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/change-role:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
+                            onClick={handleCreateLinkedAccount}
+                            disabled={isCreatingLinkedAccount}
+                            className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[17px] @min-[330px]/change-role:text-lg text-nowrap rounded-[10px] py-2 px-6 bg-primary-light text-background primary-border-hover transition-all'
                         >
-                            I Understand
+                            {isCreatingLinkedAccount ? 'Creating...' : 'Create Account'}
                         </button>
                     </div>
                 </div>

@@ -21,11 +21,13 @@ export async function generateUniquePublicID(baseName: string | null | undefined
     let counter = 1;
 
     while (!isUnique) {
-        const existing = await prisma.user.findUnique({
+        const existing = await prisma.user.findMany({
             where: { publicID: candidate },
+            select: { id: true },
+            take: 1,
         });
 
-        if (!existing) {
+        if (existing.length === 0) {
             isUnique = true;
         } else {
             candidate = `${base}${counter}`;

@@ -57,22 +57,21 @@ export async function verifyToken(token: string) {
         return { error: 'Invalid code!' };
     }
 
-    const hasExpired = new Date(existingToken.expires) < new Date();
+    const hasExpired = new Date(existingToken.expires).getTime() < new Date().getTime();
 
     if (hasExpired) {
         return { error: 'Code has expired!' };
     }
 
-    const existingUser = await prisma.user.findUnique({
+    const existingUsers = await prisma.user.findMany({
         where: { email: existingToken.identifier },
+        select: { id: true, email: true },
+        take: 2,
     });
+    if (existingUsers.length === 0) return { error: 'No accounts found with that email.' };
 
-    if (!existingUser) {
-        return { error: 'Email does not exist!' };
-    }
-
-    await prisma.user.update({
-        where: { id: existingUser.id },
+    await prisma.user.updateMany({
+        where: { email: { in: existingUsers.map((u) => u.email) } },
         data: {
             emailVerified: new Date(),
             email: existingToken.identifier,
@@ -90,16 +89,16 @@ export async function requestPasswordReset(email: string) {
     if (!email) return { error: 'Email is required' };
 
     try {
-        const existingUser = await prisma.user.findUnique({
+        const existingUsers = await prisma.user.findMany({
             where: { email: email.toLowerCase() },
+            select: { id: true, password: true },
+            take: 2,
         });
-
-        if (!existingUser) {
-            return { error: 'No account found with this email' };
-        }
+        if (existingUsers.length === 0) return { error: 'No accounts found with that email address.' }
+        const existingUser = existingUsers[0];
 
         if (!existingUser.password) {
-            return { error: 'User signed in with google' }
+            return { error: 'User signed in with google' };
         }
 
         const token = await generateVerificationToken(email.toLowerCase());
@@ -165,7 +164,7 @@ export async function resetPassword(email: string, token: string, password: stri
 
         const hashedPassword = await hash(password, 10);
 
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { email: email.toLowerCase() },
             data: { password: hashedPassword },
         });

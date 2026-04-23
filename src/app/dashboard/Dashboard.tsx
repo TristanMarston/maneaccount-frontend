@@ -48,14 +48,14 @@ const Dashboard = () => {
             router.replace(window.location.pathname + '?' + urlParams.toString());
         }
 
-        const validateConnection = async (email: string) => {
+        const validateConnection = async (userId: string) => {
             const cookieStore = document.cookie;
             const joinValue = `; ${cookieStore}`;
             const joinCookie = joinValue.split(`; ${'join_request_user'}`);
             const targetPublicID = joinCookie.length === 2 ? joinCookie.pop()?.split(';').shift() : undefined;
 
             if (targetPublicID) {
-                const res = await establishConnection(email);
+                const res = await establishConnection(userId);
                 if (res && res.success) {
                     successToast('User invited successfully!');
                 } else if (res && res.error !== 'Existing connection') {
@@ -69,7 +69,7 @@ const Dashboard = () => {
             if (userRole !== 'braider') setLoading(false);
             if (userRole === 'admin') router.push('/admin');
             else if (userRole.length > 0) setRole(userRole as UserRole);
-            if (session.user?.email) validateConnection(session.user.email);
+            if (session.user?.id) validateConnection(session.user.id);
         }
     }, [session, status, router]);
 

@@ -6,25 +6,45 @@ import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe-init';
 import { hash } from 'bcryptjs';
+import {
+    createLinkedRoleAccountForUser,
+    getCounterpartRole,
+    getLinkedAccountsForUser,
+    getCurrentUserById,
+    isLinkableRole,
+    syncSharedFieldsAcrossLinkedAccounts,
+} from '@/lib/linked-accounts';
 
 export async function checkPublicIDAvailability(publicID: string) {
     const session = await auth();
-    if (!session?.user?.email) return false;
+    if (!session?.user?.id) return false;
 
     const sanitizedID = publicID.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (sanitizedID.length < 3) return false;
 
-    const existingUser = await prisma.user.findUnique({
+    const existingUsers: any[] = await (prisma.user as any).findMany({
         where: { publicID: sanitizedID },
+        select: { id: true, linkedAccountGroupId: true },
     });
 
-    if (!existingUser) return true;
-    return existingUser.email === session.user.email;
+    if (existingUsers.length === 0) return true;
+
+    const currentUser: any = await (prisma.user as any).findUnique({
+        where: { id: session.user.id },
+        select: { id: true, linkedAccountGroupId: true },
+    });
+
+    if (!currentUser) return false;
+
+    return existingUsers.every((existingUser) => {
+        if (existingUser.id === currentUser.id) return true;
+        return !!currentUser.linkedAccountGroupId && currentUser.linkedAccountGroupId === existingUser.linkedAccountGroupId;
+    });
 }
 
 export async function updateProfile(formData: any) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     const name = formData.name as string | null;
     const email = formData.email as string | null;
@@ -63,19 +83,22 @@ export async function updateProfile(formData: any) {
     }
 
     try {
+        const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+        });
+
+        if (!currentUser) return { error: 'User not found' };
+
         if (imageFile && imageFile.size > 0) {
             const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-            const user = await prisma.user.findUnique({
-                where: { email: session.user.email },
-            });
 
-            if (user && user.image && user.image.length > 0 && user.image.indexOf('supabase.co') !== -1) {
-                const split: string[] = user.image.split('/');
+            if (currentUser.image && currentUser.image.length > 0 && currentUser.image.indexOf('supabase.co') !== -1) {
+                const split: string[] = currentUser.image.split('/');
                 const root = split[split.length - 1];
                 await supabaseAdmin.storage.from('avatars').remove([root]);
             }
 
-            const filename = `${session.user.email}-${Date.now()}.jpg`;
+            const filename = `${session.user.id}-${Date.now()}.jpg`;
             const arrayBuffer = await imageFile.arrayBuffer();
             const { error: uploadError } = await supabaseAdmin.storage.from('avatars').upload(filename, arrayBuffer, {
                 contentType: imageFile.type || 'image/jpeg',
@@ -91,10 +114,30 @@ export async function updateProfile(formData: any) {
             updateData.image = publicUrl;
         }
 
-        await prisma.user.update({
-            where: { email: session.user.email },
-            data: updateData,
-        });
+        const sharedUpdateData: Record<string, unknown> = {};
+        if (updateData.name !== undefined) sharedUpdateData.name = updateData.name;
+        if (updateData.email !== undefined) sharedUpdateData.email = updateData.email;
+        if (updateData.publicID !== undefined) sharedUpdateData.publicID = updateData.publicID;
+        if (updateData.image !== undefined) sharedUpdateData.image = updateData.image;
+        if (updateData.emailVerified !== undefined) sharedUpdateData.emailVerified = updateData.emailVerified;
+
+        if (Object.keys(sharedUpdateData).length > 0) {
+            await syncSharedFieldsAcrossLinkedAccounts(session.user.id, sharedUpdateData);
+        }
+
+        const accountSpecificUpdateData = { ...updateData };
+        delete accountSpecificUpdateData.name;
+        delete accountSpecificUpdateData.email;
+        delete accountSpecificUpdateData.publicID;
+        delete accountSpecificUpdateData.image;
+        delete accountSpecificUpdateData.emailVerified;
+
+        if (Object.keys(accountSpecificUpdateData).length > 0) {
+            await prisma.user.update({
+                where: { id: session.user.id },
+                data: accountSpecificUpdateData,
+            });
+        }
 
         revalidatePath('/dashboard');
         return { success: true, image: updateData.image && updateData.image.length > 0 ? updateData.image : undefined };
@@ -103,10 +146,19 @@ export async function updateProfile(formData: any) {
 
         let emailAlreadyExists = false;
         if (formData.email) {
-            const existingUser = await prisma.user.findUnique({
+            const existingUsers: any[] = await (prisma.user as any).findMany({
                 where: { email: formData.email },
+                select: { id: true, linkedAccountGroupId: true },
             });
-            if (existingUser && existingUser.email !== session.user.email) emailAlreadyExists = true;
+            const currentUser: any = await (prisma.user as any).findUnique({
+                where: { id: session.user.id },
+                select: { id: true, linkedAccountGroupId: true },
+            });
+            emailAlreadyExists = existingUsers.some(
+                (existingUser) =>
+                    existingUser.id !== session.user.id &&
+                    (!currentUser?.linkedAccountGroupId || existingUser.linkedAccountGroupId !== currentUser.linkedAccountGroupId),
+            );
         }
 
         return { error: emailAlreadyExists ? 'Email already taken' : 'Failed to update profile' };
@@ -115,11 +167,12 @@ export async function updateProfile(formData: any) {
 
 export async function getUserSettings() {
     const session = await auth();
-    if (!session?.user?.email) return null;
+    if (!session?.user?.id) return null;
 
-    return await prisma.user.findUnique({
-        where: { email: session.user.email },
+    const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
         select: {
+            id: true,
             name: true,
             password: true,
             email: true,
@@ -144,15 +197,32 @@ export async function getUserSettings() {
             },
         },
     });
+
+    if (!user) return null;
+
+    const linkedAccounts = await getLinkedAccountsForUser(session.user.id);
+
+    return {
+        ...user,
+        linkedAccounts: linkedAccounts
+            .filter((account: any) => account.id !== session.user.id)
+            .map((account) => ({
+                id: account.id,
+                role: account.role,
+                name: account.name,
+                email: account.email,
+                image: account.image,
+            })),
+    };
 }
 
 export async function deleteAccount() {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
         });
 
         if (!user) return { error: 'User not found' };
@@ -178,7 +248,7 @@ export async function deleteAccount() {
         }
 
         await prisma.user.delete({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
         });
 
         return { success: true };
@@ -232,63 +302,21 @@ export async function deleteAccountByID(id: string) {
 
 export async function switchAccountRole() {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
-    try {
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: { id: true, role: true },
-        });
+    const result = await createLinkedRoleAccountForUser(session.user.id);
+    if ('error' in result) return { error: result.error };
 
-        if (!user) return { error: 'User not found' };
-
-        if (user.role === 'braider') {
-            await prisma.connection.deleteMany({
-                where: {
-                    OR: [{ senderId: user.id }, { receiverId: user.id }],
-                },
-            });
-
-            await prisma.service.deleteMany({
-                where: { userId: user.id },
-            });
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { role: 'subcontractor' },
-            });
-
-            revalidatePath('/dashboard');
-            return { success: true, newRole: 'subcontractor' };
-        } else if (user.role === 'subcontractor') {
-            await prisma.connection.deleteMany({
-                where: {
-                    OR: [{ senderId: user.id }, { receiverId: user.id }],
-                },
-            });
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { role: 'braider' },
-            });
-
-            revalidatePath('/dashboard');
-            return { success: true, newRole: 'braider' };
-        }
-
-        return { error: 'Invalid role switch. Only Braiders and Subcontractors can switch.' };
-    } catch (error) {
-        console.error('Switch role error:', error);
-        return { error: 'Failed to switch role' };
-    }
+    revalidatePath('/dashboard');
+    return { success: true, linkedAccount: result.linkedAccount };
 }
 
 export async function changeThanksMessage(message: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
-        await prisma.user.update({ where: { email: session.user.email }, data: { thanksMessage: message } });
+        await prisma.user.update({ where: { id: session.user.id }, data: { thanksMessage: message } });
 
         revalidatePath('/dashboard');
         return { success: true, message };
@@ -300,19 +328,21 @@ export async function changeThanksMessage(message: string) {
 
 export async function switchToEmailPassword(password: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const hashedPassword = await hash(password, 10);
+        const linkedAccounts = await getLinkedAccountsForUser(session.user.id);
+        const ids = linkedAccounts.length > 0 ? linkedAccounts.map((account) => account.id) : [session.user.id];
 
         await prisma.$transaction([
-            prisma.user.update({
-                where: { email: session.user.email },
+            prisma.user.updateMany({
+                where: { id: { in: ids } },
                 data: { password: hashedPassword },
             }),
             prisma.account.deleteMany({
                 where: {
-                    user: { email: session.user.email },
+                    userId: { in: ids },
                     provider: 'google',
                 },
             }),
@@ -327,11 +357,11 @@ export async function switchToEmailPassword(password: string) {
 
 export async function cleanupExtraGoogleAccounts() {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
             include: {
                 accounts: {
                     where: { provider: 'google' },
@@ -341,8 +371,8 @@ export async function cleanupExtraGoogleAccounts() {
 
         if (user && user.accounts.length > 1) {
             // Sort by id descending (cuid encodes timestamp so it works well enough)
-            const sortedAccounts = user.accounts.sort((a, b) => b.id.localeCompare(a.id));
-            const accountsToDelete = sortedAccounts.slice(1).map((a) => a.id);
+            const sortedAccounts = user.accounts.sort((a: any, b: any) => b.id.localeCompare(a.id));
+            const accountsToDelete = sortedAccounts.slice(1).map((a: any) => a.id);
 
             await prisma.account.deleteMany({
                 where: {
@@ -355,4 +385,48 @@ export async function cleanupExtraGoogleAccounts() {
         console.error('Failed to cleanup google accounts:', error);
         return { error: 'Failed to cleanup google accounts' };
     }
+}
+
+export async function getLinkedRoleAccounts() {
+    const session = await auth();
+    if (!session?.user?.id) return [];
+
+    const currentUser = await getCurrentUserById(session.user.id);
+    if (!currentUser || !isLinkableRole(currentUser.role)) return [];
+
+    const accounts = await getLinkedAccountsForUser(session.user.id);
+
+    return accounts
+        .filter((account: any) => account.id !== session.user.id && isLinkableRole(account.role))
+        .map((account) => ({
+            id: account.id,
+            role: account.role as 'braider' | 'subcontractor',
+            name: account.name,
+            email: account.email,
+            image: account.image,
+        }));
+}
+
+export async function getLinkedRoleAccountStatus() {
+    const session = await auth();
+    if (!session?.user?.id) return null;
+
+    const currentUser = await getCurrentUserById(session.user.id);
+    if (!currentUser || !isLinkableRole(currentUser.role)) {
+        return {
+            currentRole: currentUser?.role ?? null,
+            canCreateLinkedAccount: false,
+            counterpartRole: null,
+            linkedAccounts: [],
+        };
+    }
+
+    const linkedAccounts = await getLinkedRoleAccounts();
+
+    return {
+        currentRole: currentUser.role,
+        canCreateLinkedAccount: linkedAccounts.length === 0,
+        counterpartRole: getCounterpartRole(currentUser.role),
+        linkedAccounts,
+    };
 }

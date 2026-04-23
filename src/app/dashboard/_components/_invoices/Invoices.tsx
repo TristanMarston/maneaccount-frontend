@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { cn } from '@/lib/utils';
-import { getJobs, markClientPaid, getEarningsHistory, getUserByEmail, markJobCompleted, removeCustomCharge, getJobById, addCustomCharge } from '@/app/actions/jobs';
+import { getJobs, markClientPaid, getEarningsHistory, markJobCompleted, removeCustomCharge, getJobById, addCustomCharge, getUserById } from '@/app/actions/jobs';
 import { useNotifications } from '@/app/NotificationContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { format } from 'date-fns-tz';
@@ -45,7 +45,17 @@ import { failToast, successToast } from '@/app/context';
 import { Tab } from '../_braider/BraiderDashboard';
 import { calendarDateToLocal } from '@/lib/date-utils';
 
-const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string; userEmail: string; setView: (view: string) => void; setSettingsOpen: (page: Tab) => void }) => {
+const Invoices = ({
+    role,
+    userId,
+    setView,
+    setSettingsOpen,
+}: {
+    role: string;
+    userId: string;
+    setView: (view: string) => void;
+    setSettingsOpen: (page: Tab) => void;
+}) => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -98,11 +108,11 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
     const refreshJobsFn = useCallback(
         async (load: boolean) => {
             if (load) setLoading(true);
-            const data = await getJobs(userEmail, role);
+            const data = await getJobs(userId, role);
             setJobs(data);
             setLoading(false);
         },
-        [userEmail, role],
+        [userId, role],
     );
 
     const refreshCheckMarkedCompletedModal = async (jobId: string) => {
@@ -447,7 +457,7 @@ const Invoices = ({ role, userEmail, setView, setSettingsOpen }: { role: string;
                     handleOpenAddChargeModal={handleOpenAddChargeModal}
                     exactTime={exactTime}
                     role={role}
-                    userEmail={userEmail}
+                    userId={userId}
                     setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
                 />
             </Modal>
@@ -567,7 +577,7 @@ const CheckMarkedCompletedModal = ({
     handleOpenAddChargeModal,
     exactTime,
     role,
-    userEmail,
+    userId,
     setSettingsOpen,
 }: {
     checkMarkedCompleted: {
@@ -580,7 +590,7 @@ const CheckMarkedCompletedModal = ({
     handleMarkJobCompleted: (id: string, thanksMessage: string, sendInvoiceTo: 'client' | 'barn' | 'both') => void;
     handleOpenAddChargeModal: (assignmentId: string, refreshFn: () => void) => void;
     exactTime: Date;
-    userEmail: string;
+    userId: string;
     setSettingsOpen: (page: Tab) => void;
 }) => {
     // @ts-ignore
@@ -605,7 +615,7 @@ const CheckMarkedCompletedModal = ({
         const getUserInfo = async () => {
             setLoadingDetails(true);
             setLoadingThanksMessage(true);
-            const user = await getUserByEmail(userEmail);
+            const user = await getUserById(userId);
 
             if (user && ((user.venmo && user.venmoEnabled) || user.zelle !== 'disabled')) setHasPayoutInfo(true);
             if (user && user.thanksMessage) {

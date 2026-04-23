@@ -32,6 +32,7 @@ const BraiderDashboard = ({
     setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
     const [selectedPage, setSelectedPage] = useState('Dashboard');
+    const [userId, setUserId] = useState('');
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [image, setImage] = useState('');
@@ -54,6 +55,7 @@ const BraiderDashboard = ({
 
     useEffect(() => {
         if (session?.user) {
+            setUserId(session.user.id || '');
             setName(session.user.name || 'User');
             setEmail(session.user.email || '');
             setImage(session.user.image || '');
@@ -62,14 +64,14 @@ const BraiderDashboard = ({
 
     useEffect(() => {
         const fetchPublicID = async () => {
-            if (email.length > 0) {
-                const publicID = await getPublicID(email);
+            if (userId.length > 0) {
+                const publicID = await getPublicID(userId);
                 if (typeof publicID === 'string' && publicID.length > 0) setPublicID(publicID);
             }
         };
 
         fetchPublicID();
-    }, [email]);
+    }, [userId]);
 
     const fetchSubscriptionDetails = async () => {
         if (email.length > 0) {
@@ -135,12 +137,13 @@ const BraiderDashboard = ({
                     />
                 );
             case 'Calendar':
-                return <Calendar key='braider-calendar' role='braider' userEmail={email} setSelectedPage={setSelectedPage} />;
+                return <Calendar key='braider-calendar' role='braider' userId={userId} setSelectedPage={setSelectedPage} />;
             case 'Tasks':
                 return (
                     <Tasks
                         role='braider'
                         userEmail={email}
+                        userId={userId}
                         setSelectedPage={setSelectedPage}
                         subscriptionTier={subscription?.subscriptionTier}
                         setSettingsOpen={(page: Tab) => {
@@ -152,7 +155,7 @@ const BraiderDashboard = ({
             case 'Barns':
                 return (
                     <Relations
-                        userEmail={email}
+                        userId={userId}
                         role='braider'
                         userPublicID={publicID}
                         setSelectedPage={setSelectedPage}
@@ -163,7 +166,7 @@ const BraiderDashboard = ({
                 return (
                     <Invoices
                         role='braider'
-                        userEmail={email}
+                        userId={userId}
                         setView={setSelectedPage}
                         setSettingsOpen={(page: Tab) => {
                             setSelectedPage('Settings');
@@ -172,9 +175,9 @@ const BraiderDashboard = ({
                     />
                 );
             case 'Pricing':
-                return <Services userEmail={email} />;
+                return <Services userId={userId} />;
             case 'Team':
-                return <Team userEmail={email} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} subscriptionTier={subscription?.subscriptionTier} />;
+                return <Team userId={userId} role='braider' userPublicID={publicID} setSelectedPage={setSelectedPage} subscriptionTier={subscription?.subscriptionTier} />;
             case 'Settings':
                 return (
                     <Settings

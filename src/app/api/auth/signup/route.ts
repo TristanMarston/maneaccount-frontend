@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
     if (!name) return NextResponse.json({ error: 'name_required' }, { status: 400 });
     if (!role) return NextResponse.json({ error: 'role_required' }, { status: 400 });
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
+    const existingUsers = await prisma.user.findMany({ where: { email }, select: { id: true }, take: 1 });
+    if (existingUsers.length > 0) {
         return NextResponse.json({ error: 'existing_user' }, { status: 400 });
     }
 

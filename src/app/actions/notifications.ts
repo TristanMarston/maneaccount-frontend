@@ -11,11 +11,11 @@ import { calendarDateToLocal } from '@/lib/date-utils';
 
 export async function getNotifications() {
     const session = await auth();
-    if (!session?.user?.email) return [];
+    if (!session?.user?.id) return [];
 
     try {
         return await prisma.notification.findMany({
-            where: { user: { email: session.user.email } },
+            where: { user: { id: session.user.id } },
             include: { sender: true },
             orderBy: { createdAt: 'desc' },
             take: 20,
@@ -28,13 +28,13 @@ export async function getNotifications() {
 
 export async function getUnreadNotificationCount() {
     const session = await auth();
-    if (!session?.user?.email) return { total: 0, byType: {} };
+    if (!session?.user?.id) return { total: 0, byType: {} };
 
     try {
         const counts = await prisma.notification.groupBy({
             by: ['type', 'targetId'],
             where: {
-                user: { email: session.user.email },
+                user: { id: session.user.id },
                 isRead: false,
             },
             _count: {
@@ -68,7 +68,7 @@ export async function getUnreadNotificationCount() {
 
 export async function markAsRead(notificationId: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         await prisma.notification.update({
@@ -85,12 +85,12 @@ export async function markAsRead(notificationId: string) {
 
 export async function markAllAsRead() {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         await prisma.notification.updateMany({
             where: {
-                user: { email: session.user.email },
+                user: { id: session.user.id },
                 isRead: false,
             },
             data: { isRead: true },
@@ -106,12 +106,12 @@ export async function markAllAsRead() {
 
 export async function markAllTypeAsRead(type: NotificationType, targetId?: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         await prisma.notification.updateMany({
             where: {
-                user: { email: session.user.email },
+                user: { id: session.user.id },
                 type,
                 targetId,
                 isRead: false,
@@ -128,7 +128,7 @@ export async function markAllTypeAsRead(type: NotificationType, targetId?: strin
 
 export async function markAllMessagesAsRead(targetId: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const job = await prisma.job.findUnique({ where: { id: targetId }, include: { notes: true } });
@@ -138,7 +138,7 @@ export async function markAllMessagesAsRead(targetId: string) {
 
         await prisma.notification.updateMany({
             where: {
-                user: { email: session.user.email },
+                user: { id: session.user.id },
                 type: NotificationType.new_message,
                 targetId: { in: noteIds },
                 isRead: false,
@@ -156,7 +156,7 @@ export async function markAllMessagesAsRead(targetId: string) {
 
 export async function deleteNotification(notificationId: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         await prisma.notification.delete({
@@ -477,7 +477,7 @@ export async function createNotification(
             } else if (type === NotificationType.new_message && user.allowedNotifications.includes('new_message')) {
                 const { sendNewMessageEmail } = await import('@/lib/email');
                 let senderName = 'A user';
-                let senderImage = null;
+                let senderImage: any | null = null;
                 if (senderId) {
                     const sender = await prisma.user.findUnique({ where: { id: senderId } });
                     if (sender?.name) senderName = sender.name;

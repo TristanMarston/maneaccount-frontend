@@ -25,12 +25,12 @@ function mapStripeSubscriptionStatus(status: string, hasUsedTrial: boolean): Sub
 
 export async function createSetupIntent() {
     const session = await auth();
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
         return { error: 'Not authenticated' };
     }
 
     const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
+        where: { id: session.user.id },
     });
 
     if (!user || !user.stripeCustomerId) {
@@ -52,11 +52,11 @@ export async function createSetupIntent() {
 
 export async function startFreeTrial() {
     const session = await auth();
-    if (!session?.user.email) return { error: 'Not authenticated' };
+    if (!session?.user?.id) return { error: 'Not authenticated' };
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
         });
 
         if (!user) return { error: 'No user found' };
@@ -69,7 +69,7 @@ export async function startFreeTrial() {
 
         if (!stripeCustomerId) {
             const customer = await stripe.customers.create({
-                email: session.user.email,
+                email: user.email || undefined,
                 name: session.user.name || undefined,
                 metadata: {
                     userId: user.id,
@@ -104,12 +104,12 @@ export async function startFreeTrial() {
 
 export async function updateSubscription(paymentMethodId: string | null, priceId: string) {
     const session = await auth();
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
         return { error: 'Not authenticated' };
     }
 
     const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
+        where: { id: session.user.id },
     });
 
     if (!user || !user.stripeCustomerId) {
@@ -227,12 +227,12 @@ export async function getPaymentConfig() {
 
 export async function getSubscriptionDetails() {
     const session = await auth();
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
         return null;
     }
 
     const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
+        where: { id: session.user.id },
         select: {
             id: true,
             subscriptionTier: true,
@@ -322,12 +322,12 @@ export async function getSubscriptionDetails() {
 
 export async function cancelSubscription() {
     const session = await auth();
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
         return { error: 'Not authenticated' };
     }
 
     const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
+        where: { id: session.user.id },
     });
 
     if (!user || (!user.stripeSubscriptionId && !user.stripeCustomerId)) {
@@ -434,10 +434,10 @@ export async function editCoupon(data: any, id: string) {
 
 export async function applyOneOffCoupon(code: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Not authenticated' };
+    if (!session?.user?.id) return { error: 'Not authenticated' };
 
     const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
+        where: { id: session.user.id },
         include: { usedCoupons: true },
     });
 

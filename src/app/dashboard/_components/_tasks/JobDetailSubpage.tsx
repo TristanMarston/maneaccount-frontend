@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
@@ -316,6 +317,7 @@ export const JobDetailSubpage = ({
     job: initialJob,
     role,
     userEmail,
+    userId,
     onBack,
     refresh,
     handleCancelJobModal,
@@ -326,6 +328,7 @@ export const JobDetailSubpage = ({
     job: Job;
     role: string;
     userEmail: string;
+    userId: string;
     onBack: () => void;
     refresh: () => void;
     handleCancelJobModal: () => void;
@@ -335,7 +338,6 @@ export const JobDetailSubpage = ({
 }) => {
     const [job, setJob] = useState<Job>(initialJob);
     const [team, setTeam] = useState<any[]>([]);
-    const [userId, setUserId] = useState('');
     const [notesModalOpen, setNotesModalOpen] = useState(false);
     const [subcontractorLoading, setSubcontractorLoading] = useState<{ assignmentId: string; index: number } | null>(null);
     const [acceptJobHeight, setAcceptJobHeight] = useState(0);
@@ -415,20 +417,15 @@ export const JobDetailSubpage = ({
 
     useEffect(() => {
         const getTeam = async () => {
-            const relations = await getTeamMembers(userEmail);
+            const relations = await getTeamMembers(userId);
             setTeam(relations.filter((r) => r.role === 'subcontractor'));
         };
-        const getUserId = async () => {
-            const res = await getIDByEmail(userEmail);
-            if (res.success) setUserId(res.success.id);
-        };
         if (role === 'braider') getTeam();
-        else getUserId();
     }, [role, userEmail]);
 
     useEffect(() => {
         const fetchHorses = async () => {
-            const result = await getHorses(userEmail);
+            const result = await getHorses(userId);
             if (result) setHorsesRef(result);
         };
 

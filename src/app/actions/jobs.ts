@@ -13,10 +13,10 @@ import { formatCalendarDate, getUTCStartOfUserDay, toCalendarDateUTC } from '@/l
 
 export async function createJob(data: { braiderId: string; showId: string; assignments: { horseId: string; serviceIds: string[]; date: Date }[] }, timezoneOffset: number = 0) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
-        const barn = await prisma.user.findUnique({ where: { email: session.user.email } });
+        const barn = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (!barn) return { error: 'User not found' };
 
         if (!data.braiderId || !data.showId) {
@@ -134,11 +134,11 @@ export async function submitJob(jobId: string, timezoneOffset: number = 0) {
     }
 }
 
-export async function getJobs(email: string, role: string) {
-    if (!email) return [];
+export async function getJobs(userId: string, role: string) {
+    if (!userId) return [];
 
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) return [];
 
         let whereClause: any = {};
@@ -338,10 +338,10 @@ export async function toggleServiceCompletion(assignmentId: string, serviceId: s
 }
 export async function addNote(jobId: string, content: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
-        const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (!user) return { error: 'User not found' };
 
         const note = await prisma.note.create({
@@ -557,13 +557,12 @@ export async function getBraiderData(braiderId: string) {
     }
 }
 
-export async function getUserByEmail(email: string) {
+export async function getUserById(id: string) {
     const session = await auth();
-    if (!session?.user?.email) return null;
-    if (!email) return null;
+    if (!session?.user?.id) return null;
 
     return await prisma.user.findUnique({
-        where: { email: session.user.email },
+        where: { id },
         select: {
             name: true,
             email: true,
@@ -700,7 +699,7 @@ export async function assignSubcontractorToAssignment(assignmentId: string, subc
 
 export async function respondToSubcontractorAssignment(status: 'accepted' | 'denied' | 'restore', assignmentId: string) {
     const session = await auth();
-    if (!session?.user?.email) return { error: 'Unauthorized' };
+    if (!session?.user?.id) return { error: 'Unauthorized' };
 
     try {
         const data: any = { subcontractorStatus: status === 'accepted' ? 'delegated' : status === 'denied' ? 'redirected' : status === 'restore' ? 'delegated' : 'delegated' };
@@ -715,7 +714,7 @@ export async function respondToSubcontractorAssignment(status: 'accepted' | 'den
         let disconnected = false;
 
         if (status === 'denied') {
-            const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+            const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 
             if (user) {
                 const remainingCount = await prisma.jobAssignment.count({
@@ -860,10 +859,10 @@ export async function cancelAssignmentService(assignmentId: string, serviceId: s
         return { error: 'Failed to update service' };
     }
 }
-export async function getBraiderUsageAction(email: string, timezoneOffset: number = 0) {
-    if (!email) return null;
+export async function getBraiderUsageAction(userId: string, timezoneOffset: number = 0) {
+    if (!userId) return null;
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) return null;
 
         const { count, limit, period } = await getBraiderUsage(user.id, user.subscriptionTier, new Date());
@@ -907,10 +906,10 @@ export async function markClientPaid(jobId: string, clientId: string | null, mar
 
 export async function getEarningsHistory(period: 'day' | 'week' | 'month' | 'year') {
     const session = await auth();
-    if (!session?.user?.email) return [];
+    if (!session?.user?.id) return [];
 
     try {
-        const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (!user) return [];
 
         const assignments = await prisma.jobAssignment.findMany({

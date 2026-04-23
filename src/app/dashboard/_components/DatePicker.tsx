@@ -240,7 +240,7 @@ const CalendarElement = ({
             const startDate = startOfWeek(monthStart);
 
             let days = eachDayOfInterval({ start: startDate, end: endOfWeek(monthEnd) });
-            let endDate = null;
+            let endDate: Date | null = null;
 
             if (days.length / 7 < 6) {
                 let tempDay = endOfWeek(addDays(monthEnd, 7));
@@ -336,7 +336,7 @@ const CalendarElement = ({
 };
 
 const getYears = (endingYear: number) => {
-    const years = [];
+    const years: number[] = [];
     for (let i = getYear(new Date()); i <= endingYear; i++) years.push(i);
     return years;
 };

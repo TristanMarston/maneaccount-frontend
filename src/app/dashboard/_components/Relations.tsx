@@ -34,14 +34,14 @@ type RelationMember = {
 type PendingRelation = RelationMember & { sentAt: Date };
 
 const Relations = ({
-    userEmail,
+    userId,
     role,
     userPublicID,
     setSelectedPage,
     selectBraider,
     canInviteSubcontractors,
 }: {
-    userEmail: string;
+    userId: string;
     role: string;
     userPublicID: string;
     setSelectedPage: React.Dispatch<React.SetStateAction<string>>;
@@ -69,7 +69,7 @@ const Relations = ({
 
     const refreshDataFn = async () => {
         setLoading(true);
-        const [memberData, pendingData] = await Promise.all([getRelations(userEmail), getPendingRelations(userEmail)]);
+        const [memberData, pendingData] = await Promise.all([getRelations(userId), getPendingRelations(userId)]);
 
         // @ts-ignore
         setMembers(memberData);
@@ -80,7 +80,7 @@ const Relations = ({
 
     useEffect(() => {
         refreshDataFn();
-    }, [userEmail]);
+    }, [userId]);
 
     useAutoRefresh(refreshDataFn);
 
@@ -98,7 +98,7 @@ const Relations = ({
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
         setInviteLoading(true);
-        const result = await inviteRelation(inviteInput);
+        const result = await inviteRelation(inviteInput, role as 'braider' | 'barn');
 
         if (result.success) {
             successToast(result.message);
@@ -514,7 +514,7 @@ const InviteModal = ({
 
         setLoadingUser('loading');
         try {
-            const res = await getRelationByPublicID(val);
+            const res = await getRelationByPublicID(val, role as 'braider' | 'barn');
 
             if (val !== lastRequestValue.current) return;
             if (!res || res.error || val === publicID) {
@@ -636,7 +636,7 @@ const InviteModal = ({
                                 ref={idRef}
                             >
                                 <p className='text-base text-gray-500 font-figtree'>
-                                    Enter the unique <strong>Public ID</strong> of the {role === 'braider' ? 'barn' : 'braider'} you want to add.
+                                    Enter the unique <strong>Public ID</strong> of the {role === 'braider' ? 'barn' : 'braider'} you want to add.&nbsp;&nbsp;&nbsp;&nbsp;
                                 </p>
                                 <div className='relative mt-2'>
                                     <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4', inviteInput.length > 0 ? 'text-black' : 'text-gray-400')} />

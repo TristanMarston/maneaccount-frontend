@@ -51,7 +51,6 @@ import {
     revertJobReview,
 } from '@/app/actions/jobs';
 import { getTeamMembers } from '@/app/actions/team';
-import { getIDByEmail } from '@/app/actions/join';
 import { successToast, failToast, loadingToast } from '@/app/context';
 import { getHorses } from '@/app/actions/horses';
 import Modal from '../../Modal';

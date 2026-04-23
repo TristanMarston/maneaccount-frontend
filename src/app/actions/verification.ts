@@ -71,7 +71,7 @@ export async function verifyToken(token: string) {
     if (existingUsers.length === 0) return { error: 'No accounts found with that email.' };
 
     await prisma.user.updateMany({
-        where: { email: { in: existingUsers.map((u) => u.email) } },
+        where: { email: { in: existingUsers.map((u) => u.email || '') } },
         data: {
             emailVerified: new Date(),
             email: existingToken.identifier,

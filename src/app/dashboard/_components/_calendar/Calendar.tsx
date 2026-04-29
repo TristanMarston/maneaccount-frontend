@@ -1446,7 +1446,7 @@ const ListView = ({
     setAddNoteModal,
     calendarNotes,
     setEditingNote,
-    setPreSelectedNoteDate
+    setPreSelectedNoteDate,
 }: {
     shows: Show[];
     onEdit: (show: Show) => void;
@@ -1484,6 +1484,14 @@ const ListView = ({
     const todayKey = format(new Date().setHours(0, 0, 0, 0), 'yyyy-MM-dd');
     if (Object.keys(groupedByDate).length > 0 && !groupedByDate[todayKey]) groupedByDate[todayKey] = [];
 
+    const sortedNotes = calendarNotes.sort((a, b) => a.date.getTime() - b.date.getTime());
+    sortedNotes.forEach((note) => {
+        const dateKey = format(note.date, 'yyyy-MM-dd');
+        if (!groupedByDate[dateKey]) {
+            groupedByDate[dateKey] = [];
+        }
+    });
+
     const sortedDates = Object.keys(groupedByDate).sort();
 
     useLayoutEffect(() => {
@@ -1496,21 +1504,23 @@ const ListView = ({
         }
     }, []);
 
-    const noteClick = (day: Date) => {
-        const notesForDay = calendarNotes.filter((note) => {
+    const getNotesForDay = (day: Date) =>
+        calendarNotes.filter((note) => {
             const current = new Date(day).setHours(0, 0, 0, 0);
             const noteDate = new Date(note.date).setHours(0, 0, 0, 0);
 
             return current === noteDate;
-        })
+        });
 
+    const noteClick = (day: Date) => {
+        const notesForDay = getNotesForDay(day);
         if (notesForDay.length > 0) {
             setEditingNote(notesForDay[0]);
         } else {
             setPreSelectedNoteDate(day);
             setAddNoteModal(true);
         }
-    }
+    };
 
     return (
         <div className='h-full overflow-y-auto custom-scrollbar bg-white @min-[700px]/calendar:grid grid-cols-[2fr_1fr] @container/list-calendar'>
@@ -1553,7 +1563,12 @@ const ListView = ({
                                         </span>
                                     </div>
                                     <div className='h-px flex-1 bg-linear-to-r from-gray-100 to-white'></div>
-                                    {role === 'braider' && <NotebookPen onClick={() => noteClick(date)} className='text-gray-400 cursor-pointer hover:text-gray-500 transition-colors' />}
+                                    {role === 'braider' && (
+                                        <span className='relative'>
+                                            <NotebookPen onClick={() => noteClick(date)} className='text-gray-400 cursor-pointer hover:text-gray-500 transition-colors' />
+                                            {getNotesForDay(date).length > 0 && <div className='absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-400 border border-white' />}
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div className='grid gap-4 pl-2 @min-[550px]/list-calendar:pl-4 max-w-full'>
@@ -1625,7 +1640,9 @@ const ListView = ({
                                             </button>
                                         ))
                                     ) : (
-                                        <div className='flex items-center justify-center h-full text-gray-400 font-figtree'>No events for today.</div>
+                                        <div className='flex items-center justify-center h-full text-gray-400 font-figtree'>
+                                            No events for {date.getTime() === new Date().setHours(0, 0, 0, 0) ? 'today' : 'this day'}.
+                                        </div>
                                     )}
                                 </div>
                             </div>

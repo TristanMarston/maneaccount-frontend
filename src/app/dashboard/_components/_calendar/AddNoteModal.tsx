@@ -74,7 +74,7 @@ const AddNoteModal = ({
 
         if (res.success) {
             refresh();
-            successToast('Successfully edited new note.');
+            successToast('Successfully edited note.');
             setNoteData({ date: null, note: '' });
             initialData = null;
             onClose();

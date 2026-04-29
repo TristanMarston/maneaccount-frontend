@@ -35,6 +35,7 @@ const DatePicker = ({
     showEndDate,
     size = 'small',
     constantRows = false,
+    className,
 }: {
     onDateSelect: (selectedDate: Date) => void;
     noDateBefore: Date | null;
@@ -46,6 +47,7 @@ const DatePicker = ({
     showEndDate?: Date;
     size?: 'small' | 'big';
     constantRows?: boolean;
+    className?: string;
 }) => {
     const [monthSelectorOpen, setMonthSelectorOpen] = useState(false);
     const [yearSelectorOpen, setYearSelectorOpen] = useState(false);
@@ -78,7 +80,7 @@ const DatePicker = ({
     };
 
     return (
-        <div className='w-full font-figtree h-auto p-3 rounded-xl bg-white border-[0.5px] border-gray-300 shadow-lg overflow-y-auto'>
+        <div className={cn('w-full font-figtree h-auto p-3 rounded-xl bg-white border-[0.5px] border-gray-300 shadow-lg overflow-y-auto', className)}>
             <div className='flex justify-between items-center'>
                 <span
                     onClick={() => setCurrentDate((prev) => subMonths(prev, 1))}
@@ -313,7 +315,7 @@ const CalendarElement = ({
                             key={getDate(day) + ' ' + dayIndex}
                             onClick={() => handleDateSelect(day)}
                             className={cn(
-                                'disabled:pointer-events-none disabled:cursor-not-allowed grid cursor-pointer place-items-center aspect-square select-none rounded-md hover:bg-gray-100 transition-colors',
+                                'disabled:pointer-events-none disabled:cursor-not-allowed grid cursor-pointer place-items-center aspect-square select-none rounded-md hover:bg-gray-100 transition-all',
                                 isEqual(noDateBefore, day) && startDateEffect
                                     ? 'text-primary border-b border-primary'
                                     : isBefore(day, noDateBefore) || getMonth(currentDate) !== getMonth(day) || (noDateAfter ? isAfter(day, noDateAfter) : false)

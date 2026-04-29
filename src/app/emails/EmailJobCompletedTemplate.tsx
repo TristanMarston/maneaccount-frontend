@@ -181,10 +181,9 @@ export const ManeAccountJobCompletedEmail = ({
                                         <Section
                                             style={{
                                                 width: '100%',
-                                                backgroundColor: '#dbeafe',
                                                 borderRadius: '8px',
-                                                padding: '16px',
-                                                border: '1px solid #bfdbfe',
+                                                padding: '4px',
+                                                border: '4px solid #bfdbfe',
                                                 margin: '0 0 8px 0',
                                                 fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
                                             }}
@@ -201,10 +200,9 @@ export const ManeAccountJobCompletedEmail = ({
                                         <Section
                                             style={{
                                                 width: '100%',
-                                                backgroundColor: '#f3e8ff',
                                                 borderRadius: '8px',
-                                                padding: '16px',
-                                                border: '1px solid #e9d5ff',
+                                                padding: '4px',
+                                                border: '4px solid #e9d5ff',
                                                 margin: '0',
                                                 fontFamily: 'Figtree, Helvetica, HelveticaNeue, Verdana, sans-serif',
                                             }}

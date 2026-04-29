@@ -20,6 +20,7 @@ import {
     Calendar as CalendarIcon,
     BadgeCheck,
     Icon,
+    Pencil,
 } from 'lucide-react';
 import { horseHead } from '@lucide/lab';
 import { cn } from '@/lib/utils';
@@ -29,7 +30,7 @@ import { getHorses } from '@/app/actions/horses';
 import { addAssignmentsToJob } from '@/app/actions/jobs';
 import { successToast, failToast } from '@/app/context';
 import Modal from '../../Modal';
-import { Show } from './Calendar';
+import { CalendarNote, Show } from './Calendar';
 import { calendarDateToLocal } from '@/lib/date-utils';
 
 export const DayAssignmentsModal = ({
@@ -41,6 +42,8 @@ export const DayAssignmentsModal = ({
     setViewingShow,
     onClose,
     refresh,
+    getNotesForDay,
+    setEditingNote,
 }: {
     jobs: Job[];
     date: Date;
@@ -50,6 +53,8 @@ export const DayAssignmentsModal = ({
     setViewingShow: React.Dispatch<React.SetStateAction<Show | null>>;
     onClose: () => void;
     refresh: () => void;
+    getNotesForDay: (day: Date) => CalendarNote[];
+    setEditingNote: React.Dispatch<React.SetStateAction<CalendarNote | null>>;
 }) => {
     const [showAddHorseModal, setShowAddHorseModal] = useState(false);
     const [horsesRef, setHorsesRef] = useState<any[]>([]);
@@ -68,10 +73,12 @@ export const DayAssignmentsModal = ({
         }, {});
 
         const sortedClients = Object.entries(groupedAssignments).sort(([nameA], [nameB]) => nameA.localeCompare(nameB));
-        const canAddHorse = role === 'barn' && new Date(date).setHours(23, 59, 59, 999) >= new Date().setHours(0, 0, 0, 0) && !job.invoiceSentAt;
+        const canAddHorse = role === 'barn' && !job.invoiceSentAt;
 
         return { sortedClients, canAddHorse, barn: job.barn.name };
     });
+
+    const displayNote = role === 'braider' ? (getNotesForDay(date).length > 0 ? getNotesForDay(date)[0] : null) : null;
 
     useEffect(() => {
         const fetchHorses = async () => {
@@ -84,9 +91,14 @@ export const DayAssignmentsModal = ({
 
     return (
         <div className='bg-white w-full max-w-2xl overflow-hidden rounded-[18px] max-h-[90dvh] overflow-y-auto font-figtree flex flex-col'>
-            <div className='p-5 pb-2 border-b border-gray-100 flex justify-between items-center bg-gray-50/50'>
-                <div>
-                    <h3 className='text-3xl font-bold font-lusitana text-gray-900 truncate flex items-center gap-2'>{format(date, 'MMMM d, yyyy')}</h3>
+            <div className='p-5 pb-2 border-b border-gray-100 flex justify-between items-start bg-gray-50/50 w-full'>
+                <div className='w-full'>
+                    <div className='flex justify-between items-center gap-2'>
+                        <h3 className='text-3xl font-bold font-lusitana text-gray-900 truncate flex items-center gap-2'>{format(date, 'MMMM d, yyyy')}</h3>
+                        <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600 cursor-pointer rounded-full transition-all'>
+                            <X size={24} />
+                        </button>
+                    </div>
                     <div className='flex items-center flex-wrap gap-1 mt-1 text-sm text-gray-500 font-figtree'>
                         <span
                             onClick={() => {
@@ -104,10 +116,20 @@ export const DayAssignmentsModal = ({
                             {jobs[0].show.city}, {jobs[0].show.state}
                         </span>
                     </div>
+                    {displayNote && (
+                        <div className='relative mt-2.5 w-fit'>
+                            <div className='bg-primary-extra-light rounded-[12px] border border-primary-light font-figtree py-2 px-3 text-primary-dark pr-9 text-sm'>
+                                <span className='uppercase font-bold'>NOTE:</span>&nbsp;&quot;{displayNote.note}&quot;
+                            </div>
+                            <button
+                                onClick={() => setEditingNote(displayNote)}
+                                className='absolute -top-3 right-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 p-2 rounded-full shadow-sm transition-all cursor-pointer'
+                            >
+                                <Pencil className='text-amber-700 w-3.5 h-3.5' />
+                            </button>
+                        </div>
+                    )}
                 </div>
-                <button onClick={onClose} className='p-2 text-gray-400 hover:text-gray-600 cursor-pointer rounded-full transition-all'>
-                    <X size={24} />
-                </button>
             </div>
 
             <div className='p-6 pt-4 space-y-5 flex-1 overflow-y-auto overflow-x-hidden'>
@@ -124,7 +146,9 @@ export const DayAssignmentsModal = ({
                 )}
                 {jobInfo.map(({ sortedClients, barn }, i) => {
                     return !jobInfo.some((job) => job.sortedClients.length > 0) && i === 0 ? (
-                        <div className='text-center py-10 text-gray-400 italic'>No assignments for this day.</div>
+                        <div key={i} className='text-center py-10 text-gray-400 italic'>
+                            No assignments for this day.
+                        </div>
                     ) : (
                         sortedClients.length > 0 && (
                             <Fragment key={i}>

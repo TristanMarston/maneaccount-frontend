@@ -125,14 +125,14 @@ enum SendInvoiceOption {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  publicID      String?
-  name          String?
-  email         String?
-  emailVerified DateTime?
-  phoneNumber   String?
-  image         String?
-  password      String?
+  id                   String    @id @default(cuid())
+  publicID             String?
+  name                 String?
+  email                String?
+  emailVerified        DateTime?
+  phoneNumber          String?
+  image                String?
+  password             String?
   linkedAccountGroupId String?
 
   venmo        String?
@@ -160,8 +160,9 @@ model User {
   thanksMessage            String?
   autoSendInvoiceTo        SendInvoiceOption @default(both)
 
-  sentShowInvites     ShowInvite[] @relation("ShowInviter")
-  receivedShowInvites ShowInvite[] @relation("ShowInvitee")
+  sentShowInvites     ShowInvite[]   @relation("ShowInviter")
+  receivedShowInvites ShowInvite[]   @relation("ShowInvitee")
+  calendarNotes       CalendarNote[] @relation(name: "CalendarNoteToUser")
 
   notifications     Notification[] @relation("user")
   sentNotifications Notification[] @relation("sender")
@@ -174,15 +175,15 @@ model User {
   subscriptionTier   SubscriptionTier   @default(starter)
   subscriptionStatus SubscriptionStatus @default(inactive)
 
-  trialEndsAt       DateTime?
-  currentPeriodEnd  DateTime?
-  cancelAtPeriodEnd Boolean        @default(false)
-  googleCalendarId  String?
-  hasUsedTrial      Boolean        @default(false)
-  hasUsedPromoOne   Boolean        @default(false)
-  hasUsedPromoTwo   Boolean        @default(false)
-  hasUsedPromoThree Boolean        @default(false)
-  usedCoupons       OneOffCoupon[] @relation("OneOffCoupon")
+  trialEndsAt        DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean             @default(false)
+  googleCalendarId   String?
+  hasUsedTrial       Boolean             @default(false)
+  hasUsedPromoOne    Boolean             @default(false)
+  hasUsedPromoTwo    Boolean             @default(false)
+  hasUsedPromoThree  Boolean             @default(false)
+  usedCoupons        OneOffCoupon[]      @relation("OneOffCoupon")
   linkedAccountGroup LinkedAccountGroup? @relation(fields: [linkedAccountGroupId], references: [id], onDelete: SetNull)
 
   @@index([email])
@@ -280,6 +281,18 @@ model ShowInvite {
   updatedAt DateTime @updatedAt
 
   @@unique([showId, inviteeId])
+}
+
+model CalendarNote {
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime
+  note   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(name: "CalendarNoteToUser", fields: [userId], references: [id])
 }
 
 model VerificationToken {

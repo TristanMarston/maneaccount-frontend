@@ -22,6 +22,8 @@ import {
     Info,
     Check,
     User,
+    CalendarPlus,
+    NotebookPen,
 } from 'lucide-react';
 import {
     format,
@@ -58,6 +60,8 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { DayAssignmentsModal } from './DayAssignmentsModal';
 import { getFullDashboardData } from '@/app/actions/dashboard';
 import CalendarIntegrationModal from './CalendarIntegrationModal';
+import AddNoteModal from './AddNoteModal';
+import { getCalendarNotes } from '@/app/actions/calendar-notes';
 
 type CalendarViewType = 'month' | 'week' | 'list';
 
@@ -82,6 +86,12 @@ export interface Show {
     addedToOutlook?: boolean;
     googleEventId?: string | null;
 }
+
+export type CalendarNote = {
+    id: string;
+    note: string;
+    date: Date;
+};
 
 const ShowDetailsModal = ({
     show,
@@ -126,9 +136,12 @@ const ShowDetailsModal = ({
                     >
                         <div className='p-5 border-b border-gray-100 flex justify-between items-start bg-gray-50/50'>
                             <div className='min-w-0 w-full'>
-                                <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate' title={show.name}>
-                                    {show.name}
-                                </h3>
+                                <div className='flex justify-between gap-2 items-center'>
+                                    <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate' title={show.name}>
+                                        {show.name}
+                                    </h3>
+                                    <X onClick={onClose} className='text-gray-500 min-w-6 cursor-pointer hover:scale-105 transition-all' />
+                                </div>
                                 <div className='flex items-center gap-1 mt-1 text-sm text-gray-500 font-figtree'>
                                     <MapPin size={16} className='text-primary flex-none' />
                                     <span className='truncate'>
@@ -199,7 +212,6 @@ const ShowDetailsModal = ({
                                     </div>
                                 )}
                             </div>
-                            <X onClick={onClose} className='text-gray-500 min-w-6 cursor-pointer hover:scale-105 transition-all' />
                         </div>
                         <div className='p-5 font-figtree space-y-2'>
                             <div className='flex items-center gap-3 p-3 bg-primary-extra-light/50 rounded-xl border border-primary/10'>
@@ -303,14 +315,19 @@ const DayDetailsModal = ({
     onClose,
     onEventClick,
     getShowsForDay,
+    getNotesForDay,
+    setEditingNote,
 }: {
     day: Date | null;
     onClose: () => void;
     onEventClick: (show: Show) => void;
     getShowsForDay: (day: Date) => Show[];
+    getNotesForDay: (day: Date) => CalendarNote[];
+    setEditingNote: React.Dispatch<React.SetStateAction<CalendarNote | null>>;
 }) => {
     const modalRef = useRef<HTMLDivElement>(null);
-    useOnClickOutside(modalRef, [], () => onClose());
+    // useOnClickOutside(modalRef, [], () => onClose());
+    const displayNote = day ? (getNotesForDay(day).length > 0 ? getNotesForDay(day)[0] : null) : null;
 
     return (
         <AnimatePresence>
@@ -319,7 +336,7 @@ const DayDetailsModal = ({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className='absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[1px] p-4'
+                    className='absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[1px] p-4 cursor-pointer'
                     onClick={onClose}
                 >
                     <motion.div
@@ -328,11 +345,26 @@ const DayDetailsModal = ({
                         exit={{ scale: 0, rotate: '0deg' }}
                         onClick={(e) => e.stopPropagation()}
                         ref={modalRef}
-                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[90dvh] overflow-y-auto @container/day-details'
+                        className='bg-white w-full max-w-sm overflow-hidden rounded-[18px] primary-border max-h-[90dvh] overflow-y-auto cursor-auto @container/day-details'
                     >
-                        <div className='p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50'>
-                            <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate min-w-0'>{format(day, 'MMMM d, yyyy')}</h3>
-                            <X onClick={onClose} className='text-gray-500 min-w-6 cursor-pointer hover:scale-105 transition-all' />
+                        <div className='p-5 border-b border-gray-100 bg-gray-50/50'>
+                            <div className='flex justify-between items-center'>
+                                <h3 className='text-2xl font-bold font-lusitana text-gray-900 truncate min-w-0'>{format(day, 'MMMM d, yyyy')}</h3>
+                                <X onClick={onClose} className='text-gray-500 min-w-6 cursor-pointer hover:scale-105 transition-all' />
+                            </div>
+                            {displayNote && (
+                                <div className='relative mt-3'>
+                                    <div className='bg-primary-extra-light rounded-[12px] border border-primary-light font-figtree p-2 text-primary-dark pr-7'>
+                                        <span className='uppercase font-bold'>NOTE:</span>&nbsp;&quot;{displayNote.note}&quot;
+                                    </div>
+                                    <button
+                                        onClick={() => setEditingNote(displayNote)}
+                                        className='absolute -top-3 right-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 p-2 rounded-full shadow-sm transition-all cursor-pointer'
+                                    >
+                                        <Pencil className='text-amber-700 w-4 h-4' />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div className='p-5 font-figtree'>
                             <p className='text-xs font-bold text-gray-400 uppercase tracking-wide mb-3'>Events</p>
@@ -405,6 +437,10 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
         appleSynced: false,
         outlookSynced: false,
     });
+    const [addNoteModal, setAddNoteModal] = useState(false);
+    const [preSelectedNoteDate, setPreSelectedNoteDate] = useState<Date | null>(null);
+    const [editingNote, setEditingNote] = useState<CalendarNote | null>(null);
+    const [calendarNotes, setCalendarNotes] = useState<CalendarNote[]>([]);
     const showDetailsRef = useRef<HTMLDivElement>(null);
 
     const { refreshCounts } = useNotifications();
@@ -424,6 +460,11 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                 console.error(result.error);
                 setLoading(false);
                 return;
+            }
+
+            if (role === 'braider') {
+                const notes = await getCalendarNotes();
+                setCalendarNotes(notes.map((n) => ({ ...n, date: calendarDateToLocal(n.date) })));
             }
 
             const { shows: showsData, jobs: jobsData } = result;
@@ -457,6 +498,13 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
         },
         [role],
     );
+
+    const refreshNotes = async () => {
+        if (role === 'braider') {
+            const notes = await getCalendarNotes();
+            setCalendarNotes(notes.map((n) => ({ ...n, date: calendarDateToLocal(n.date) })));
+        }
+    };
 
     useAutoRefresh(() => loadShows(false));
 
@@ -526,6 +574,15 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
         setIsDeleting({ open: false, id: '', name: '' });
     };
 
+    const getNotesForDay = (day: Date) => {
+        return calendarNotes.filter((note) => {
+            const current = new Date(day).setHours(0, 0, 0, 0);
+            const noteDate = new Date(note.date).setHours(0, 0, 0, 0);
+
+            return current === noteDate;
+        });
+    };
+
     return (
         <>
             <div className='w-full pt-8 pb-28 dashboard-sm:py-8 px-6 @cm/content:px-8 @min-[550px]/content:px-10 @min-[740px]/content:px-12 space-y-8 h-full @container/calendar'>
@@ -546,16 +603,21 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                                 <ViewSwitcher view={view} setView={setView} className='grid @min-[550px]/calendar:hidden' />
                             </div>
                             {role.toLowerCase() === 'braider' && (
-                                <button
-                                    onClick={() => {
+                                <AddFlyout
+                                    onAddShow={() => {
                                         setEditingShow(null);
                                         setIsAdding(true);
                                     }}
-                                    className='h-full font-figtree cursor-pointer font-bold flex @min-[400px]/calendar:hidden gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] p-[7px] @min-[320px]/calendar:px-4 @min-[320px]/calendar:py-[5px] bg-primary-light text-background primary-border-hover'
+                                    onAddNotes={() => setAddNoteModal(true)}
                                 >
-                                    <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
-                                    <span className='hidden @min-[320px]/calendar:block'>Add Show</span>
-                                </button>
+                                    <button
+                                        onClick={() => {}}
+                                        className='h-full font-figtree cursor-pointer font-bold flex @min-[400px]/calendar:hidden gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] p-[7px] @min-[320px]/calendar:px-4 @min-[320px]/calendar:py-[5px] bg-primary-light text-background primary-border-hover'
+                                    >
+                                        <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
+                                        <span className='hidden @min-[320px]/calendar:block'>Add New</span>
+                                    </button>
+                                </AddFlyout>
                             )}
                         </div>
                         {view !== 'list' && <MonthNavigation navigate={navigate} currentDate={currentDate} className='flex @min-[400px]/calendar:hidden py-[5px] w-full' />}
@@ -576,16 +638,21 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                         {view !== 'list' && <MonthNavigation navigate={navigate} currentDate={currentDate} className='hidden @min-[400px]/calendar:flex' />}
 
                         {role.toLowerCase() === 'braider' && (
-                            <button
-                                onClick={() => {
+                            <AddFlyout
+                                onAddShow={() => {
                                     setEditingShow(null);
                                     setIsAdding(true);
                                 }}
-                                className='h-full font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] @min-[670px]/calendar:rounded-[10px] p-2.5 @min-[670px]/calendar:py-2 @min-[670px]/calendar:px-6 bg-primary-light text-background primary-border-hover'
+                                onAddNotes={() => setAddNoteModal(true)}
                             >
-                                <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
-                                <span className='hidden @min-[670px]/calendar:block'>Add Show</span>
-                            </button>
+                                <button
+                                    onClick={() => {}}
+                                    className='h-full font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[14px] @min-[670px]/calendar:rounded-[10px] p-2.5 @min-[670px]/calendar:py-2 @min-[670px]/calendar:px-6 bg-primary-light text-background primary-border-hover'
+                                >
+                                    <PlusCircle className='w-6 h-6' strokeWidth={2.5} />
+                                    <span className='hidden @min-[670px]/calendar:block'>Add New</span>
+                                </button>
+                            </AddFlyout>
                         )}
                     </div>
                 </header>
@@ -613,6 +680,8 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                                     onShowClick={handleShowClick}
                                     userEmail={userId}
                                     role={role}
+                                    calendarNotes={calendarNotes}
+                                    setEditingNote={setEditingNote}
                                 />
                             )}
                             {view === 'week' && (
@@ -623,6 +692,8 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                                     onDelete={(id, name) => setIsDeleting({ open: true, id, name })}
                                     onShowClick={handleShowClick}
                                     role={role}
+                                    calendarNotes={calendarNotes}
+                                    setEditingNote={setEditingNote}
                                 />
                             )}
                             {view === 'list' && (
@@ -633,6 +704,10 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                                     onShowClick={handleShowClick}
                                     role={role}
                                     userEmail={userId}
+                                    setAddNoteModal={setAddNoteModal}
+                                    calendarNotes={calendarNotes}
+                                    setEditingNote={setEditingNote}
+                                    setPreSelectedNoteDate={setPreSelectedNoteDate}
                                 />
                             )}
                         </>
@@ -711,6 +786,8 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                             setViewingJobDate(null);
                         }}
                         refresh={() => loadShows(true)}
+                        getNotesForDay={getNotesForDay}
+                        setEditingNote={setEditingNote}
                     />
                 )}
             </Modal>
@@ -758,7 +835,84 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
             <Modal isOpen={!!selectedHorse} setIsOpen={() => setSelectedHorse(null)} className='max-w-xl p-0 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
                 {selectedHorse && <HorseDetailView horse={selectedHorse} onClose={() => setSelectedHorse(null)} />}
             </Modal>
+
+            <Modal isOpen={addNoteModal} setIsOpen={() => setAddNoteModal(false)} className='max-w-2xl p-6 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
+                <AddNoteModal onClose={() => setAddNoteModal(false)} initialData={null} refresh={refreshNotes} preSelectedNoteDate={preSelectedNoteDate} />
+            </Modal>
+
+            <Modal isOpen={!!editingNote} setIsOpen={() => setEditingNote(null)} className='max-w-2xl p-6 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
+                <AddNoteModal onClose={() => setEditingNote(null)} initialData={editingNote} refresh={refreshNotes} preSelectedNoteDate={null} />
+            </Modal>
         </>
+    );
+};
+
+const AddFlyout = ({ children, onAddShow, onAddNotes }: { children: React.ReactNode; onAddShow: () => void; onAddNotes: () => void }) => {
+    const [flyoutOpen, setFlyoutOpen] = useState(false);
+
+    const buttonRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(buttonRef, [], () => setFlyoutOpen(false));
+    const notificationsRef = useRef<HTMLDivElement>(null);
+
+    return (
+        <div ref={notificationsRef} className='h-full'>
+            <div ref={buttonRef} className='h-full my-auto flex items-center justify-center relative'>
+                <div onClick={() => setFlyoutOpen((prev) => !prev)}>{children}</div>
+
+                <AnimatePresence>
+                    {flyoutOpen && (
+                        <motion.div
+                            variants={{
+                                closed: {
+                                    opacity: 0,
+                                    y: 0,
+                                    transition: { duration: 0.3, ease: 'easeInOut' },
+                                },
+                                open: {
+                                    opacity: 1,
+                                    y: -10,
+                                    transition: { duration: 0.3, ease: 'easeInOut' },
+                                },
+                            }}
+                            initial='closed'
+                            animate={flyoutOpen ? 'open' : 'closed'}
+                            exit='closed'
+                            className='absolute top-[calc(100%+20px)] w-[250px] primary-border font-figtree bg-white rounded-2xl overflow-hidden shadow-xl border border-gray-100 z-40 right-0 left-auto'
+                        >
+                            <div className='@container/calendar-add'>
+                                <button
+                                    onClick={() => {
+                                        onAddShow();
+                                        setFlyoutOpen(false);
+                                    }}
+                                    className='flex gap-3 w-full items-center px-5 py-3 hover:bg-primary-extra-light transition-all cursor-pointer font-figtree text-primary font-bold text-xl'
+                                >
+                                    <span className='rounded-[14px] bg-primary-light p-2.5 primary-border'>
+                                        <CalendarPlus className='text-white w-6 h-6' />
+                                    </span>
+                                    Add Show
+                                </button>
+                                <div className='flex justify-center'>
+                                    <div className='h-0.5 w-[90%] bg-primary' />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        onAddNotes();
+                                        setFlyoutOpen(false);
+                                    }}
+                                    className='flex gap-3 w-full items-center px-5 py-3 hover:bg-primary-extra-light transition-all cursor-pointer font-figtree text-primary font-bold text-xl'
+                                >
+                                    <span className='rounded-[14px] bg-primary-light p-2.5 primary-border'>
+                                        <NotebookPen className='text-white w-6 h-6' />
+                                    </span>
+                                    Write Notes
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </div>
     );
 };
 
@@ -972,6 +1126,8 @@ const MonthView = ({
     onShowClick,
     userEmail,
     role,
+    calendarNotes,
+    setEditingNote,
 }: {
     currentDate: Date;
     shows: Show[];
@@ -980,6 +1136,8 @@ const MonthView = ({
     onShowClick: (show: Show, date?: Date) => void;
     userEmail: string;
     role: string;
+    calendarNotes: CalendarNote[];
+    setEditingNote: React.Dispatch<React.SetStateAction<CalendarNote | null>>;
 }) => {
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
     const monthStart = startOfMonth(currentDate);
@@ -1016,6 +1174,15 @@ const MonthView = ({
         });
     };
 
+    const getNotesForDay = (day: Date) => {
+        return calendarNotes.filter((note) => {
+            const current = new Date(day).setHours(0, 0, 0, 0);
+            const noteDate = new Date(note.date).setHours(0, 0, 0, 0);
+
+            return current === noteDate;
+        });
+    };
+
     return (
         <>
             <div className='h-full flex flex-col font-figtree relative overflow-hidden'>
@@ -1045,7 +1212,7 @@ const MonthView = ({
                                             setSelectedDay(day);
                                         }}
                                         className={cn(
-                                            'text-sm cursor-pointer relative left-[50%] translate-x-[-50%] font-medium w-7 h-7 flex items-center justify-center rounded-full mb-1',
+                                            'text-sm cursor-pointer relative left-[50%] translate-x-[-50%] font-medium w-7 h-7 flex items-center justify-center rounded-full mb-1 transition-all',
                                             isToday(day) ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100',
                                         )}
                                     >
@@ -1116,6 +1283,8 @@ const MonthView = ({
                     setSelectedDay(null);
                 }}
                 getShowsForDay={getShowsForDay}
+                getNotesForDay={getNotesForDay}
+                setEditingNote={setEditingNote}
             />
         </>
     );
@@ -1128,6 +1297,8 @@ const WeekView = ({
     onDelete,
     onShowClick,
     role,
+    calendarNotes,
+    setEditingNote,
 }: {
     currentDate: Date;
     shows: Show[];
@@ -1135,6 +1306,8 @@ const WeekView = ({
     onDelete: (id: string, name: string) => void;
     onShowClick: (show: Show, date?: Date) => void;
     role: string;
+    calendarNotes: CalendarNote[];
+    setEditingNote: React.Dispatch<React.SetStateAction<CalendarNote | null>>;
 }) => {
     const startDate = startOfWeek(currentDate);
     const days = eachDayOfInterval({ start: startDate, end: addDays(startDate, 6) });
@@ -1152,6 +1325,15 @@ const WeekView = ({
             const current = new Date(day);
             current.setHours(0, 0, 0, 0);
             return current >= start && current <= end;
+        });
+    };
+
+    const getNotesForDay = (day: Date) => {
+        return calendarNotes.filter((note) => {
+            const current = new Date(day).setHours(0, 0, 0, 0);
+            const noteDate = new Date(note.date).setHours(0, 0, 0, 0);
+
+            return current === noteDate;
         });
     };
 
@@ -1247,6 +1429,8 @@ const WeekView = ({
                     setSelectedDay(null);
                 }}
                 getShowsForDay={getShowsForDay}
+                getNotesForDay={getNotesForDay}
+                setEditingNote={setEditingNote}
             />
         </div>
     );
@@ -1259,6 +1443,10 @@ const ListView = ({
     onShowClick,
     role,
     userEmail,
+    setAddNoteModal,
+    calendarNotes,
+    setEditingNote,
+    setPreSelectedNoteDate
 }: {
     shows: Show[];
     onEdit: (show: Show) => void;
@@ -1266,6 +1454,10 @@ const ListView = ({
     onShowClick: (show: Show, date?: Date) => void;
     role: string;
     userEmail: string;
+    setAddNoteModal: React.Dispatch<React.SetStateAction<boolean>>;
+    calendarNotes: CalendarNote[];
+    setEditingNote: React.Dispatch<React.SetStateAction<CalendarNote | null>>;
+    setPreSelectedNoteDate: React.Dispatch<React.SetStateAction<Date | null>>;
 }) => {
     const allOccurrences = shows.flatMap((show) => {
         const start = calendarDateToLocal(show.startDate);
@@ -1303,6 +1495,22 @@ const ListView = ({
             todayElement.scrollIntoView();
         }
     }, []);
+
+    const noteClick = (day: Date) => {
+        const notesForDay = calendarNotes.filter((note) => {
+            const current = new Date(day).setHours(0, 0, 0, 0);
+            const noteDate = new Date(note.date).setHours(0, 0, 0, 0);
+
+            return current === noteDate;
+        })
+
+        if (notesForDay.length > 0) {
+            setEditingNote(notesForDay[0]);
+        } else {
+            setPreSelectedNoteDate(day);
+            setAddNoteModal(true);
+        }
+    }
 
     return (
         <div className='h-full overflow-y-auto custom-scrollbar bg-white @min-[700px]/calendar:grid grid-cols-[2fr_1fr] @container/list-calendar'>
@@ -1345,6 +1553,7 @@ const ListView = ({
                                         </span>
                                     </div>
                                     <div className='h-px flex-1 bg-linear-to-r from-gray-100 to-white'></div>
+                                    {role === 'braider' && <NotebookPen onClick={() => noteClick(date)} className='text-gray-400 cursor-pointer hover:text-gray-500 transition-colors' />}
                                 </div>
 
                                 <div className='grid gap-4 pl-2 @min-[550px]/list-calendar:pl-4 max-w-full'>
@@ -1369,7 +1578,7 @@ const ListView = ({
                                             >
                                                 <div className='flex-1 min-w-0'>
                                                     <div className='flex justify-between items-start gap-3 min-w-0'>
-                                                        <div className='flex items-center gap-2'>
+                                                        <div className='flex items-center gap-2 min-w-0'>
                                                             <h3
                                                                 className={cn(
                                                                     'text-xl min-w-0 font-bold text-gray-900 font-lusitana group-hover:text-primary transition-colors truncate',

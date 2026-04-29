@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -45,17 +45,7 @@ import { failToast, successToast } from '@/app/context';
 import { Tab } from '../_braider/BraiderDashboard';
 import { calendarDateToLocal } from '@/lib/date-utils';
 
-const Invoices = ({
-    role,
-    userId,
-    setView,
-    setSettingsOpen,
-}: {
-    role: string;
-    userId: string;
-    setView: (view: string) => void;
-    setSettingsOpen: (page: Tab) => void;
-}) => {
+const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; userId: string; setView: (view: string) => void; setSettingsOpen: (page: Tab) => void }) => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -82,6 +72,7 @@ const Invoices = ({
     const [chargeLoading, setChargeLoading] = useState(false);
     const [selectedChargeAssignmentId, setSelectedChargeAssignmentId] = useState<string>('');
     const [refreshModalFunction, setRefreshModalFunction] = useState<(() => void) | null>(null);
+    const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState<{ open: boolean; job: any | null }>({ open: false, job: null });
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -375,7 +366,7 @@ const Invoices = ({
                                 {jobsWithPending
                                     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                                     .map((job) => (
-                                        <InvoiceCard key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
+                                        <InvoiceCard setInvoiceHistoryOpen={setInvoiceHistoryOpen} key={job.id} job={job} onRefresh={() => refreshJobsFn(false)} />
                                     ))}
                             </div>
                         )}
@@ -403,7 +394,7 @@ const Invoices = ({
                                         {fullyPaidJobs
                                             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                                             .map((job) => (
-                                                <InvoiceCard key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
+                                                <InvoiceCard setInvoiceHistoryOpen={setInvoiceHistoryOpen} key={job.id} job={job} isHistory onRefresh={() => refreshJobsFn(false)} />
                                             ))}
                                     </motion.div>
                                 )}
@@ -460,6 +451,13 @@ const Invoices = ({
                     userId={userId}
                     setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
                 />
+            </Modal>
+            <Modal
+                isOpen={invoiceHistoryOpen.open && invoiceHistoryOpen.job}
+                setIsOpen={(open: boolean) => setInvoiceHistoryOpen((prev) => ({ ...prev, open }))}
+                className='max-w-3xl p-7 rounded-[18px] primary-border-bold relative @container/check-completed'
+            >
+                {invoiceHistoryOpen.job && <InvoiceHistoryModal job={invoiceHistoryOpen.job} role={role} onClose={() => setInvoiceHistoryOpen((prev) => ({ ...prev, open: false }))} />}
             </Modal>
 
             <Modal isOpen={chargeModalOpen} setIsOpen={setChargeModalOpen} className='max-w-md p-6 rounded-3xl primary-border-bold bg-white'>
@@ -602,7 +600,6 @@ const CheckMarkedCompletedModal = ({
     const [thanksMessageWords, setThanksMessageWords] = useState(0);
     const originalSendInvoiceTo = useRef<'client' | 'barn' | 'both' | null>(null);
     const [sendInvoiceTo, setSendInvoiceTo] = useState<'client' | 'barn' | 'both'>('both');
-    const [loadingAutoSendInvoice, setLoadingAutoSendInvoice] = useState(false);
 
     useEffect(() => {
         setInvoiceInfo(getInvoiceInfo(checkMarkedCompleted.assignments));
@@ -935,6 +932,315 @@ const CheckMarkedCompletedModal = ({
     );
 };
 
+const InvoiceHistoryModal = ({ job, role, onClose }: { job: any; role: string; onClose: () => void }) => {
+    const invoiceInfo = getInvoiceInfo(job.assignments);
+
+    return job.id && role === 'braider' && job.invoiceSentAt && invoiceInfo ? (
+        <div>
+            <h1 className='text-3xl @min-[300px]/check-completed:text-[33px] leading-[1.05] @min-[520px]/check-completed:text-4xl font-lusitana font-bold text-gray-900'>
+                Invoice History
+            </h1>
+            <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
+                <p className='mt-2'>
+                    This is a snapshot of the invoice sent to the barn{' '}
+                    {invoiceInfo.barnOwnerName && invoiceInfo.barnOwnerName.trim().length > 0 ? ` (${invoiceInfo.barnOwnerName})` : ''} and their clients{' '}
+                    {invoiceInfo.horseOwnerNames.length > 0 ? (
+                        <>
+                            <span>(</span>
+                            {invoiceInfo.horseOwnerNames.map((name, index) => (
+                                <span key={name + index}>
+                                    {index === invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length !== 1 ? 'and ' : ''}
+                                    {name}
+                                    {index !== invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length > 2
+                                        ? ', '
+                                        : index !== invoiceInfo.horseOwnerNames.length - 1
+                                          ? ' '
+                                          : ''}
+                                </span>
+                            ))}
+                            <span>)</span>
+                        </>
+                    ) : (
+                        ''
+                    )}
+                    .
+                </p>
+            </div>
+            <div className='flex flex-col gap-2 mt-4'>
+                <div className='w-full font-figtree border border-gray-50 p-1.5 shadow-sm rounded-[14px] text-primary font-bold'>
+                    <div className='flex items-center gap-3 flex-wrap'>
+                        <div className='font-lusitana text-3xl py-2 px-4 bg-primary-light/30 border border-primary shadow-sm rounded-[14px]'>
+                            {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                            }).format(invoiceInfo.earnings)}
+                        </div>
+                        <div className='font-figtree font-normal text-sm'>
+                            <div className='flex items-center gap-2 font-semibold text-[15px]'>
+                                <CalendarCheck className='w-4 h-4' strokeWidth={2.25} />
+                                {format(job.invoiceSentAt, 'Pp')}
+                            </div>
+                            <span>
+                                {invoiceInfo.horses} Horse{invoiceInfo.horses === 1 ? '' : 's'}
+                            </span>{' '}
+                            •{' '}
+                            <span>
+                                {invoiceInfo.services} Service{invoiceInfo.services === 1 ? '' : 's'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className=''>
+                        <p className='font-figtree text-purple-600 font-bold tracking-wide uppercase text-[14px] min-[280px]/check-completed:text-[15px] mt-3'>
+                            Horse-By-Week Breakdown
+                        </p>
+                        {invoiceInfo.horseDetails && (
+                            <div className='mx-1 @min-[290px]/check-completed:mx-3 mt-2 space-y-2'>
+                                {Object.entries(invoiceInfo.horseDetails)
+                                    .sort(([aName], [bName]) => aName.split('/////')[0].localeCompare(bName.split('/////')[0]))
+                                    .map(([horseName, serviceDetails], i) => (
+                                        <div key={horseName + i} className='p-1.5 rounded-xl border border-violet-200'>
+                                            <span className='font-figtree ml-1 my-3 text-violet-400 font-bold text-[15px]'>
+                                                {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
+                                            </span>
+                                            <div>
+                                                <div className='ml-2'>
+                                                    <ul className='mt-1'>
+                                                        {Object.entries(serviceDetails).map(([service, { days, price }], j) => (
+                                                            <li key={j + service + price} className='mb-0.5 font-normal text-violet-950 text-sm flex items-start gap-1.5'>
+                                                                <CheckCircle className='min-w-3.5 h-3.5 w-fit flex mt-1' strokeWidth={2.25} />
+                                                                <span>
+                                                                    <span className='font-bold'>{service}&nbsp;-&nbsp;</span>
+                                                                    {days.map((day, k) => (
+                                                                        <span key={k + day.getTime()}>
+                                                                            {format(calendarDateToLocal(day), 'EEEE')}
+                                                                            {k === days.length - 1 ? '' : ', '}
+                                                                        </span>
+                                                                    ))}{' '}
+                                                                    ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)})
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    <p className='text-sm px-3 py-0.5 bg-violet-50 w-fit rounded-full border border-violet-100 text-violet-900 mt-2 mb-1'>
+                                                        Subtotal:{' '}
+                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                                                            Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
+                                                                (invoiceInfo.horseExpenses !== undefined && invoiceInfo.horseExpenses[horseName] !== undefined
+                                                                    ? invoiceInfo.horseExpenses[horseName].reduce((acc, expense) => acc + expense.amount, 0)
+                                                                    : 0),
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className='ml-1'>
+                        <p className='font-figtree text-primary font-bold tracking-wide uppercase text-sm mt-3'>Thank-you Message (optional)</p>
+                        <p className='font-figtree text-primary font-semibold text-[13px] mt-0.5'>Write a custom thank-you message for your clients to see in the invoice.</p>
+                        <div className='w-full mt-2 font-medium text-primary-dark bg-primary/15 focus:bg-primary/5 outline-none shadow-sm border h-[90px] max-h-[90px] min-h-[42px] overflow-y-auto border-gray-200 px-4 pb-[7px] pt-[9px] rounded-xl focus:border-primary transition-colors'>
+                            {job.thanksMessage}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                onClick={onClose}
+                className='font-figtree mt-4 cursor-pointer w-full font-bold flex gap-2 justify-center items-center text-lg text-nowrap rounded-[10px] py-2 px-6 bg-background text-primary primary-border-hover'
+            >
+                Close
+            </button>
+        </div>
+    ) : (
+        <></>
+    );
+};
+
+const InvoiceCard = ({
+    setInvoiceHistoryOpen,
+    job,
+    isHistory = false,
+    onRefresh,
+}: {
+    setInvoiceHistoryOpen: React.Dispatch<React.SetStateAction<{ open: boolean; job: any | null }>>;
+    job: any;
+    isHistory?: boolean;
+    onRefresh: () => void;
+}) => {
+    const [assignmentsByClient, setAssignmentsByClient] = useState(
+        job.assignments.reduce((acc: any, a: any) => {
+            const clientId = a.horse.clientId || 'barn';
+            const clientName = a.horse.client?.name || 'Barn / No Client';
+
+            if (!acc[clientId]) {
+                acc[clientId] = {
+                    id: clientId,
+                    name: clientName,
+                    assignments: [],
+                    isPaid: true,
+                };
+            }
+            acc[clientId].assignments.push(a);
+            if (!a.paidAt) acc[clientId].isPaid = false;
+            return acc;
+        }, {}),
+    );
+
+    const [expanded, setExpanded] = useState(!isHistory);
+    const [loadingClient, setLoadingClient] = useState<string | null>(null);
+
+    const handleClientToggle = async (clientId: string, currentStatus: boolean, realClientId: string | null) => {
+        setLoadingClient(clientId);
+        const res = await markClientPaid(job.id, realClientId === 'barn' ? null : realClientId, !currentStatus);
+
+        if (res.success) {
+            setAssignmentsByClient({ ...assignmentsByClient, [clientId]: { ...assignmentsByClient[clientId], isPaid: !currentStatus } });
+            onRefresh();
+        } else {
+            failToast('Error updating payment status');
+        }
+
+        setLoadingClient(null);
+    };
+
+    const totalRevenue = job.assignments.reduce((acc: number, a: any) => {
+        const servicesTotal = a.services
+            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
+            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+        return acc + servicesTotal + customTotal;
+    }, 0);
+
+    const clientHasPaid = Object.values(assignmentsByClient).some((client: any) => client.isPaid);
+
+    return (
+        <div className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all', isHistory ? 'opacity-70 hover:opacity-100' : '')}>
+            <div className='p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 bg-gray-50/50' onClick={() => setExpanded(!expanded)}>
+                <div className='flex items-center gap-4'>
+                    <div
+                        className={cn(
+                            'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
+                            isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light',
+                        )}
+                    >
+                        {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                        }).format(totalRevenue)}
+                    </div>
+                    <div>
+                        <h3 className='font-bold text-gray-900'>{job.show.name}</h3>
+                        <p className='text-xs text-gray-500'>
+                            {format(new Date(job.invoiceSentAt), 'MMM d, yyyy')} • {job.assignments.length} Horses
+                        </p>
+                    </div>
+                </div>
+                <motion.div
+                    className='text-gray-400 mr-2 bg-gray-100 p-1 rounded-full'
+                    initial={{ rotate: 0 }}
+                    animate={{ rotate: expanded ? 180 : 0 }}
+                    transition={{ type: 'spring', stiffness: 150 }}
+                >
+                    <ChevronUp />
+                </motion.div>
+            </div>
+
+            <AnimatePresence>
+                {expanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ ease: 'easeOut', duration: 0.3 }}
+                        className='border-t border-gray-100'
+                    >
+                        <div className='p-4 space-y-3'>
+                            <p className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>Mark Off Client Payments</p>
+
+                            {Object.values(assignmentsByClient)
+                                .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
+                                .map((group: any) => {
+                                    const groupTotal = group.assignments.reduce((acc: number, a: any) => {
+                                        const servicesTotal = a.services
+                                            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
+                                            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
+                                        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
+                                        return acc + servicesTotal + customTotal;
+                                    }, 0);
+
+                                    if (groupTotal === 0) return null;
+
+                                    return (
+                                        <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100'>
+                                            <div className='flex items-center gap-3'>
+                                                <button
+                                                    type='button'
+                                                    disabled={loadingClient === group.id}
+                                                    onClick={() => handleClientToggle(group.id, group.isPaid, group.id === 'barn' ? null : group.id)}
+                                                    className={cn(
+                                                        'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer hover:border-primary disabled:cursor-not-allowed',
+                                                        group.isPaid ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300 text-white',
+                                                        loadingClient === group.id && !group.isPaid ? 'text-primary' : '',
+                                                    )}
+                                                >
+                                                    {loadingClient === group.id ? (
+                                                        <RefreshCcw className='w-3 h-3 animate-spin text-primary' />
+                                                    ) : (
+                                                        <CheckSquare size={14} strokeWidth={3} className='text-white' />
+                                                    )}
+                                                </button>
+                                                <p className='font-semibold text-sm text-gray-900'>{group.name}</p>
+                                            </div>
+                                            <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
+                                        </div>
+                                    );
+                                })}
+
+                            {/* <motion.div
+                                initial={clientHasPaid ? { gridTemplateColumns: '1fr' } : { gridTemplateColumns: '1fr 1fr' }}
+                                animate={clientHasPaid ? { gridTemplateColumns: '1fr' } : { gridTemplateColumns: '1fr 1fr' }}
+                                transition={{ delay: !clientHasPaid ? 0 : 0.6 }}
+                                style={{ display: 'grid', gap: '12px', gridTemplateRows: '1fr' }}
+                            >
+                                <button
+                                    onClick={() => setInvoiceHistoryOpen({ open: true, job })}
+                                    className='font-figtree px-4 py-1.5 rounded-[10px] text-primary primary-border-hover bg-background flex justify-center font-semibold cursor-pointer w-full'
+                                >
+                                    View Invoice
+                                </button>
+                                <AnimatePresence>
+                                    {!clientHasPaid && (
+                                        <motion.button
+                                            initial={{ opacity: 1, scale: 1 }}
+                                            animate={clientHasPaid ? { opacity: 0, scale: 0 } : { opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0 }}
+                                            transition={{ duration: 0.5 }}
+                                            onClick={() => setInvoiceHistoryOpen({ open: true, job })}
+                                            className='font-figtree px-4 py-1.5 rounded-[10px] text-background primary-border-hover bg-primary-light flex justify-center font-semibold cursor-pointer w-full'
+                                        >
+                                            Adjust & Resend
+                                        </motion.button>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div> */}
+
+                            <button
+                                onClick={() => setInvoiceHistoryOpen({ open: true, job })}
+                                className='font-figtree px-4 py-1.5 rounded-[10px] text-primary primary-border-hover bg-background flex justify-center font-semibold cursor-pointer w-full'
+                            >
+                                View Invoice
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: () => void; setSettingsOpen: (page: Tab) => void }) => {
     const [view, setView] = useState<'venmo' | 'zelle'>(user.venmo && user.venmo.length > 0 && user.venmoEnabled ? 'venmo' : user.zelle !== 'disabled' ? 'zelle' : 'venmo');
 
@@ -1094,141 +1400,6 @@ const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: (
                     )}
                 </AnimatePresence>
             </div>
-        </div>
-    );
-};
-
-const InvoiceCard = ({ job, isHistory = false, onRefresh }: { job: any; isHistory?: boolean; onRefresh: () => void }) => {
-    const [assignmentsByClient, setAssignmentsByClient] = useState(
-        job.assignments.reduce((acc: any, a: any) => {
-            const clientId = a.horse.clientId || 'barn';
-            const clientName = a.horse.client?.name || 'Barn / No Client';
-
-            if (!acc[clientId]) {
-                acc[clientId] = {
-                    id: clientId,
-                    name: clientName,
-                    assignments: [],
-                    isPaid: true,
-                };
-            }
-            acc[clientId].assignments.push(a);
-            if (!a.paidAt) acc[clientId].isPaid = false;
-            return acc;
-        }, {}),
-    );
-
-    const [expanded, setExpanded] = useState(!isHistory);
-    const [loadingClient, setLoadingClient] = useState<string | null>(null);
-
-    const handleClientToggle = async (clientId: string, currentStatus: boolean, realClientId: string | null) => {
-        setLoadingClient(clientId);
-        const res = await markClientPaid(job.id, realClientId === 'barn' ? null : realClientId, !currentStatus);
-
-        if (res.success) {
-            setAssignmentsByClient({ ...assignmentsByClient, [clientId]: { ...assignmentsByClient[clientId], isPaid: !currentStatus } });
-            onRefresh();
-        } else {
-            failToast('Error updating payment status');
-        }
-
-        setLoadingClient(null);
-    };
-
-    const totalRevenue = job.assignments.reduce((acc: number, a: any) => {
-        const servicesTotal = a.services
-            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
-            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
-        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
-        return acc + servicesTotal + customTotal;
-    }, 0);
-
-    return (
-        <div className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all', isHistory ? 'opacity-70 hover:opacity-100' : '')}>
-            <div className='p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 bg-gray-50/50' onClick={() => setExpanded(!expanded)}>
-                <div className='flex items-center gap-4'>
-                    <div
-                        className={cn(
-                            'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
-                            isHistory ? 'bg-gray-100 text-gray-400' : 'bg-primary-extra-light border border-[#dae3de] text-primary-light',
-                        )}
-                    >
-                        {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                        }).format(totalRevenue)}
-                    </div>
-                    <div>
-                        <h3 className='font-bold text-gray-900'>{job.show.name}</h3>
-                        <p className='text-xs text-gray-500'>
-                            {format(new Date(job.invoiceSentAt), 'MMM d, yyyy')} • {job.assignments.length} Horses
-                        </p>
-                    </div>
-                </div>
-                <motion.div
-                    className='text-gray-400 mr-2 bg-gray-100 p-1 rounded-full'
-                    initial={{ rotate: 0 }}
-                    animate={{ rotate: expanded ? 180 : 0 }}
-                    transition={{ type: 'spring', stiffness: 150 }}
-                >
-                    <ChevronUp />
-                </motion.div>
-            </div>
-
-            <AnimatePresence>
-                {expanded && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ ease: 'easeOut', duration: 0.3 }}
-                        className='border-t border-gray-100'
-                    >
-                        <div className='p-4 space-y-3'>
-                            <p className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>Client Payments</p>
-
-                            {Object.values(assignmentsByClient)
-                                .sort((aGroup: any, bGroup: any) => aGroup.name.localeCompare(bGroup.name))
-                                .map((group: any) => {
-                                    const groupTotal = group.assignments.reduce((acc: number, a: any) => {
-                                        const servicesTotal = a.services
-                                            .filter((s: any) => !a.canceledServiceIds.includes(s.id) && (a.status === 'completed' || a.status === 'accepted') && !a.canceledAt)
-                                            .reduce((acc: number, s: any) => acc + s.priceUSD, 0);
-                                        const customTotal = a.customCharges.reduce((acc: number, c: any) => acc + c.amount, 0);
-                                        return acc + servicesTotal + customTotal;
-                                    }, 0);
-
-                                    if (groupTotal === 0) return null;
-
-                                    return (
-                                        <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100'>
-                                            <div className='flex items-center gap-3'>
-                                                <button
-                                                    type='button'
-                                                    disabled={loadingClient === group.id}
-                                                    onClick={() => handleClientToggle(group.id, group.isPaid, group.id === 'barn' ? null : group.id)}
-                                                    className={cn(
-                                                        'min-w-5 h-5 rounded border flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer hover:border-primary disabled:cursor-not-allowed',
-                                                        group.isPaid ? 'bg-primary border-primary text-white' : 'bg-white border-gray-300 text-white',
-                                                        loadingClient === group.id && !group.isPaid ? 'text-primary' : '',
-                                                    )}
-                                                >
-                                                    {loadingClient === group.id ? (
-                                                        <RefreshCcw className='w-3 h-3 animate-spin text-primary' />
-                                                    ) : (
-                                                        <CheckSquare size={14} strokeWidth={3} className='text-white' />
-                                                    )}
-                                                </button>
-                                                <p className='font-bold text-sm text-gray-900'>{group.name}</p>
-                                            </div>
-                                            <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
-                                        </div>
-                                    );
-                                })}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };

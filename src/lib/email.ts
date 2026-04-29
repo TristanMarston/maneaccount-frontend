@@ -21,13 +21,15 @@ const ses = new SESClient({
 
 export async function sendVerificationCode({ to, code }: { to: string; code: string }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountCodeEmail({ code }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: 'Verify your email' },
                 Body: {
@@ -46,13 +48,15 @@ export async function sendVerificationCode({ to, code }: { to: string; code: str
 
 export async function sendConnectionRequestEmail({ to, message, image }: { to: string; message: string; image?: string | null }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountConnectionRequestEmail({ message, image }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: 'Connection request' },
                 Body: {
@@ -85,13 +89,15 @@ export async function sendStatusChangeEmail({
     date?: string;
 }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountRequestResponseEmail({ message, connection, image, link, date }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: connection ? 'Connection Response' : 'Job Response' },
                 Body: { Html: { Data: html } },
@@ -166,7 +172,7 @@ export async function sendCalendarInviteEmail({
             const boundary = `__ManeAccount_Boundary_${Date.now()}__`;
             const rawMessage = [
                 `From: ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-                `To: ${to}, tristan@ericmarston.com`,
+                `To: ${to}${to.includes('braidsome') ? ', tristan@ericmarston.com' : ''}`,
                 `Subject: Invitation: ${eventName}`,
                 'MIME-Version: 1.0',
                 `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -193,9 +199,12 @@ export async function sendCalendarInviteEmail({
 
             await ses.send(command);
         } else {
+            const send = [to];
+            if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
+
             const command = new SendEmailCommand({
                 Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-                Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+                Destination: { ToAddresses: send },
                 Message: {
                     Subject: { Data: `Invitation: ${eventName}` },
                     Body: { Html: { Data: html } },
@@ -234,13 +243,15 @@ export async function sendJobRequestEmail({
     earnings: number;
 }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountJobRequestEmail({ showName, barnName, braiderName, horseCount, serviceCount, assignedHorses, isSubcontractor, earnings }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: isSubcontractor ? `New Assignment: ${showName}` : `New Job Request: ${showName}` },
                 Body: { Html: { Data: html } },
@@ -305,6 +316,8 @@ export async function sendJobCompletedEmail({
     horseExpenses?: Record<string, number>;
 }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(
@@ -313,7 +326,7 @@ export async function sendJobCompletedEmail({
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: `${isClient ? 'BRAIDING PAYMENT REQUIRED - ' : ''}Services Completed: ${showName}` },
                 Body: { Html: { Data: html } },
@@ -344,13 +357,15 @@ export async function sendJobPaidEmail({
     image?: string;
 }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountJobPaidEmail({ barnName, amount, showName, paymentMethod, image }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: `Payment Received: ${showName}` },
                 Body: { Html: { Data: html } },
@@ -379,13 +394,15 @@ export async function sendNewMessageEmail({
     showName: string;
 }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountNewMessageEmail({ senderName, message, senderImage, showName }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: `New Message from ${senderName}` },
                 Body: { Html: { Data: html } },
@@ -416,13 +433,15 @@ export async function sendLimitEmail({
     barnName?: string | null;
 }) {
     if (!to) return { error: 'No email provided' };
+    const send = [to];
+    if (to.includes('braidsome')) send.push('tristan@ericmarston.com');
 
     try {
         const html = await render(ManeAccountLimitEmail({ count, limit, period, type, barnName }));
 
         const command = new SendEmailCommand({
             Source: `ManeAccount <${process.env.SES_FROM_EMAIL}>`,
-            Destination: { ToAddresses: ['tristan@ericmarston.com', to] },
+            Destination: { ToAddresses: send },
             Message: {
                 Subject: { Data: type === 'approaching' ? 'Approaching Horse Limit' : 'Horse Limit Exceeded' },
                 Body: { Html: { Data: html } },

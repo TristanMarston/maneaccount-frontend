@@ -836,8 +836,23 @@ const Calendar = ({ role, userId, setSelectedPage }: { role: string; userId: str
                 {selectedHorse && <HorseDetailView horse={selectedHorse} onClose={() => setSelectedHorse(null)} />}
             </Modal>
 
-            <Modal isOpen={addNoteModal} setIsOpen={() => setAddNoteModal(false)} className='max-w-2xl p-6 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>
-                <AddNoteModal onClose={() => setAddNoteModal(false)} initialData={null} refresh={refreshNotes} preSelectedNoteDate={preSelectedNoteDate} />
+            <Modal
+                isOpen={addNoteModal}
+                setIsOpen={() => {
+                    setAddNoteModal(false);
+                    setPreSelectedNoteDate(null);
+                }}
+                className='max-w-2xl p-6 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'
+            >
+                <AddNoteModal
+                    onClose={() => {
+                        setAddNoteModal(false);
+                        setPreSelectedNoteDate(null);
+                    }}
+                    initialData={null}
+                    refresh={refreshNotes}
+                    preSelectedNoteDate={preSelectedNoteDate}
+                />
             </Modal>
 
             <Modal isOpen={!!editingNote} setIsOpen={() => setEditingNote(null)} className='max-w-2xl p-6 rounded-[18px] primary-border-bold relative overflow-hidden bg-white'>

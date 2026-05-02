@@ -412,7 +412,11 @@ export async function markJobCompleted(jobId: string, sendInvoiceTo: 'client' | 
     if (!session?.user?.email) return { error: 'Unauthorized' };
 
     try {
-        const data: any = { status: 'completed', invoiceSentAt: new Date() };
+        const data: any = {
+            status: 'completed',
+            invoiceSentAt: new Date(),
+            sentTo: sendInvoiceTo === 'client' ? ['client'] : sendInvoiceTo === 'barn' ? ['barn'] : sendInvoiceTo === 'both' ? ['barn', 'client'] : ['barn', 'client'],
+        };
         if (thanksMessage) data.thanksMessage = thanksMessage;
 
         const job = await prisma.job.update({
@@ -429,6 +433,100 @@ export async function markJobCompleted(jobId: string, sendInvoiceTo: 'client' | 
             job.braiderId,
             job.braider.image,
             sendInvoiceTo,
+        );
+
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        console.error('Mark completed error:', error);
+        return { error: 'Failed to mark job as completed' };
+    }
+}
+
+export async function resendInvoice(resendOptions: {
+    jobId: string;
+    sendInvoiceTo: 'client' | 'barn' | 'both';
+    thanksMessage: string;
+    newCharges: {
+        id: string;
+        assignmentId: string;
+        name: string;
+        amount: number;
+        horseName: string;
+    }[];
+    removedCharges: {
+        id: string;
+        amount: number;
+    }[];
+    removedServices: {
+        serviceId: string;
+        day: Date;
+        amount: number;
+        horseName: string;
+    }[];
+}) {
+    const session = await auth();
+    if (!session?.user?.id) return { error: 'Unauthorized' };
+
+    const { jobId, sendInvoiceTo, thanksMessage, newCharges, removedCharges, removedServices } = resendOptions;
+
+    console.log(resendOptions);
+
+    try {
+        const oldJob = await prisma.job.findUnique({ where: { id: jobId }, include: { assignments: { include: { horse: true } } } });
+        if (!oldJob) return { error: 'No job found with that ID' };
+
+        const data: any = {
+            status: 'completed',
+            invoiceSentAt: new Date(),
+            sentTo: sendInvoiceTo === 'client' ? ['client'] : sendInvoiceTo === 'barn' ? ['barn'] : sendInvoiceTo === 'both' ? ['barn', 'client'] : ['barn', 'client'],
+            thanksMessage,
+        };
+
+        if (newCharges.length > 0) {
+            const newChargeData: any[] = newCharges.map((charge) => ({ assignmentId: charge.assignmentId, name: charge.name, amount: charge.amount }));
+
+            await prisma.customCharge.createMany({
+                data: newChargeData,
+            });
+        }
+
+        if (removedCharges.length > 0) {
+            await prisma.customCharge.deleteMany({ where: { id: { in: removedCharges.map((charge) => charge.id) } } });
+        }
+
+        if (removedServices.length > 0) {
+            const removeServicesData: { serviceId: string; assignmentId: string }[] = [];
+            removedServices.forEach((service) => {
+                const showName = service.horseName.split('/////')[0];
+                const barnName = service.horseName.split('/////')[1].replace('(', '').replace(')', '');
+                const assignmentId = oldJob.assignments.find(
+                    (a) => a.horse.showName === showName && a.horse.barnName === barnName && a.assignmentDate.getTime() === service.day.getTime(),
+                )?.id;
+
+                if (assignmentId) removeServicesData.push({ serviceId: service.serviceId, assignmentId });
+            });
+
+            await prisma.$transaction(
+                removeServicesData.map((data) => prisma.jobAssignment.update({ where: { id: data.assignmentId }, data: { canceledServiceIds: { push: data.serviceId } } })),
+            );
+        }
+
+        const job = await prisma.job.update({
+            where: { id: jobId },
+            data,
+            include: { braider: true },
+        });
+
+        await createNotification(
+            job.barnId,
+            NotificationType.job_completed,
+            `Invoice updated by ${job.braider.name}. ${sendInvoiceTo === 'client' ? 'Client(s) have received the invoice, but the barn did not.' : sendInvoiceTo === 'barn' ? 'The barn has received the invoice, but the client(s) did not.' : sendInvoiceTo === 'both' ? 'The barn and client(s) have received the invoice' : ''}`,
+            job.id,
+            job.braiderId,
+            job.braider.image,
+            sendInvoiceTo,
+            true,
         );
 
         revalidatePath('/dashboard');

@@ -43,6 +43,13 @@ export const successToast = (message: string, id?: string) => {
     });
 };
 
+export const generateId = (length: number) => {
+    const availableCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789';
+    let id = '';
+    for (let i = 0; i < length; i++) id += availableCharacters[Math.floor(Math.random() * availableCharacters.length)];
+    return id;
+};
+
 export const usaStates = [
     'Alabama',
     'Alaska',

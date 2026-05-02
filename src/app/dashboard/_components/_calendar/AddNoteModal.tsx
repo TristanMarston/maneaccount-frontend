@@ -119,8 +119,8 @@ const AddNoteModal = ({
                 <DatePicker
                     onDateSelect={(selectedDate: Date) => setNoteData((prev) => ({ ...prev, date: selectedDate }))}
                     selectedDate={noteData.date}
-                    noDateBefore={null}
-                    today={subDays(new Date(), 1)}
+                    noDateBefore={initialData?.date ? subDays(new Date(), 1) : null}
+                    today={initialData?.date ? initialData.date : preSelectedNoteDate ? preSelectedNoteDate : new Date(new Date().setHours(0, 0, 0, 0))}
                     startDateEffect={false}
                     constantRows
                     className='shadow-sm'

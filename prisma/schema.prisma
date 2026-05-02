@@ -303,6 +303,11 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+enum InvoiceSentToOption {
+  client
+  barn
+}
+
 model Job {
   id        String @id @default(cuid())
   barnId    String
@@ -319,6 +324,8 @@ model Job {
 
   assignments JobAssignment[]
   notes       Note[]
+
+  sentTo InvoiceSentToOption[]
 
   barn           User   @relation("BarnJobs", fields: [barnId], references: [id], onDelete: Cascade)
   braider        User   @relation("BraiderJobs", fields: [braiderId], references: [id], onDelete: Cascade)

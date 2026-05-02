@@ -179,6 +179,7 @@ export async function createNotification(
     senderId?: string | null,
     image?: string | null,
     sendInvoiceTo?: 'client' | 'barn' | 'both' | null,
+    resendInvoice?: boolean,
 ) {
     try {
         await prisma.notification.create({
@@ -385,12 +386,14 @@ export async function createNotification(
                             if (!horseDetails[nameKey]) horseDetails[nameKey] = {};
 
                             for (const service of horse.services) {
-                                const serviceName = service.name;
-                                if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
-
-                                horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
-                                horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
-                                horseDetails[nameKey][serviceName].price += service.priceUSD;
+                                if (!horse.canceledServiceIds.includes(service.id)) {
+                                    const serviceName = service.name;
+                                    if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
+    
+                                    horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+                                    horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+                                    horseDetails[nameKey][serviceName].price += service.priceUSD;
+                                }
                             }
                         }
 
@@ -407,6 +410,7 @@ export async function createNotification(
                                 serviceDetails: [mainServiceDetails],
                                 horseDetails,
                                 horseExpenses,
+                                resend: resendInvoice === true,
                             });
                         }
 
@@ -444,12 +448,14 @@ export async function createNotification(
                                         if (!clientHorseDetails[nameKey]) clientHorseDetails[nameKey] = {};
 
                                         for (const service of horse.services) {
-                                            const serviceName = service.name;
-                                            if (!clientHorseDetails[nameKey][serviceName]) clientHorseDetails[nameKey][serviceName] = { days: [], price: 0 };
-
-                                            clientHorseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
-                                            clientHorseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
-                                            clientHorseDetails[nameKey][serviceName].price += service.priceUSD;
+                                            if (!horse.canceledServiceIds.includes(service.id)) {
+                                                const serviceName = service.name;
+                                                if (!clientHorseDetails[nameKey][serviceName]) clientHorseDetails[nameKey][serviceName] = { days: [], price: 0 };
+    
+                                                clientHorseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
+                                                clientHorseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
+                                                clientHorseDetails[nameKey][serviceName].price += service.priceUSD;
+                                            }
                                         }
                                     }
 
@@ -466,6 +472,7 @@ export async function createNotification(
                                             serviceDetails: [clientServiceDetails],
                                             horseDetails: clientHorseDetails,
                                             horseExpenses: clientHorseExpenses,
+                                            resend: resendInvoice === true,
                                         });
                                     }
                                     notifiedClientIds.add(client.id);

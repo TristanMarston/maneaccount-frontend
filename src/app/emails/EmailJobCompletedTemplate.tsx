@@ -38,6 +38,7 @@ interface ManeAccountEmailProps {
         >
     >;
     horseExpenses?: Record<string, number>;
+    resend?: boolean;
 }
 
 const formatPhoneNumber = (value: string) => {
@@ -62,6 +63,7 @@ export const ManeAccountJobCompletedEmail = ({
     horseDetails,
     horseExpenses,
     thanksMessage,
+    resend,
 }: ManeAccountEmailProps) => {
     return (
         <Html>
@@ -84,7 +86,17 @@ export const ManeAccountJobCompletedEmail = ({
                             </Text>
                             <Text style={{ ...bold, display: 'inline' }}>{showName}.</Text>
                         </Text>
-
+                        {resend === true && (
+                            <>
+                                <br />
+                                <Text style={{ ...normal, fontSize: '16px' }}>
+                                    This is an updated invoice. You should have received an invoice previously with subject line: &quot;{isClient ? 'BRAIDING PAYMENT REQUIRED - ' : ''}
+                                    Services Completed: {showName}&quot; &ndash; please ignore the previous email and view the updated invoice below.
+                                </Text>
+                                <br />
+                                <br />
+                            </>
+                        )}
                         {thanksMessage && thanksMessage.length > 0 && (
                             <>
                                 <Text style={{ ...normal, fontSize: '16px', textAlign: 'left' as const }}>From {braiderName}:</Text>

@@ -278,6 +278,7 @@ export async function sendJobCompletedEmail({
     serviceDetails,
     horseExpenses,
     horseDetails,
+    resend,
 }: {
     to: string;
     braiderName: string;
@@ -314,6 +315,7 @@ export async function sendJobCompletedEmail({
         >
     >;
     horseExpenses?: Record<string, number>;
+    resend?: boolean;
 }) {
     if (!to) return { error: 'No email provided' };
     const send = [to];
@@ -321,7 +323,7 @@ export async function sendJobCompletedEmail({
 
     try {
         const html = await render(
-            ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, horseDetails, horseExpenses, thanksMessage }),
+            ManeAccountJobCompletedEmail({ braiderName, showName, horseName, isClient, image, paymentInformation, serviceDetails, horseDetails, horseExpenses, thanksMessage, resend }),
         );
 
         const command = new SendEmailCommand({

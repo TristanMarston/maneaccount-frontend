@@ -492,6 +492,7 @@ const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; us
                     setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
                     onClose={() => setAdjustResend((prev) => ({ ...prev, open: false }))}
                     setConfirmCloseModal={setConfirmCloseModal}
+                    refresh={() => refreshJobsFn(true)}
                 />
             </Modal>
 

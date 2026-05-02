@@ -385,6 +385,7 @@ export const AdjustResendModal = ({
     setSettingsOpen,
     onClose,
     setConfirmCloseModal,
+    refresh,
 }: {
     job: any;
     setJob: (job: any) => void;
@@ -400,6 +401,7 @@ export const AdjustResendModal = ({
             callback?: () => void;
         }>
     >;
+    refresh: () => void;
 }) => {
     if (!job || !job.id) onClose();
     const [invoiceInfo, setInvoiceInfo] = useState(getInvoiceInfo(job.assignments));
@@ -435,8 +437,6 @@ export const AdjustResendModal = ({
             if (user && ((user.venmo && user.venmoEnabled) || user.zelle !== 'disabled')) setHasPayoutInfo(true);
             if (user && user.thanksMessage) defaultThanksMessage.current = user.thanksMessage;
 
-            console.log(invoiceInfo);
-
             setLoadingDetails(false);
             setLoadingThanksMessage(false);
         };
@@ -459,16 +459,12 @@ export const AdjustResendModal = ({
     };
 
     const handleResend = async () => {
-        console.log(thanksMessage);
-        console.log(removedCharges);
-        console.log(charges);
-        console.log(sendInvoiceTo);
-        console.log(removedServices);
         setLoadingResend(true);
 
         const res = await resendInvoice({ jobId: job.id, sendInvoiceTo, thanksMessage, newCharges: charges, removedCharges, removedServices });
 
         if (res.success) {
+            refresh();
             successToast('Successfully resent invoice');
             onClose();
         } else {
@@ -485,8 +481,6 @@ export const AdjustResendModal = ({
             Object.keys(invoiceInfo.horseAssignmentIds).forEach((key) => {
                 if (invoiceInfo.horseAssignmentIds[key] === id) horseName = key;
             });
-
-            console.log(horseName, id);
 
             if (horseName.length > 0) setCharges((prev) => [...prev, { id: generateId(14), assignmentId: id, name, amount, horseName }]);
         }

@@ -470,8 +470,6 @@ export async function resendInvoice(resendOptions: {
 
     const { jobId, sendInvoiceTo, thanksMessage, newCharges, removedCharges, removedServices } = resendOptions;
 
-    console.log(resendOptions);
-
     try {
         const oldJob = await prisma.job.findUnique({ where: { id: jobId }, include: { assignments: { include: { horse: true } } } });
         if (!oldJob) return { error: 'No job found with that ID' };

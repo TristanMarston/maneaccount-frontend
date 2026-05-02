@@ -740,7 +740,7 @@ const InvoiceCard = ({
                             >
                                 <button
                                     onClick={() => setInvoiceHistoryOpen({ open: true, job })}
-                                    className='font-figtree px-4 py-1.5 rounded-[10px] text-primary primary-border-hover bg-background flex justify-center font-semibold cursor-pointer w-full'
+                                    className='font-figtree col-span-2 @min-[400px]/invoices:col-span-1 px-4 py-1.5 rounded-[10px] text-primary primary-border-hover bg-background flex justify-center font-semibold cursor-pointer w-full'
                                 >
                                     View Invoice
                                 </button>
@@ -752,7 +752,7 @@ const InvoiceCard = ({
                                             exit={{ opacity: 0, scale: 0 }}
                                             transition={{ duration: 0.5 }}
                                             onClick={() => setAdjustResend({ open: true, job })}
-                                            className='font-figtree px-4 py-1.5 rounded-[10px] text-background primary-border-hover bg-primary-light flex justify-center font-semibold cursor-pointer w-full'
+                                            className='font-figtree px-4 col-span-2 @min-[400px]/invoices:col-span-1 py-1.5 rounded-[10px] text-background primary-border-hover bg-primary-light flex justify-center font-semibold cursor-pointer w-full'
                                         >
                                             Adjust & Resend
                                         </motion.button>

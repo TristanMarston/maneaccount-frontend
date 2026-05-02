@@ -695,14 +695,14 @@ export const AdjustResendModal = ({
                                                                                     (s) => s.serviceId === serviceId && s.day.getTime() === day.getTime() && s.horseName === horseName,
                                                                                 );
                                                                                 return (
-                                                                                    <div key={k + day.getTime()} className={cn('flex items-center gap-1 mb-1')}>
-                                                                                        <div className={cn('transition-all', removed ? 'opacity-30' : '')}>
+                                                                                    <span key={k + day.getTime()} className={cn('gap-1 mb-1 inline-block')}>
+                                                                                        <span className={cn('transition-all', removed ? 'opacity-30' : '')}>
                                                                                             {k + 1}) {format(calendarDateToLocal(day), 'EEEE, MMM co')} (
                                                                                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
                                                                                                 price / days.length,
                                                                                             )}
                                                                                             )
-                                                                                        </div>
+                                                                                        </span>
 
                                                                                         {removed ? (
                                                                                             <ArchiveRestore
@@ -718,7 +718,7 @@ export const AdjustResendModal = ({
                                                                                                         ),
                                                                                                     )
                                                                                                 }
-                                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-primary'
+                                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-primary inline-block pl-1'
                                                                                                 strokeWidth={2.25}
                                                                                             />
                                                                                         ) : (
@@ -729,11 +729,11 @@ export const AdjustResendModal = ({
                                                                                                         { serviceId, day, amount: price / days.length, horseName },
                                                                                                     ])
                                                                                                 }
-                                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500'
+                                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500 inline-block pl-1'
                                                                                                 strokeWidth={2.25}
                                                                                             />
                                                                                         )}
-                                                                                    </div>
+                                                                                    </span>
                                                                                 );
                                                                             })}
                                                                         </li>

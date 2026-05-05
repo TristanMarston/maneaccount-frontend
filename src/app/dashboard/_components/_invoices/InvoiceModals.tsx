@@ -386,6 +386,7 @@ export const AdjustResendModal = ({
     onClose,
     setConfirmCloseModal,
     refresh,
+    resendToClientId,
 }: {
     job: any;
     setJob: (job: any) => void;
@@ -402,6 +403,7 @@ export const AdjustResendModal = ({
         }>
     >;
     refresh: () => void;
+    resendToClientId: string | null;
 }) => {
     if (!job || !job.id) onClose();
     const [invoiceInfo, setInvoiceInfo] = useState(getInvoiceInfo(job.assignments));
@@ -414,9 +416,17 @@ export const AdjustResendModal = ({
     const [editView, setEditView] = useState(true);
 
     const [thanksMessage, setThanksMessage] = useState(job.thanksMessage && job.thanksMessage.length > 0 ? job.thanksMessage : '');
-    const [sendInvoiceTo, setSendInvoiceTo] = useState<'client' | 'barn' | 'both'>(sentTo);
+    const [sendInvoiceTo, setSendInvoiceTo] = useState<('client' | 'barn' | string)[]>(
+        resendToClientId
+            ? [resendToClientId]
+            : sentTo === 'barn'
+              ? ['barn']
+              : sentTo === 'client'
+                ? invoiceInfo.horseOwners.filter((owner) => !owner.paid).map((owner) => owner.id)
+                : ['barn', ...invoiceInfo.horseOwners.filter((owner) => !owner.paid).map((owner) => owner.id)],
+    );
     const [charges, setCharges] = useState<{ id: string; assignmentId: string; name: string; amount: number; horseName: string }[]>([]);
-    const [removedCharges, setRemovedCharges] = useState<{ id: string; amount: number }[]>([]);
+    const [removedCharges, setRemovedCharges] = useState<{ id: string; amount: number; horseName: string }[]>([]);
     const [removedServices, setRemovedServices] = useState<{ serviceId: string; day: Date; amount: number; horseName: string }[]>([]);
 
     const [loadingResend, setLoadingResend] = useState(false);
@@ -461,7 +471,14 @@ export const AdjustResendModal = ({
     const handleResend = async () => {
         setLoadingResend(true);
 
-        const res = await resendInvoice({ jobId: job.id, sendInvoiceTo, thanksMessage, newCharges: charges, removedCharges, removedServices });
+        const res = await resendInvoice({
+            jobId: job.id,
+            sendInvoiceTo,
+            thanksMessage,
+            newCharges: charges,
+            removedCharges: removedCharges.map((charge) => ({ id: charge.id, amount: charge.amount })),
+            removedServices,
+        });
 
         if (res.success) {
             refresh();
@@ -498,12 +515,12 @@ export const AdjustResendModal = ({
             <div className='text-[15px] @min-[520px]/check-completed:text-[17px] text-gray-800 font-figtree mt-2'>
                 <p className='font-semibold'>
                     This action will resend an invoice
-                    {sendInvoiceTo === 'both'
-                        ? ' to the barn and related horse owners'
-                        : sendInvoiceTo === 'barn'
+                    {sendInvoiceTo.includes('barn') && sendInvoiceTo.length > 1
+                        ? ' to the barn and selected horse owner(s)'
+                        : sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
                           ? ' to the barn'
-                          : sendInvoiceTo === 'client'
-                            ? ' to the related horse owners'
+                          : !sendInvoiceTo.includes('barn') && sendInvoiceTo.length > 0
+                            ? ' to the selected horse owner(s)'
                             : ''}
                     .
                 </p>
@@ -515,54 +532,35 @@ export const AdjustResendModal = ({
                 <span className='flex items-start gap-2 mt-4 mb-2'>
                     <button
                         type='button'
-                        onClick={() => setSendInvoiceTo((prev) => (prev === 'both' ? 'client' : prev === 'client' ? 'both' : prev === 'barn' ? 'barn' : 'barn'))}
-                        disabled={sendInvoiceTo === 'barn'}
+                        onClick={() => setSendInvoiceTo((prev) => (prev.includes('barn') ? [...prev].filter((to) => to !== 'barn') : [...prev, 'barn']))}
+                        disabled={sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1}
                         className={cn(
                             'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
-                            sendInvoiceTo === 'barn' || sendInvoiceTo === 'both' ? 'bg-primary border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
+                            sendInvoiceTo.includes('barn') ? 'bg-primary border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
                         )}
                     >
                         <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
                     </button>
-                    <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'barn' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
+                    <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo.includes('barn') ? 'text-primary' : 'text-gray-600')}>
                         Send invoice to the barn {invoiceInfo.barnOwnerName && invoiceInfo.barnOwnerName.trim().length > 0 ? ` (${invoiceInfo.barnOwnerName})` : ''}
                     </span>
                 </span>
-                <span className='flex items-start gap-2 mt-2 mb-4'>
-                    <button
-                        type='button'
-                        onClick={() => setSendInvoiceTo((prev) => (prev === 'both' ? 'barn' : prev === 'barn' ? 'both' : prev === 'client' ? 'client' : 'client'))}
-                        disabled={sendInvoiceTo === 'client'}
-                        className={cn(
-                            'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
-                            sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'bg-primary border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
-                        )}
-                    >
-                        <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
-                    </button>
-                    <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo === 'client' || sendInvoiceTo === 'both' ? 'text-primary' : 'text-gray-600')}>
-                        Send the invoice to horse owners{' '}
-                        {invoiceInfo.horseOwnerNames.length > 0 ? (
-                            <>
-                                <span>(</span>
-                                {invoiceInfo.horseOwnerNames.map((name, index) => (
-                                    <span key={name + index}>
-                                        {index === invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length !== 1 ? 'and ' : ''}
-                                        {name}
-                                        {index !== invoiceInfo.horseOwnerNames.length - 1 && invoiceInfo.horseOwnerNames.length > 2
-                                            ? ', '
-                                            : index !== invoiceInfo.horseOwnerNames.length - 1
-                                              ? ' '
-                                              : ''}
-                                    </span>
-                                ))}
-                                <span>)</span>
-                            </>
-                        ) : (
-                            ''
-                        )}
+                {invoiceInfo.horseOwners.map(({ id, name, paid }, index) => (
+                    <span key={id + name + index} className={cn('flex items-start gap-2 mt-2 mb-2', paid ? 'opacity-30 cursor-not-allowed' : '')}>
+                        <button
+                            type='button'
+                            onClick={() => setSendInvoiceTo((prev) => (prev.includes(id) ? [...prev].filter((to) => to !== id) : [...prev, id]))}
+                            disabled={(sendInvoiceTo.includes(id) && sendInvoiceTo.length === 1) || paid}
+                            className={cn(
+                                'p-px cursor-pointer border rounded-md transition-all outline-none shadow-sm disabled:cursor-not-allowed disabled:opacity-80',
+                                sendInvoiceTo.includes(id) ? 'bg-primary border-primary' : 'bg-background hover:bg-gray-50 border-gray-400',
+                            )}
+                        >
+                            <Check className={cn('transition-all w-4 h-4 text-background')} strokeWidth={2.5} />
+                        </button>
+                        <span className={cn('text-sm -mt-px transition-all font-medium', sendInvoiceTo.includes(id) ? 'text-primary' : 'text-gray-600')}>Send invoice to {name}.</span>
                     </span>
-                </span>
+                ))}
                 {/* <AnimatePresence>
                     {originalSendInvoiceTo.current && originalSendInvoiceTo.current !== sendInvoiceTo && (
                         <motion.div
@@ -602,10 +600,43 @@ export const AdjustResendModal = ({
                                 style: 'currency',
                                 currency: 'USD',
                             }).format(
-                                invoiceInfo.earnings +
-                                    charges.reduce((acc, charge) => acc + charge.amount, 0) -
-                                    removedCharges.reduce((acc, charge) => acc + charge.amount, 0) -
-                                    removedServices.reduce((acc, s) => acc + s.amount, 0),
+                                sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
+                                    ? invoiceInfo.earnings +
+                                          charges.reduce((acc, charge) => acc + charge.amount, 0) -
+                                          removedCharges.reduce((acc, charge) => acc + charge.amount, 0) -
+                                          removedServices.reduce((acc, s) => acc + s.amount, 0)
+                                    : sendInvoiceTo
+                                          .filter((to) => to !== 'barn')
+                                          .reduce(
+                                              (acc, ownerId) =>
+                                                  acc +
+                                                  invoiceInfo.overviewInfoByClient.find((info) => info.ownerId === ownerId)?.earnings +
+                                                  charges.reduce(
+                                                      (acc, charge) =>
+                                                          acc +
+                                                          (invoiceInfo.horseOwnersByHorseNames.some((info) => info.horseNames.includes(charge.horseName) && info.clientId === ownerId)
+                                                              ? charge.amount
+                                                              : 0),
+                                                      0,
+                                                  ) -
+                                                  removedCharges.reduce(
+                                                      (acc, charge) =>
+                                                          acc +
+                                                          (invoiceInfo.horseOwnersByHorseNames.some((info) => info.horseNames.includes(charge.horseName) && info.clientId === ownerId)
+                                                              ? charge.amount
+                                                              : 0),
+                                                      0,
+                                                  ) -
+                                                  removedServices.reduce(
+                                                      (acc, service) =>
+                                                          acc +
+                                                          (invoiceInfo.horseOwnersByHorseNames.some((info) => info.horseNames.includes(service.horseName) && info.clientId === ownerId)
+                                                              ? service.amount
+                                                              : 0),
+                                                      0,
+                                                  ),
+                                              0,
+                                          ),
                             )}
                         </div>
                         <div className='font-figtree font-normal text-sm'>
@@ -614,11 +645,35 @@ export const AdjustResendModal = ({
                                 {format(exactTime, 'Pp')}
                             </div>
                             <span>
-                                {invoiceInfo.horses} Horse{invoiceInfo.horses === 1 ? '' : 's'}
+                                {sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
+                                    ? invoiceInfo.horses
+                                    : sendInvoiceTo
+                                          .filter((to) => to !== 'barn')
+                                          .reduce((acc, ownerId) => acc + (invoiceInfo.overviewInfoByClient.find((info) => info.ownerId === ownerId)?.horses || 0), 0)}{' '}
+                                Horse
+                                {(sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
+                                    ? invoiceInfo.horses
+                                    : sendInvoiceTo
+                                          .filter((to) => to !== 'barn')
+                                          .reduce((acc, ownerId) => acc + (invoiceInfo.overviewInfoByClient.find((info) => info.ownerId === ownerId)?.horses || 0), 0)) === 1
+                                    ? ''
+                                    : 's'}
                             </span>{' '}
                             •{' '}
                             <span>
-                                {invoiceInfo.services} Service{invoiceInfo.services === 1 ? '' : 's'}
+                                {sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
+                                    ? invoiceInfo.services
+                                    : sendInvoiceTo
+                                          .filter((to) => to !== 'barn')
+                                          .reduce((acc, ownerId) => acc + (invoiceInfo.overviewInfoByClient.find((info) => info.ownerId === ownerId)?.services || 0), 0)}{' '}
+                                Service
+                                {(sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
+                                    ? invoiceInfo.services
+                                    : sendInvoiceTo
+                                          .filter((to) => to !== 'barn')
+                                          .reduce((acc, ownerId) => acc + (invoiceInfo.overviewInfoByClient.find((info) => info.ownerId === ownerId)?.services || 0), 0)) === 1
+                                    ? ''
+                                    : 's'}
                             </span>
                         </div>
                     </div>
@@ -630,191 +685,236 @@ export const AdjustResendModal = ({
                             <div className='mx-1 @min-[290px]/check-completed:mx-3 mt-2 space-y-2'>
                                 {Object.entries(invoiceInfo.horseDetails)
                                     .sort(([aName], [bName]) => aName.split('/////')[0].localeCompare(bName.split('/////')[0]))
-                                    .map(([horseName, serviceDetails], i) => (
-                                        <div key={horseName + i} className='p-1.5 rounded-xl border border-violet-200'>
-                                            <span className='font-figtree ml-1 my-3 text-violet-400 font-bold text-[15px]'>
-                                                {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
-                                            </span>
-                                            <div>
-                                                <div className='ml-2'>
-                                                    <ul className='mt-1'>
-                                                        {Object.entries(serviceDetails).map(([service, { days, price, serviceId }], j) => {
-                                                            const updatedPrice =
-                                                                price -
-                                                                days.reduce(
-                                                                    (acc, day) =>
-                                                                        acc +
-                                                                        removedServices.filter(
-                                                                            (s) => s.serviceId === serviceId && s.day.getTime() === day.getTime() && s.horseName === horseName,
-                                                                        ).length *
-                                                                            (removedServices.find((s) => s.serviceId === serviceId)?.amount || 0),
-                                                                    0,
-                                                                );
+                                    .map(([horseName, serviceDetails], i) => {
+                                        const owner = invoiceInfo.horseOwnersByHorseNames.find((owner) => owner.horseNames.includes(horseName));
+                                        const ownerName = owner?.clientName;
+                                        const ownerId = owner?.clientId;
 
-                                                            return (
-                                                                <Fragment key={j + service + price}>
-                                                                    <li
-                                                                        className={cn(
-                                                                            'mb-0.5 font-normal text-violet-950 text-sm flex items-start gap-1.5',
-                                                                            updatedPrice === 0 ? 'opacity-30' : '',
-                                                                        )}
-                                                                    >
-                                                                        <CheckCircle className='min-w-3.5 h-3.5 w-fit flex mt-1' strokeWidth={2.25} />
-                                                                        <span>
-                                                                            <span className='font-bold'>
-                                                                                {service}
-                                                                                {!editView && ' - '}
-                                                                            </span>
-                                                                            {!editView &&
-                                                                                days.map((day, k) => (
-                                                                                    <span
-                                                                                        key={k + day.getTime()}
-                                                                                        className={
-                                                                                            removedServices.some(
-                                                                                                (s) =>
-                                                                                                    s.serviceId === serviceId &&
-                                                                                                    s.day.getTime() === day.getTime() &&
-                                                                                                    s.horseName === horseName,
-                                                                                            ) && updatedPrice !== 0
-                                                                                                ? 'opacity-30'
-                                                                                                : ''
-                                                                                        }
-                                                                                    >
-                                                                                        {format(calendarDateToLocal(day), 'EEEE')}
-                                                                                        {k === days.length - 1 ? '' : ', '}
-                                                                                    </span>
-                                                                                ))}{' '}
-                                                                            {!editView &&
-                                                                                `(${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(updatedPrice)})`}
-                                                                        </span>
-                                                                    </li>
-                                                                    {editView && (
-                                                                        <li className='pl-5 font-normal text-violet-950 text-sm'>
-                                                                            {days.map((day, k) => {
-                                                                                const removed = removedServices.some(
+                                        const ownerPaid = invoiceInfo.horseOwners.some((owner) => owner.id === ownerId && owner.paid);
+
+                                        return (
+                                            ownerId &&
+                                            !ownerPaid &&
+                                            (sendInvoiceTo.includes(ownerId) || (sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1)) && (
+                                                <div key={horseName + i} className='p-1.5 rounded-xl border border-violet-200'>
+                                                    <span className='font-figtree ml-1 my-3 text-violet-400 font-bold text-[15px]'>
+                                                        {horseName.split('/////')[0]}&nbsp;{horseName.split('/////')[1]}
+                                                    </span>
+                                                    <div>
+                                                        <div className='ml-2'>
+                                                            <ul className='mt-1'>
+                                                                {Object.entries(serviceDetails).map(([service, { days, price, serviceId }], j) => {
+                                                                    const updatedPrice =
+                                                                        price -
+                                                                        days.reduce(
+                                                                            (acc, day) =>
+                                                                                acc +
+                                                                                removedServices.filter(
                                                                                     (s) => s.serviceId === serviceId && s.day.getTime() === day.getTime() && s.horseName === horseName,
-                                                                                );
-                                                                                return (
-                                                                                    <span key={k + day.getTime()} className={cn('gap-1 mb-1 inline-block')}>
-                                                                                        <span className={cn('transition-all', removed ? 'opacity-30' : '')}>
-                                                                                            {k + 1}) {format(calendarDateToLocal(day), 'EEEE, MMM co')} (
-                                                                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                                                                                                price / days.length,
-                                                                                            )}
-                                                                                            )
-                                                                                        </span>
+                                                                                ).length *
+                                                                                    (removedServices.find((s) => s.serviceId === serviceId)?.amount || 0),
+                                                                            0,
+                                                                        );
 
-                                                                                        {removed ? (
-                                                                                            <ArchiveRestore
-                                                                                                onClick={() =>
-                                                                                                    setRemovedServices((prev) =>
-                                                                                                        prev.filter(
-                                                                                                            (s) =>
-                                                                                                                !(
-                                                                                                                    s.serviceId === serviceId &&
-                                                                                                                    s.day.getTime() === day.getTime() &&
-                                                                                                                    s.horseName === horseName
-                                                                                                                ),
-                                                                                                        ),
-                                                                                                    )
-                                                                                                }
-                                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-primary inline-block pl-1'
-                                                                                                strokeWidth={2.25}
-                                                                                            />
-                                                                                        ) : (
-                                                                                            <Trash2
-                                                                                                onClick={() =>
-                                                                                                    setRemovedServices((prev) => [
-                                                                                                        ...prev,
-                                                                                                        { serviceId, day, amount: price / days.length, horseName },
-                                                                                                    ])
-                                                                                                }
-                                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500 inline-block pl-1'
-                                                                                                strokeWidth={2.25}
-                                                                                            />
-                                                                                        )}
+                                                                    return (
+                                                                        <Fragment key={j + service + price}>
+                                                                            <li
+                                                                                className={cn(
+                                                                                    'mb-0.5 font-normal text-violet-950 text-sm flex items-start gap-1.5',
+                                                                                    updatedPrice === 0 ? 'opacity-30' : '',
+                                                                                )}
+                                                                            >
+                                                                                <CheckCircle className='min-w-3.5 h-3.5 w-fit flex mt-1' strokeWidth={2.25} />
+                                                                                <span>
+                                                                                    <span className='font-bold'>
+                                                                                        {service}
+                                                                                        {!editView && ' - '}
                                                                                     </span>
-                                                                                );
-                                                                            })}
-                                                                        </li>
-                                                                    )}
-                                                                </Fragment>
-                                                            );
-                                                        })}
-                                                        {invoiceInfo.horseExpenses !== undefined &&
-                                                            invoiceInfo.horseExpenses[horseName] !== undefined &&
-                                                            invoiceInfo.horseExpenses[horseName].length > 0 &&
-                                                            invoiceInfo.horseExpenses[horseName].map(
-                                                                (expense, i) =>
-                                                                    !removedCharges.some((charge) => charge.id === expense.id) && (
-                                                                        <li
-                                                                            key={i + expense.name + expense.amount}
-                                                                            className='mb-0.5 text-amber-600 font-bold text-sm flex items-center gap-1'
-                                                                        >
-                                                                            <MinusCircle className='min-w-3.5 h-3.5 w-fit' strokeWidth={2.25} />
-                                                                            <span>
-                                                                                {expense.name} -{' '}
-                                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(expense.amount)}
-                                                                            </span>
+                                                                                    {!editView &&
+                                                                                        days.map((day, k) => (
+                                                                                            <span
+                                                                                                key={k + day.getTime()}
+                                                                                                className={
+                                                                                                    removedServices.some(
+                                                                                                        (s) =>
+                                                                                                            s.serviceId === serviceId &&
+                                                                                                            s.day.getTime() === day.getTime() &&
+                                                                                                            s.horseName === horseName,
+                                                                                                    ) && updatedPrice !== 0
+                                                                                                        ? 'opacity-30'
+                                                                                                        : ''
+                                                                                                }
+                                                                                            >
+                                                                                                {format(calendarDateToLocal(day), 'EEEE')}
+                                                                                                {k === days.length - 1 ? '' : ', '}
+                                                                                            </span>
+                                                                                        ))}{' '}
+                                                                                    {!editView &&
+                                                                                        `(${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(updatedPrice)})`}
+                                                                                </span>
+                                                                            </li>
                                                                             {editView && (
-                                                                                <Trash2
-                                                                                    onClick={() => setRemovedCharges((prev) => [...prev, { id: expense.id, amount: expense.amount }])}
-                                                                                    className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500'
-                                                                                    strokeWidth={2.25}
-                                                                                />
+                                                                                <li className='pl-5 font-normal text-violet-950 text-sm flex flex-col'>
+                                                                                    {days.map((day, k) => {
+                                                                                        const removed = removedServices.some(
+                                                                                            (s) =>
+                                                                                                s.serviceId === serviceId &&
+                                                                                                s.day.getTime() === day.getTime() &&
+                                                                                                s.horseName === horseName,
+                                                                                        );
+                                                                                        return (
+                                                                                            <span key={k + day.getTime()} className={cn('gap-1 mb-1 inline-block')}>
+                                                                                                <span className={cn('transition-all', removed ? 'opacity-30' : '')}>
+                                                                                                    {k + 1}) {format(calendarDateToLocal(day), 'EEEE, MMM co')}{' '}
+                                                                                                </span>
+
+                                                                                                {removed ? (
+                                                                                                    <span className='whitespace-nowrap'>
+                                                                                                        <span className={removed ? 'opacity-30' : ''}>
+                                                                                                            (
+                                                                                                            {new Intl.NumberFormat('en-US', {
+                                                                                                                style: 'currency',
+                                                                                                                currency: 'USD',
+                                                                                                            }).format(price / days.length)}
+                                                                                                            )
+                                                                                                        </span>
+                                                                                                        <ArchiveRestore
+                                                                                                            onClick={() =>
+                                                                                                                setRemovedServices((prev) =>
+                                                                                                                    prev.filter(
+                                                                                                                        (s) =>
+                                                                                                                            !(
+                                                                                                                                s.serviceId === serviceId &&
+                                                                                                                                s.day.getTime() === day.getTime() &&
+                                                                                                                                s.horseName === horseName
+                                                                                                                            ),
+                                                                                                                    ),
+                                                                                                                )
+                                                                                                            }
+                                                                                                            className='min-w-3.5 h-3.5 w-fit cursor-pointer text-primary inline-block pl-1'
+                                                                                                            strokeWidth={2.25}
+                                                                                                        />
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <span className='whitespace-nowrap'>
+                                                                                                        <span className={removed ? 'opacity-30' : ''}>
+                                                                                                            (
+                                                                                                            {new Intl.NumberFormat('en-US', {
+                                                                                                                style: 'currency',
+                                                                                                                currency: 'USD',
+                                                                                                            }).format(price / days.length)}
+                                                                                                            )
+                                                                                                        </span>
+
+                                                                                                        <Trash2
+                                                                                                            onClick={() =>
+                                                                                                                setRemovedServices((prev) => [
+                                                                                                                    ...prev,
+                                                                                                                    { serviceId, day, amount: price / days.length, horseName },
+                                                                                                                ])
+                                                                                                            }
+                                                                                                            className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500 inline-block pl-1'
+                                                                                                            strokeWidth={2.25}
+                                                                                                        />
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </span>
+                                                                                        );
+                                                                                    })}
+                                                                                </li>
                                                                             )}
-                                                                        </li>
-                                                                    ),
-                                                            )}
-                                                        {charges.filter((c) => c.horseName === horseName).length > 0 &&
-                                                            charges
-                                                                .filter((c) => c.horseName === horseName)
-                                                                .map((expense) => (
+                                                                        </Fragment>
+                                                                    );
+                                                                })}
+                                                                {invoiceInfo.horseExpenses !== undefined &&
+                                                                    invoiceInfo.horseExpenses[horseName] !== undefined &&
+                                                                    invoiceInfo.horseExpenses[horseName].length > 0 &&
+                                                                    invoiceInfo.horseExpenses[horseName].map(
+                                                                        (expense, i) =>
+                                                                            !removedCharges.some((charge) => charge.id === expense.id) && (
+                                                                                <li
+                                                                                    key={i + expense.name + expense.amount}
+                                                                                    className='mb-0.5 text-amber-600 font-bold text-sm flex items-center gap-1'
+                                                                                >
+                                                                                    <MinusCircle className='min-w-3.5 h-3.5 w-fit' strokeWidth={2.25} />
+                                                                                    <span>
+                                                                                        {expense.name} -{' '}
+                                                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(expense.amount)}
+                                                                                    </span>
+                                                                                    {editView && (
+                                                                                        <Trash2
+                                                                                            onClick={() =>
+                                                                                                setRemovedCharges((prev) => [
+                                                                                                    ...prev,
+                                                                                                    { id: expense.id, amount: expense.amount, horseName },
+                                                                                                ])
+                                                                                            }
+                                                                                            className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500'
+                                                                                            strokeWidth={2.25}
+                                                                                        />
+                                                                                    )}
+                                                                                </li>
+                                                                            ),
+                                                                    )}
+                                                                {charges.filter((c) => c.horseName === horseName).length > 0 &&
+                                                                    charges
+                                                                        .filter((c) => c.horseName === horseName)
+                                                                        .map((expense) => (
+                                                                            <li
+                                                                                key={i + expense.name + expense.amount}
+                                                                                className='mb-0.5 text-amber-600 font-bold text-sm flex items-center gap-1'
+                                                                            >
+                                                                                <MinusCircle className='min-w-3.5 h-3.5 w-fit' strokeWidth={2.25} />
+                                                                                <span>
+                                                                                    {expense.name} -{' '}
+                                                                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(expense.amount)}
+                                                                                </span>
+                                                                                {editView && (
+                                                                                    <Trash2
+                                                                                        onClick={() => setCharges((prev) => prev.filter((charge) => charge.id !== expense.id))}
+                                                                                        className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500'
+                                                                                        strokeWidth={2.25}
+                                                                                    />
+                                                                                )}
+                                                                            </li>
+                                                                        ))}
+                                                                {editView && (
                                                                     <li
-                                                                        key={i + expense.name + expense.amount}
-                                                                        className='mb-0.5 text-amber-600 font-bold text-sm flex items-center gap-1'
+                                                                        onClick={() => handleOpenAddChargeModal(invoiceInfo.horseAssignmentIds[horseName], addChargeFunction)}
+                                                                        className='text-amber-600 w-fit cursor-pointer hover:bg-amber-100 transition-all text-sm px-3 py-0.5 border border-amber-100 bg-amber-50 rounded-full mt-3'
                                                                     >
-                                                                        <MinusCircle className='min-w-3.5 h-3.5 w-fit' strokeWidth={2.25} />
-                                                                        <span>
-                                                                            {expense.name} -{' '}
-                                                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(expense.amount)}
-                                                                        </span>
-                                                                        {editView && (
-                                                                            <Trash2
-                                                                                onClick={() => setCharges((prev) => prev.filter((charge) => charge.id !== expense.id))}
-                                                                                className='min-w-3.5 h-3.5 w-fit cursor-pointer text-red-500'
-                                                                                strokeWidth={2.25}
-                                                                            />
-                                                                        )}
+                                                                        Add Custom Expense
                                                                     </li>
-                                                                ))}
-                                                        {editView && (
-                                                            <li
-                                                                onClick={() => handleOpenAddChargeModal(invoiceInfo.horseAssignmentIds[horseName], addChargeFunction)}
-                                                                className='text-amber-600 w-fit cursor-pointer hover:bg-amber-100 transition-all text-sm px-3 py-0.5 border border-amber-100 bg-amber-50 rounded-full mt-3'
-                                                            >
-                                                                Add Custom Expense
-                                                            </li>
-                                                        )}
-                                                    </ul>
-                                                    <p className='text-sm px-3 py-0.5 bg-violet-50 w-fit rounded-full border border-violet-100 text-violet-900 mt-2 mb-1'>
-                                                        Subtotal:{' '}
-                                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                                                            Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
-                                                                (invoiceInfo.horseExpenses !== undefined && invoiceInfo.horseExpenses[horseName] !== undefined
-                                                                    ? invoiceInfo.horseExpenses[horseName].reduce(
-                                                                          (acc, expense) => acc + (removedCharges.some((charge) => charge.id === expense.id) ? 0 : expense.amount),
-                                                                          0,
-                                                                      ) +
-                                                                      charges.filter((charge) => charge.horseName === horseName).reduce((acc, charge) => acc + charge.amount, 0) -
-                                                                      removedServices.filter((s) => s.horseName === horseName).reduce((acc, s) => acc + s.amount, 0)
-                                                                    : 0),
-                                                        )}
-                                                    </p>
+                                                                )}
+                                                            </ul>
+
+                                                            <p className='text-sm px-3 py-0.5 bg-violet-200 w-fit rounded-full border border-violet-300 text-violet-900 mt-2 mb-1'>
+                                                                {ownerName}
+                                                            </p>
+
+                                                            <p className='text-sm px-3 py-0.5 bg-violet-50 w-fit rounded-full border border-violet-100 text-violet-900 mt-2 mb-1'>
+                                                                Subtotal:{' '}
+                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                                                                    Object.entries(serviceDetails).reduce((acc, [service, { price }]) => acc + price, 0) +
+                                                                        (invoiceInfo.horseExpenses !== undefined && invoiceInfo.horseExpenses[horseName] !== undefined
+                                                                            ? invoiceInfo.horseExpenses[horseName].reduce(
+                                                                                  (acc, expense) =>
+                                                                                      acc + (removedCharges.some((charge) => charge.id === expense.id) ? 0 : expense.amount),
+                                                                                  0,
+                                                                              ) +
+                                                                              charges
+                                                                                  .filter((charge) => charge.horseName === horseName)
+                                                                                  .reduce((acc, charge) => acc + charge.amount, 0) -
+                                                                              removedServices.filter((s) => s.horseName === horseName).reduce((acc, s) => acc + s.amount, 0)
+                                                                            : 0),
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                            )
+                                        );
+                                    })}
                             </div>
                         )}
                     </div>
@@ -861,7 +961,13 @@ export const AdjustResendModal = ({
             <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
                 <button
                     onClick={() => {
-                        if (charges.length > 0 || removedCharges.length > 0 || originalSendInvoiceTo.current !== sendInvoiceTo || removedServices.length > 0)
+                        if (
+                            charges.length > 0 ||
+                            removedCharges.length > 0 ||
+                            ((originalSendInvoiceTo.current === 'barn' || originalSendInvoiceTo.current === 'both') && !sendInvoiceTo.includes('barn')) ||
+                            ((originalSendInvoiceTo.current === 'client' || originalSendInvoiceTo.current === 'both') && sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1) ||
+                            removedServices.length > 0
+                        )
                             setConfirmCloseModal({ open: true, callback: onClose });
                         else onClose();
                     }}
@@ -1052,17 +1158,38 @@ const getInvoiceInfo = (assignments: any[]) => {
         .sort((a, b) => a.assignmentDate.getTime() - b.assignmentDate.getTime());
 
     const horseOwnerNames: string[] = [];
+    const horseOwners: { id: string; name: string; paid: boolean }[] = [];
+    const horseOwnersByHorseNames: { horseNames: string[]; clientName: string; clientId: string }[] = [];
     let barnOwnerName: string = '';
     const horseDetails: Record<string, Record<string, { days: Date[]; price: number; serviceId: string }>> = {};
     const horseExpenses: Record<string, { name: string; id: string; amount: number }[]> = {};
     const horseAssignmentIds: Record<string, string> = {};
     for (const horse of validAssignments) {
-        if (horse && horse.horse && horse.horse.client && horse.horse.client.name && !horseOwnerNames.includes(horse.horse.client.name)) horseOwnerNames.push(horse.horse.client.name);
         if (barnOwnerName === '' && horse && horse.job && horse.job.barn && horse.job.barn.name) barnOwnerName = horse.job.barn.name;
 
         const showName = horse.horse.showName;
         const barnName = horse.horse.barnName;
         const nameKey = `${showName}/////(${barnName})`;
+
+        if (horse && horse.horse && horse.horse.client && horse.horse.client.name) {
+            horseOwnerNames.push(horse.horse.client.name);
+            horseOwners.push({
+                id: horse.horse.client.id,
+                name: horse.horse.client.name,
+                paid: Object.values(validAssignments).some((a) => a.paidAt && a.horse.client.id === horse.horse.client.id),
+            });
+
+            const horseNameKey = `${horse.horse.showName}/////(${horse.horse.barnName})`;
+            const found = horseOwnersByHorseNames.find((id, index) => {
+                if (id.clientName === horse.horse.client.name) {
+                    horseOwnersByHorseNames[index].horseNames.push(horseNameKey);
+                    return true;
+                }
+
+                return false;
+            });
+            if (!found) horseOwnersByHorseNames.push({ horseNames: [horseNameKey], clientName: horse.horse.client.name, clientId: horse.horse.client.id });
+        }
 
         if (!horseExpenses[nameKey]) horseExpenses[nameKey] = [];
         if (horse.customCharges.length > 0) horseExpenses[nameKey].push(...horse.customCharges.map((c: any) => ({ name: c.name, amount: c.amount, id: c.id })));
@@ -1084,19 +1211,36 @@ const getInvoiceInfo = (assignments: any[]) => {
         }
     }
 
+    const getTotals = (assignmentsParam: any[]) => {
+        return {
+            earnings: assignmentsParam.reduce((acc: number, a: any) => {
+                const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
+                const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
+                return a.canceledAt ? acc : acc + servicesTotal + customTotal;
+            }, 0),
+            horses: assignmentsParam.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
+            services: assignmentsParam.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
+        };
+    };
+
+    const overviewTotals = getTotals(assignments);
+
     return {
-        earnings: assignments.reduce((acc: number, a: any) => {
-            const servicesTotal = a.services.filter((s: any) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).reduce((sAcc: number, s: any) => sAcc + s.priceUSD, 0);
-            const customTotal = a.customCharges?.reduce((cAcc: number, c: any) => cAcc + c.amount, 0) || 0;
-            return a.canceledAt ? acc : acc + servicesTotal + customTotal;
-        }, 0),
-        horses: assignments.filter((a) => !a.canceledAt && a.services.length !== a.canceledServiceIds.length).length,
-        // @ts-ignore
-        services: assignments.reduce((acc, a) => acc + a.services.filter((s) => !a.canceledServiceIds.includes(s.id) && !a.canceledAt).length, 0),
+        earnings: overviewTotals.earnings,
+        overviewInfoByClient: horseOwners
+            .filter((owner, index, self) => index === self.findIndex((t) => t.id === owner.id && t.name === owner.name))
+            .map((owner) => {
+                const totals = getTotals(assignments.filter((a) => a.horse.client.id === owner.id));
+                return { ownerId: owner.id, ownerName: owner.name, earnings: totals.earnings, horses: totals.horses, services: totals.services };
+            }),
+        horses: overviewTotals.horses,
+        services: overviewTotals.services,
         horseDetails,
         horseExpenses,
         horseAssignmentIds,
-        horseOwnerNames: horseOwnerNames.filter((name) => name !== null && name !== undefined && name.trim() !== ''),
+        horseOwnerNames: [...new Set(horseOwnerNames.filter((name) => name !== null && name !== undefined && name.trim() !== ''))],
         barnOwnerName,
+        horseOwners: horseOwners.filter((owner, index, self) => index === self.findIndex((t) => t.id === owner.id && t.name === owner.name)),
+        horseOwnersByHorseNames,
     };
 };

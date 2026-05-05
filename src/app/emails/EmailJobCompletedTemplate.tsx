@@ -245,8 +245,11 @@ export const ManeAccountJobCompletedEmail = ({
                         <Hr style={hr} />
 
                         <Text style={footer}>
-                            ManeAccount does not process payments. Payments are processed through the payment processor of your choice. You received this email because you enabled
-                            notifications for job completions. You can disable these notifications in your dashboard settings.
+                            ManeAccount does not process payments. Payments are processed through the payment processor of your choice.{' '}
+                            {isClient
+                                ? `You received this email because a barn connected you to their account, and a braider completed services for one or more of your horses.`
+                                : `You received this email because you enabled
+                            notifications for job completions. You can disable these notifications in your dashboard settings.`}
                             <br />
                             <Link href='https://maneaccount.com' style={linkStyle}>
                                 maneaccount.com

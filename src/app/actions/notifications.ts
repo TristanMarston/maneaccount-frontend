@@ -179,6 +179,7 @@ export async function createNotification(
     senderId?: string | null,
     image?: string | null,
     sendInvoiceTo?: 'client' | 'barn' | 'both' | null,
+    specificSendInvoiceTo?: string[],
     resendInvoice?: boolean,
 ) {
     try {
@@ -389,7 +390,7 @@ export async function createNotification(
                                 if (!horse.canceledServiceIds.includes(service.id)) {
                                     const serviceName = service.name;
                                     if (!horseDetails[nameKey][serviceName]) horseDetails[nameKey][serviceName] = { days: [], price: 0 };
-    
+
                                     horseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
                                     horseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
                                     horseDetails[nameKey][serviceName].price += service.priceUSD;
@@ -451,7 +452,7 @@ export async function createNotification(
                                             if (!horse.canceledServiceIds.includes(service.id)) {
                                                 const serviceName = service.name;
                                                 if (!clientHorseDetails[nameKey][serviceName]) clientHorseDetails[nameKey][serviceName] = { days: [], price: 0 };
-    
+
                                                 clientHorseDetails[nameKey][serviceName].days.push(horse.assignmentDate);
                                                 clientHorseDetails[nameKey][serviceName].days.sort((a, b) => a.getTime() - b.getTime());
                                                 clientHorseDetails[nameKey][serviceName].price += service.priceUSD;
@@ -460,22 +461,23 @@ export async function createNotification(
                                     }
 
                                     if (Object.keys(clientServiceDetails).length > 0) {
-                                        await sendJobCompletedEmail({
-                                            to: client.email,
-                                            braiderName: job.braider.name || 'Braider',
-                                            showName: job.show.name,
-                                            horseName: assignment.horse.showName,
-                                            thanksMessage: job.thanksMessage || '',
-                                            isClient: true,
-                                            image: image || '',
-                                            paymentInformation,
-                                            serviceDetails: [clientServiceDetails],
-                                            horseDetails: clientHorseDetails,
-                                            horseExpenses: clientHorseExpenses,
-                                            resend: resendInvoice === true,
-                                        });
+                                        if (specificSendInvoiceTo === undefined || (specificSendInvoiceTo !== undefined && specificSendInvoiceTo.includes(client.id)))
+                                            await sendJobCompletedEmail({
+                                                to: client.email,
+                                                braiderName: job.braider.name || 'Braider',
+                                                showName: job.show.name,
+                                                horseName: assignment.horse.showName,
+                                                thanksMessage: job.thanksMessage || '',
+                                                isClient: true,
+                                                image: image || '',
+                                                paymentInformation,
+                                                serviceDetails: [clientServiceDetails],
+                                                horseDetails: clientHorseDetails,
+                                                horseExpenses: clientHorseExpenses,
+                                                resend: resendInvoice === true,
+                                            });
+                                            notifiedClientIds.add(client.id);
                                     }
-                                    notifiedClientIds.add(client.id);
                                 }
                             }
                         }

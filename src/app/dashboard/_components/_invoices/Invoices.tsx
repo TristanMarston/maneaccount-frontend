@@ -28,6 +28,7 @@ import {
     Trash2,
     DollarSign,
     Loader,
+    Send,
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { cn } from '@/lib/utils';
@@ -76,6 +77,7 @@ const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; us
     const [refreshModalFunction, setRefreshModalFunction] = useState<(() => void) | null>(null);
     const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState<{ open: boolean; job: any | null }>({ open: false, job: null });
     const [confirmCloseModal, setConfirmCloseModal] = useState<{ open: boolean; callback?: () => void }>({ open: false });
+    const [resendToClientId, setResendToClientId] = useState<string | null>(null);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -379,6 +381,7 @@ const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; us
                                         <InvoiceCard
                                             setInvoiceHistoryOpen={setInvoiceHistoryOpen}
                                             setAdjustResend={setAdjustResend}
+                                            setResendToClientId={setResendToClientId}
                                             key={job.id}
                                             job={job}
                                             onRefresh={() => refreshJobsFn(false)}
@@ -408,11 +411,12 @@ const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; us
                                         className='space-y-3 overflow-hidden pb-0.5 px-0.5'
                                     >
                                         {fullyPaidJobs
-                                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                            .sort((a, b) => new Date(b.invoiceSentAt).getTime() - new Date(a.invoiceSentAt).getTime())
                                             .map((job) => (
                                                 <InvoiceCard
                                                     setInvoiceHistoryOpen={setInvoiceHistoryOpen}
                                                     setAdjustResend={setAdjustResend}
+                                                    setResendToClientId={setResendToClientId}
                                                     key={job.id}
                                                     job={job}
                                                     isHistory
@@ -490,9 +494,13 @@ const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; us
                     role={role}
                     userId={userId}
                     setSettingsOpen={setSettingsOpen || ((page: Tab) => {})}
-                    onClose={() => setAdjustResend((prev) => ({ ...prev, open: false }))}
+                    onClose={() => {
+                        setAdjustResend((prev) => ({ ...prev, open: false }));
+                        setResendToClientId(null);
+                    }}
                     setConfirmCloseModal={setConfirmCloseModal}
                     refresh={() => refreshJobsFn(true)}
+                    resendToClientId={resendToClientId}
                 />
             </Modal>
 
@@ -593,12 +601,14 @@ const Invoices = ({ role, userId, setView, setSettingsOpen }: { role: string; us
 const InvoiceCard = ({
     setInvoiceHistoryOpen,
     setAdjustResend,
+    setResendToClientId,
     job,
     isHistory = false,
     onRefresh,
 }: {
     setInvoiceHistoryOpen: React.Dispatch<React.SetStateAction<{ open: boolean; job: any | null }>>;
     setAdjustResend: React.Dispatch<React.SetStateAction<{ open: boolean; job: any }>>;
+    setResendToClientId: React.Dispatch<React.SetStateAction<string | null>>;
     job: any;
     isHistory?: boolean;
     onRefresh: () => void;
@@ -647,7 +657,7 @@ const InvoiceCard = ({
         return acc + servicesTotal + customTotal;
     }, 0);
 
-    const clientHasPaid = Object.values(assignmentsByClient).some((client: any) => client.isPaid);
+    const clientsHavePaid = Object.values(assignmentsByClient).every((client: any) => client.isPaid);
 
     return (
         <div className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all', isHistory ? 'opacity-70 hover:opacity-100' : '')}>
@@ -725,7 +735,18 @@ const InvoiceCard = ({
                                                         <CheckSquare size={14} strokeWidth={3} className='text-white' />
                                                     )}
                                                 </button>
-                                                <p className='font-semibold text-sm text-gray-900'>{group.name}</p>
+                                                <div
+                                                    onClick={() => {
+                                                        setAdjustResend({ open: true, job });
+                                                        setResendToClientId(group.id);
+                                                    }}
+                                                    className='flex gap-3 items-center'
+                                                >
+                                                    <p className='font-semibold text-sm text-gray-900'>{group.name}</p>
+                                                    <div className='w-5 h-5 cursor-pointer hover:text-primary text-gray-400 rounded-full transition-all'>
+                                                        <Send className='w-full h-full' />
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>
                                         </div>
@@ -733,9 +754,9 @@ const InvoiceCard = ({
                                 })}
 
                             <motion.div
-                                initial={clientHasPaid ? { gridTemplateColumns: '1fr' } : { gridTemplateColumns: '1fr 1fr' }}
-                                animate={clientHasPaid ? { gridTemplateColumns: '1fr' } : { gridTemplateColumns: '1fr 1fr' }}
-                                transition={{ delay: !clientHasPaid ? 0 : 0.6 }}
+                                initial={clientsHavePaid ? { gridTemplateColumns: '1fr' } : { gridTemplateColumns: '1fr 1fr' }}
+                                animate={clientsHavePaid ? { gridTemplateColumns: '1fr' } : { gridTemplateColumns: '1fr 1fr' }}
+                                transition={{ delay: !clientsHavePaid ? 0 : 0.6 }}
                                 style={{ display: 'grid', gap: '12px', gridTemplateRows: '1fr' }}
                             >
                                 <button
@@ -745,10 +766,10 @@ const InvoiceCard = ({
                                     View Invoice
                                 </button>
                                 <AnimatePresence>
-                                    {!clientHasPaid && (
+                                    {!clientsHavePaid && (
                                         <motion.button
                                             initial={{ opacity: 1, scale: 1 }}
-                                            animate={clientHasPaid ? { opacity: 0, scale: 0 } : { opacity: 1, scale: 1 }}
+                                            animate={clientsHavePaid ? { opacity: 0, scale: 0 } : { opacity: 1, scale: 1 }}
                                             exit={{ opacity: 0, scale: 0 }}
                                             transition={{ duration: 0.5 }}
                                             onClick={() => setAdjustResend({ open: true, job })}

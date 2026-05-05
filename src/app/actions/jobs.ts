@@ -445,7 +445,7 @@ export async function markJobCompleted(jobId: string, sendInvoiceTo: 'client' | 
 
 export async function resendInvoice(resendOptions: {
     jobId: string;
-    sendInvoiceTo: 'client' | 'barn' | 'both';
+    sendInvoiceTo: ('barn' | string)[];
     thanksMessage: string;
     newCharges: {
         id: string;
@@ -474,10 +474,19 @@ export async function resendInvoice(resendOptions: {
         const oldJob = await prisma.job.findUnique({ where: { id: jobId }, include: { assignments: { include: { horse: true } } } });
         if (!oldJob) return { error: 'No job found with that ID' };
 
+        const sendTo =
+            !sendInvoiceTo.includes('barn') && sendInvoiceTo.length > 0
+                ? 'client'
+                : sendInvoiceTo.includes('barn') && sendInvoiceTo.length === 1
+                  ? 'barn'
+                  : sendInvoiceTo.includes('barn') && sendInvoiceTo.length > 1
+                    ? 'both'
+                    : 'both';
+
         const data: any = {
             status: 'completed',
             invoiceSentAt: new Date(),
-            sentTo: sendInvoiceTo === 'client' ? ['client'] : sendInvoiceTo === 'barn' ? ['barn'] : sendInvoiceTo === 'both' ? ['barn', 'client'] : ['barn', 'client'],
+            // sentTo: sendTo === 'client' ? ['client'] : sendTo === 'barn' ? ['barn'] : sendTo === 'both' ? ['barn', 'client'] : ['barn', 'client'],
             thanksMessage,
         };
 
@@ -519,10 +528,11 @@ export async function resendInvoice(resendOptions: {
         await createNotification(
             job.barnId,
             NotificationType.job_completed,
-            `Invoice updated by ${job.braider.name}. ${sendInvoiceTo === 'client' ? 'Client(s) have received the invoice, but the barn did not.' : sendInvoiceTo === 'barn' ? 'The barn has received the invoice, but the client(s) did not.' : sendInvoiceTo === 'both' ? 'The barn and client(s) have received the invoice' : ''}`,
+            `Invoice updated by ${job.braider.name}. ${sendTo === 'client' ? 'Client(s) have received the invoice, but the barn did not.' : sendTo === 'barn' ? 'The barn has received the invoice, but the client(s) did not.' : sendTo === 'both' ? 'The barn and client(s) have received the invoice' : ''}`,
             job.id,
             job.braiderId,
             job.braider.image,
+            sendTo,
             sendInvoiceTo,
             true,
         );

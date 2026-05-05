@@ -662,7 +662,7 @@ const InvoiceCard = ({
     return (
         <div className={cn('bg-white rounded-[14px] border border-gray-100 shadow-sm overflow-hidden transition-all', isHistory ? 'opacity-70 hover:opacity-100' : '')}>
             <div className='p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 bg-gray-50/50' onClick={() => setExpanded(!expanded)}>
-                <div className='flex items-center gap-4'>
+                <div className='flex gap-4 flex-wrap items-center'>
                     <div
                         className={cn(
                             'w-24 h-12 rounded-[14px] font-bold font-figtree flex items-center justify-center shrink-0',
@@ -717,8 +717,8 @@ const InvoiceCard = ({
                                     if (groupTotal === 0) return null;
 
                                     return (
-                                        <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100'>
-                                            <div className='flex items-center gap-3'>
+                                        <div key={group.id} className='flex items-center justify-between p-3 rounded-lg border border-gray-100 gap-2 flex-wrap'>
+                                            <div className='flex items-center gap-3 min-w-0'>
                                                 <button
                                                     type='button'
                                                     disabled={loadingClient === group.id}
@@ -735,17 +735,19 @@ const InvoiceCard = ({
                                                         <CheckSquare size={14} strokeWidth={3} className='text-white' />
                                                     )}
                                                 </button>
-                                                <div
-                                                    onClick={() => {
-                                                        setAdjustResend({ open: true, job });
-                                                        setResendToClientId(group.id);
-                                                    }}
-                                                    className='flex gap-3 items-center'
-                                                >
-                                                    <p className='font-semibold text-sm text-gray-900'>{group.name}</p>
-                                                    <div className='w-5 h-5 cursor-pointer hover:text-primary text-gray-400 rounded-full transition-all'>
-                                                        <Send className='w-full h-full' />
-                                                    </div>
+                                                <div className='flex gap-3 items-center min-w-0'>
+                                                    <p className='font-semibold text-sm text-gray-900 truncate'>{group.name}</p>
+                                                    {!group.isPaid && (
+                                                        <div
+                                                            onClick={() => {
+                                                                setAdjustResend({ open: true, job });
+                                                                setResendToClientId(group.id);
+                                                            }}
+                                                            className='min-w-5 h-5 cursor-pointer hover:text-primary text-gray-400 rounded-full transition-all'
+                                                        >
+                                                            <Send className='w-full h-full' />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className='font-bold text-gray-700'>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(groupTotal)}</div>

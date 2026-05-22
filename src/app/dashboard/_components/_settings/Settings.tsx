@@ -535,8 +535,10 @@ const Settings = ({
                                     Discard
                                 </button>
                                 <button
+                                    id='settings-form-button'
                                     form='settings-form'
-                                    type='submit'
+                                    type='button'
+                                    onClick={handleSubmit}
                                     disabled={isSaving || isIDAvailable === false || isLoading}
                                     className='disabled:opacity-50 disabled:cursor-not-allowed font-figtree cursor-pointer font-bold flex gap-2 justify-center items-center text-[15px] text-nowrap rounded-[10px] py-2 px-4 bg-primary-light text-white primary-border-hover'
                                 >
@@ -553,7 +555,7 @@ const Settings = ({
                                 <span className='loader-primary'></span>
                             </div>
                         ) : (
-                            <form id='settings-form' onSubmit={handleSubmit} className='w-full max-w-2xl space-y-8 pb-0.5 pr-0.5'>
+                            <div id='settings-form' className='w-full max-w-2xl space-y-8 pb-0.5 pr-0.5'>
                                 {activeTab === 'subscription' && role === 'braider' && updateSubscriptionTier && (
                                     <motion.div
                                         initial={{ opacity: 0, x: 20 }}
@@ -1182,7 +1184,7 @@ const Settings = ({
                                         </div>
                                     </motion.div>
                                 )}
-                            </form>
+                            </div>
                         )}
                     </div>
                 </div>

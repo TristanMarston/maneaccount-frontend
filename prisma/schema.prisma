@@ -180,9 +180,6 @@ model User {
   cancelAtPeriodEnd  Boolean             @default(false)
   googleCalendarId   String?
   hasUsedTrial       Boolean             @default(false)
-  hasUsedPromoOne    Boolean             @default(false)
-  hasUsedPromoTwo    Boolean             @default(false)
-  hasUsedPromoThree  Boolean             @default(false)
   usedCoupons        OneOffCoupon[]      @relation("OneOffCoupon")
   linkedAccountGroup LinkedAccountGroup? @relation(fields: [linkedAccountGroupId], references: [id], onDelete: SetNull)
 

@@ -125,7 +125,7 @@ const questions = (page: Page): Question[] => {
     } else if (page === 'landing') {
         return [
             {
-                question: '*Do all users have to subscribe?',
+                question: 'Do all users have to subscribe?',
                 answer: () => (
                     <p className='prose prose-sm max-w-none'>
                         Nope! Barns, clients, and subcontractors of the braider do not have to subscribe to use ManeAccount. Only the braider has to subscribe to one of the plans above.

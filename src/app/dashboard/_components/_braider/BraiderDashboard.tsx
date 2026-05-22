@@ -73,25 +73,30 @@ const BraiderDashboard = ({
         fetchPublicID();
     }, [userId]);
 
+    const hasSubscriptionAccess = (subscriptionDetails: {
+        subscriptionStatus: SubscriptionStatus;
+        trialEndsAt: Date | null;
+        currentPeriodEnd: Date | null;
+    }) => {
+        const now = new Date();
+        const trialEndsAtDate = subscriptionDetails.trialEndsAt ? new Date(subscriptionDetails.trialEndsAt) : null;
+        const currentPeriodEndDate = subscriptionDetails.currentPeriodEnd ? new Date(subscriptionDetails.currentPeriodEnd) : null;
+        const isTrial =
+            subscriptionDetails.subscriptionStatus === 'trialing' && !!trialEndsAtDate && Math.ceil((trialEndsAtDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) > 0;
+        const isPaidWindow =
+            ['active', 'past_due'].includes(subscriptionDetails.subscriptionStatus) &&
+            !!currentPeriodEndDate &&
+            Math.ceil((currentPeriodEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) > 0;
+
+        return isTrial || isPaidWindow;
+    };
+
     const fetchSubscriptionDetails = async () => {
         if (email.length > 0) {
             const subscriptionDetails = await getSubscriptionDetails();
             if (subscriptionDetails) {
                 setSubscription(subscriptionDetails);
-
-                const now = new Date();
-                const trialEndsAtDate = subscriptionDetails.trialEndsAt ? new Date(subscriptionDetails.trialEndsAt) : null;
-                const isTrial =
-                    subscriptionDetails.subscriptionStatus === 'trialing' && trialEndsAtDate && Math.ceil((trialEndsAtDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) > 0;
-                const currentPeriodEndDate = subscriptionDetails.currentPeriodEnd ? new Date(subscriptionDetails.currentPeriodEnd) : null;
-                const isActive =
-                    subscriptionDetails.subscriptionStatus === 'active' &&
-                    currentPeriodEndDate &&
-                    Math.ceil((currentPeriodEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) > 0;
-
-                if (!isActive && !isTrial) {
-                    setIsFrozen(true);
-                }
+                setIsFrozen(!hasSubscriptionAccess(subscriptionDetails));
             }
         }
     };
@@ -108,7 +113,7 @@ const BraiderDashboard = ({
 
     useEffect(() => {
         if (isFrozen) setActiveTab('subscription');
-    }, [activeTab]);
+    }, [isFrozen]);
 
     const beginFreeTrial = async () => {
         const response = await startFreeTrial();

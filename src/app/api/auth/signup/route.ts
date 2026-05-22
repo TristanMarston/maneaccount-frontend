@@ -25,29 +25,34 @@ export async function POST(req: NextRequest) {
     });
 
     if (role === 'braider' && user) {
-        const customer = await stripe.customers.create({
-            email: email,
-            name: name || undefined,
-            metadata: {
-                userId: user.id,
-                role: 'braider',
-            },
-        });
+        try {
+            const customer = await stripe.customers.create({
+                email: email,
+                name: name || undefined,
+                metadata: {
+                    userId: user.id,
+                    role: 'braider',
+                },
+            });
 
-        const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 14);
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 14);
 
-        const updateData: any = {};
-        updateData.stripeCustomerId = customer.id;
-        updateData.trialEndsAt = trialEndDate;
-        updateData.subscriptionStatus = 'trialing';
-        updateData.subscriptionTier = 'starter';
+            const updateData: any = {};
+            updateData.stripeCustomerId = customer.id;
+            updateData.trialEndsAt = trialEndDate;
+            updateData.subscriptionStatus = 'trialing';
+            updateData.subscriptionTier = 'starter';
 
-        await prisma.user.update({
-            where: { id: user.id },
-            data: updateData,
-        });
+            await prisma.user.update({
+                where: { id: user.id },
+                data: updateData,
+            });
+        } catch (err: any) {
+            console.error('Error creating Stripe customer', err);
+            return NextResponse.error();
+        }
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
 }

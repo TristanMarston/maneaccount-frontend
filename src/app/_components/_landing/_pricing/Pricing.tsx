@@ -85,7 +85,7 @@ const Pricing = () => {
                                     Simple, transparent pricing.
                                 </h2>
                                 <p className='font-figtree text-primary-dark text-[15px] md:text-base min-[580px]:text-[17px] min-[720px]:text-lg max-w-2xl'>
-                                    Choose the plan that fits your business<span className='font-bold'>*</span>. <br className='hidden xxs:block min-[650px]:hidden' /> Start with two weeks free.
+                                    Choose the plan that fits your business. <br className='hidden xxs:block min-[650px]:hidden' /> Start with two weeks free. <span className='text-primary-light'>Only braiders need a subscription.</span>
                                 </p>
                             </div>
 

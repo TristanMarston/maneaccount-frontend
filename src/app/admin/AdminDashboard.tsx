@@ -32,7 +32,7 @@ import Modal from '../dashboard/Modal';
 import { deleteAccountByID } from '../actions/settings';
 import { failToast, loadingToast, successToast } from '../context';
 import { addCoupon, deleteCoupon, editCoupon, getCoupons } from '../actions/billing';
-import { differenceInDays, format, formatDistanceStrict, formatDistanceToNowStrict, isBefore } from 'date-fns';
+import { differenceInDays, format, formatDistanceStrict, formatDistanceToNowStrict, isBefore, isAfter } from 'date-fns';
 import { DropdownPortal } from '../dashboard/_components/_calendar/AddShowForm';
 import DatePicker from '../dashboard/_components/DatePicker';
 
@@ -373,7 +373,7 @@ type CouponAdd = {
 
 const getNumDays = (endDate: Date, startDate?: Date) => {
     if (!startDate) startDate = new Date();
-    return differenceInDays(endDate, startDate);
+    return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 };
 
 const CouponManagement = () => {
@@ -650,10 +650,12 @@ const CouponManagement = () => {
                                               <span
                                                   className={cn(
                                                       'px-4 font-figtree py-0.5 text-sm border rounded-full truncate min-w-0',
-                                                      isBefore(new Date(), coupon.startDate) ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700',
+                                                      isBefore(new Date(), coupon.startDate) || isAfter(new Date(), coupon.endDate)
+                                                          ? 'bg-red-50 border-red-200 text-red-700'
+                                                          : 'bg-green-50 border-green-200 text-green-700',
                                                   )}
                                               >
-                                                  {coupon.days ? coupon.days : getNumDays(coupon.endDate, coupon.startDate)} days
+                                                  {coupon.days ? coupon.days : getNumDays(coupon.endDate)} days
                                               </span>
                                           </div>
                                           <div className='font-figtree text-sm flex items-center gap-3 px-6 py-2'>
@@ -728,12 +730,12 @@ const CouponManagement = () => {
                                                   <span
                                                       className={cn(
                                                           'px-4 font-figtree py-0.5 text-sm border rounded-full truncate min-w-0',
-                                                          isBefore(new Date(), coupon.startDate)
+                                                          isBefore(new Date(), coupon.startDate) || isAfter(new Date(), coupon.endDate)
                                                               ? 'bg-red-50 border-red-200 text-red-700'
                                                               : 'bg-green-50 border-green-200 text-green-700',
                                                       )}
                                                   >
-                                                      {coupon.days ? coupon.days : getNumDays(coupon.endDate, coupon.startDate)} days
+                                                      {coupon.days ? coupon.days : getNumDays(coupon.endDate)} days
                                                   </span>
                                               </div>
                                           </div>

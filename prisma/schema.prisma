@@ -289,7 +289,7 @@ model CalendarNote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(name: "CalendarNoteToUser", fields: [userId], references: [id])
+  user User @relation(name: "CalendarNoteToUser", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {

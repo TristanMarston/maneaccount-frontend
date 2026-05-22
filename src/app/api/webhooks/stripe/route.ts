@@ -185,6 +185,8 @@ export async function POST(req: NextRequest) {
     const body = await req.text(); // Must be raw text for signature verification
     const sig = req.headers.get('stripe-signature');
 
+    console.log('[webhook] request received:', body);
+
     if (!sig) {
         return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
     }

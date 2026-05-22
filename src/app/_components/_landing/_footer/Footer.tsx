@@ -31,6 +31,16 @@ const Footer = () => {
                             <p className='font-figtree text-white/80 text-[15px] leading-relaxed'>
                                 The all-in-one platform streamlining operations for horse braiders, subcontractors, and barns everywhere.
                             </p>
+                            <p className='font-figtree text-white/80 text-[15px] leading-relaxed -mt-2'>
+                                <b>Questions?</b> Email{' '}
+                                <a
+                                    href='mailto:support@maneaccount.com'
+                                    title='support@maneaccount.com'
+                                    className='font-semibold cursor-pointer underline hover:text-white/70 transition-all'
+                                >
+                                    support@maneaccount.com
+                                </a>
+                            </p>
                             {/* <div className='flex gap-5'>
                                 <svg
                                     className='w-6 h-6 fill-white hover:fill-background-secondary hover:scale-105 transition-all cursor-pointer'

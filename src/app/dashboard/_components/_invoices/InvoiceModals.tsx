@@ -417,13 +417,16 @@ export const AdjustResendModal = ({
 
     const [thanksMessage, setThanksMessage] = useState(job.thanksMessage && job.thanksMessage.length > 0 ? job.thanksMessage : '');
     const [sendInvoiceTo, setSendInvoiceTo] = useState<('client' | 'barn' | string)[]>(
-        resendToClientId
-            ? [resendToClientId]
-            : sentTo === 'barn'
-              ? ['barn']
-              : sentTo === 'client'
-                ? invoiceInfo.horseOwners.filter((owner) => !owner.paid).map((owner) => owner.id)
-                : ['barn', ...invoiceInfo.horseOwners.filter((owner) => !owner.paid).map((owner) => owner.id)],
+        [
+            ...new Set([
+                ...(sentTo === 'barn'
+                    ? ['barn']
+                    : sentTo === 'client'
+                      ? invoiceInfo.horseOwners.filter((owner) => !owner.paid).map((owner) => owner.id)
+                      : ['barn', ...invoiceInfo.horseOwners.filter((owner) => !owner.paid).map((owner) => owner.id)]),
+                resendToClientId,
+            ]),
+        ].filter((to) => to !== null),
     );
     const [charges, setCharges] = useState<{ id: string; assignmentId: string; name: string; amount: number; horseName: string }[]>([]);
     const [removedCharges, setRemovedCharges] = useState<{ id: string; amount: number; horseName: string }[]>([]);
@@ -961,6 +964,11 @@ export const AdjustResendModal = ({
             <div className='grid @min-[415px]/check-completed:grid-cols-2 @min-[415px]/check-completed:gap-3 gap-2 mt-4'>
                 <button
                     onClick={() => {
+                        console.log('charges', charges);
+                        console.log('removedCharges', removedCharges);
+                        console.log('originalSendInvoiceTo', originalSendInvoiceTo);
+                        console.log('sendInvoiceTo', sendInvoiceTo);
+                        console.log('removedServices', removedServices);
                         if (
                             charges.length > 0 ||
                             removedCharges.length > 0 ||

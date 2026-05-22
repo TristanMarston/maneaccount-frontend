@@ -58,7 +58,19 @@ export async function updateProfile(formData: any) {
     const thanksMessage = formData.thanksMessage as string | null;
     const autoSendInvoiceTo = formData.autoSendInvoiceTo as 'client' | 'barn' | 'both' | null;
 
-    if (!name && !email && !publicID && !imageFile && !phoneNumber && !venmo && !zelle && venmoEnabled === null && !allowedNotifications && !thanksMessage && !autoSendInvoiceTo)
+    if (
+        !name &&
+        !email &&
+        !publicID &&
+        !imageFile &&
+        (phoneNumber === null || phoneNumber === undefined) &&
+        !venmo &&
+        !zelle &&
+        venmoEnabled === null &&
+        !allowedNotifications &&
+        !thanksMessage &&
+        !autoSendInvoiceTo
+    )
         return { error: 'Update at least one field' };
 
     const updateData: any = {};
@@ -67,7 +79,7 @@ export async function updateProfile(formData: any) {
         updateData.email = email;
         updateData.emailVerified = null;
     }
-    if (phoneNumber) updateData.phoneNumber = phoneNumber.replace(/\D/g, '');
+    if (phoneNumber !== null && phoneNumber !== undefined) updateData.phoneNumber = phoneNumber.length === 0 ? null : phoneNumber.replace(/\D/g, '');
     if (venmo !== null) updateData.venmo = venmo;
     if (zelle !== null) updateData.zelle = zelle;
     if (venmoEnabled !== null) updateData.venmoEnabled = venmoEnabled;
@@ -155,9 +167,7 @@ export async function updateProfile(formData: any) {
                 select: { id: true, linkedAccountGroupId: true },
             });
             emailAlreadyExists = existingUsers.some(
-                (existingUser) =>
-                    existingUser.id !== session.user.id &&
-                    (!currentUser?.linkedAccountGroupId || existingUser.linkedAccountGroupId !== currentUser.linkedAccountGroupId),
+                (existingUser) => existingUser.id !== session.user.id && (!currentUser?.linkedAccountGroupId || existingUser.linkedAccountGroupId !== currentUser.linkedAccountGroupId),
             );
         }
 

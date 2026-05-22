@@ -430,11 +430,11 @@ const SubscriptionDetailsModal = ({ open, onClose, stripePromise }: { open: bool
                                                 stripe={stripePromise}
                                                 options={{
                                                     clientSecret,
-                                                    fonts: [{ cssSrc: 'https://googleapis.com' }],
+                                                    fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap' }],
                                                     appearance: {
                                                         theme: 'stripe',
                                                         variables: {
-                                                            fontFamily: 'Figtree, "Figtree Fallback", sans-serif',
+                                                            fontFamily: 'Figtree, sans-serif',
                                                             colorPrimary: '#538475',
                                                             colorBackground: '#ffffff',
                                                             colorText: '#111827',
@@ -1117,11 +1117,11 @@ const SubscriptionSettings = ({
                                         stripe={stripePromise}
                                         options={{
                                             clientSecret,
-                                            fonts: [{ cssSrc: 'https://googleapis.com' }],
+                                            fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap', }],
                                             appearance: {
                                                 theme: 'stripe',
                                                 variables: {
-                                                    fontFamily: 'Figtree, "Figtree Fallback", sans-serif',
+                                                    fontFamily: 'Figtree, sans-serif',
                                                     colorPrimary: '#538475',
                                                     colorBackground: '#ffffff',
                                                     colorText: '#111827',

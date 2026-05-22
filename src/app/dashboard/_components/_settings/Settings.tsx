@@ -296,7 +296,7 @@ const Settings = ({
         originalInfo.current.name !== name ||
         originalInfo.current.email !== email ||
         originalInfo.current.publicID !== publicID ||
-        originalInfo.current.phoneNumber !== phoneNumber ||
+        (originalInfo.current.phoneNumber !== phoneNumber && (phoneNumber.replace(/\D/g, '').length === 10 || phoneNumber.replace(/\D/g, '').length === 0)) ||
         originalInfo.current.image !== imagePreview ||
         (role === 'braider' && originalInfo.current.thanksMessage !== thanksMessage) ||
         (role === 'braider' && (originalInfo.current.venmo !== venmoLink || originalInfo.current.zelle !== zelle || originalInfo.current.venmoEnabled !== venmoEnabled)) ||
@@ -1019,11 +1019,11 @@ const Settings = ({
                                                     </span>
 
                                                     <div className='grid grid-cols-1 gap-3 @min-[500px]/payments:grid-cols-2 @min-[500px]/payments:gap-4 ml-4'>
-                                                        <div className={cn('flex flex-col gap-2 w-full', originalInfo.current.phoneNumber.length > 0 ? '' : 'cursor-not-allowed')}>
+                                                        <div className={cn('flex flex-col gap-2 w-full', phoneNumber.length > 0 ? '' : 'cursor-not-allowed')}>
                                                             <div
                                                                 className={cn(
                                                                     'flex items-center gap-2',
-                                                                    originalInfo.current.phoneNumber.length > 0 ? '' : 'pointer-events-none opacity-50',
+                                                                    phoneNumber.length > 0 ? '' : 'pointer-events-none opacity-50',
                                                                 )}
                                                             >
                                                                 <label className='text-xs font-bold text-gray-500 uppercase'>Phone Number</label>
@@ -1044,18 +1044,18 @@ const Settings = ({
 
                                                             <div
                                                                 onClick={() => {
-                                                                    if (originalInfo.current.phoneNumber.length === 0) {
+                                                                    if (phoneNumber.length === 0) {
                                                                         setActiveTab('account');
                                                                     }
                                                                 }}
                                                                 className={cn(
                                                                     'w-full truncate min-w-0 outline-none cursor-not-allowed text-gray-400 bg-gray-50 shadow-sm border border-gray-200 px-3 pb-1 pt-1.5 text-[15px] rounded-xl focus:border-primary transition-colors',
                                                                     zelleUpset.includes('phone') ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : '',
-                                                                    originalInfo.current.phoneNumber.length > 0 ? '' : 'cursor-pointer',
+                                                                    phoneNumber.length > 0 ? '' : 'cursor-pointer',
                                                                 )}
                                                             >
-                                                                {originalInfo.current.phoneNumber.length > 0 ? (
-                                                                    originalInfo.current.phoneNumber
+                                                                {phoneNumber.length > 0 ? (
+                                                                    phoneNumber
                                                                 ) : (
                                                                     <span className='flex items-center gap-1'>
                                                                         Set phone number <ArrowUpRight className='w-4.5 h-4.5' />
@@ -1064,7 +1064,7 @@ const Settings = ({
                                                             </div>
                                                         </div>
 
-                                                        <div className={cn('flex flex-col gap-2 w-full', originalInfo.current.phoneNumber.length > 0 ? 'col-span-1' : 'col-span-2')}>
+                                                        <div className={cn('flex flex-col gap-2 w-full', phoneNumber.length > 0 ? 'col-span-1' : 'col-span-2')}>
                                                             <div className='flex items-center gap-2'>
                                                                 <label className='text-xs font-bold text-gray-500 uppercase'>Email</label>
                                                                 <button

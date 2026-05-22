@@ -886,7 +886,7 @@ const QRCodeModal = ({ user, onClose, setSettingsOpen }: { user: any; onClose: (
                             exit={{ x: 20, opacity: 0 }}
                             className='flex flex-col items-center w-full space-y-6'
                         >
-                            {user.zelle === 'disabled' ? (
+                            {user.zelle === 'disabled' || (user.zelle === 'phone' && (!user.phoneNumber || user.phoneNumber.length === 0)) ? (
                                 <div className='text-center py-10 px-4 flex flex-col justify-center'>
                                     <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4'>
                                         <Smartphone className='text-gray-400' size={32} />

@@ -1,5 +1,6 @@
 import { Lusitana, Figtree, Lustria } from 'next/font/google';
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 
 const figtree = Figtree({
@@ -42,7 +43,10 @@ export default function RootLayout({
 }>) {
     return (
         <html lang='en' className={`${figtree.variable} ${lusitana.variable} ${lustria.variable}`}>
-            <body className={`overflow-x-hidden h-dvh w-dvw p-0 bg-background`}>{children}</body>
+            <body className={`overflow-x-hidden h-dvh w-dvw p-0 bg-background`}>
+                {children}
+                <Analytics />
+            </body>
         </html>
     );
 }

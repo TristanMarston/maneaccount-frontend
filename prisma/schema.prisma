@@ -163,6 +163,7 @@ model User {
   sentShowInvites     ShowInvite[]   @relation("ShowInviter")
   receivedShowInvites ShowInvite[]   @relation("ShowInvitee")
   calendarNotes       CalendarNote[] @relation(name: "CalendarNoteToUser")
+  googleCalendarId   String?
 
   notifications     Notification[] @relation("user")
   sentNotifications Notification[] @relation("sender")
@@ -178,7 +179,6 @@ model User {
   trialEndsAt        DateTime?
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean             @default(false)
-  googleCalendarId   String?
   hasUsedTrial       Boolean             @default(false)
   usedCoupons        OneOffCoupon[]      @relation("OneOffCoupon")
   linkedAccountGroup LinkedAccountGroup? @relation(fields: [linkedAccountGroupId], references: [id], onDelete: SetNull)

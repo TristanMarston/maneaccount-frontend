@@ -186,12 +186,14 @@ const SignInPage = () => {
                                     <button
                                         key={provider.name}
                                         onClick={() => {
-                                            if (formData.role !== undefined && mode === 'signup') handleGoogleSignIn(provider.id);
-                                            else if (formData.role === undefined && mode === 'signup') failToast('Please select a role to sign up.');
-                                            else if (mode === 'signin') {
-                                                document.cookie = `auth_intent=signin; path=/; max-age=300`;
-                                                signIn(provider.id, { callbackUrl: '/dashboard' });
-                                            }
+                                            if (agreed) {
+                                                if (formData.role !== undefined && mode === 'signup') handleGoogleSignIn(provider.id);
+                                                else if (formData.role === undefined && mode === 'signup') failToast('Please select a role to sign up.');
+                                                else if (mode === 'signin') {
+                                                    document.cookie = `auth_intent=signin; path=/; max-age=300`;
+                                                    signIn(provider.id, { callbackUrl: '/dashboard' });
+                                                }
+                                            } else failToast('Please agree to the terms of service.');
                                         }}
                                         className='shadow-sm border border-gray-200 bg-white w-full flex justify-center items-center gap-3 px-4 py-1.5 lg:py-2 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors mb-4 lg:mb-6'
                                     >

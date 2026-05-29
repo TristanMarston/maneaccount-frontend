@@ -33,6 +33,36 @@ function inferHasUsedTrial(currentValue: boolean, stripeStatus: string, existing
     return currentValue || stripeStatus !== 'trialing' || !!existingPeriodEnd;
 }
 
+type StripeSubscriptionWithPeriodFields = Stripe.Subscription & {
+    current_period_end?: number | null;
+    trial_end?: number | null;
+};
+
+function getCurrentPeriodEnd(subscription: Stripe.Subscription): Date | null {
+    const rawCurrentPeriodEnd = (subscription as StripeSubscriptionWithPeriodFields).current_period_end;
+    return rawCurrentPeriodEnd ? new Date(rawCurrentPeriodEnd * 1000) : null;
+}
+
+function getTrialEnd(subscription: Stripe.Subscription): Date | null {
+    const rawTrialEnd = (subscription as StripeSubscriptionWithPeriodFields).trial_end;
+    return rawTrialEnd ? new Date(rawTrialEnd * 1000) : null;
+}
+
+function getEffectiveCurrentPeriodEnd(subscription: Stripe.Subscription, hasUsedTrial: boolean): Date | null {
+    const currentPeriodEnd = getCurrentPeriodEnd(subscription);
+    const trialEnd = getTrialEnd(subscription);
+
+    if (!hasUsedTrial || !trialEnd || trialEnd.getTime() <= Date.now()) {
+        return currentPeriodEnd;
+    }
+
+    if (!currentPeriodEnd || trialEnd > currentPeriodEnd) {
+        return trialEnd;
+    }
+
+    return currentPeriodEnd;
+}
+
 // Resolves the internal userId from a Stripe subscription object.
 // Tries subscription metadata first, then falls back to the customer record.
 async function resolveUserId(subscription: Stripe.Subscription): Promise<string | null> {
@@ -68,10 +98,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
     const priceId = subscription.items.data[0]?.price.id ?? '';
     const tier = mapPriceIdToTier(priceId);
-    const rawCurrentPeriodEnd = (subscription as any).current_period_end;
-    const currentPeriodEnd = rawCurrentPeriodEnd ? new Date(rawCurrentPeriodEnd * 1000) : null;
     const cancelAtPeriodEnd = subscription.cancel_at_period_end;
     const hasUsedTrial = inferHasUsedTrial(user.hasUsedTrial, subscription.status, user.currentPeriodEnd);
+    const currentPeriodEnd = getEffectiveCurrentPeriodEnd(subscription, hasUsedTrial);
     const status = mapStripeStatus(subscription.status, hasUsedTrial);
 
     await prisma.user.update({
@@ -132,8 +161,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         return;
     }
 
-    const rawPeriodEnd = (subscription as any).current_period_end;
-    const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : new Date();
+    const currentPeriodEnd = getEffectiveCurrentPeriodEnd(subscription, true) ?? new Date();
     const priceId = subscription.items.data[0]?.price.id ?? '';
     const tier = mapPriceIdToTier(priceId);
 

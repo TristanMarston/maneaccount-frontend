@@ -49,6 +49,14 @@ type UpdateDefaultPaymentMethodResult =
 const SUBSCRIPTION_INVOICE_EXPANDS = ['latest_invoice.confirmation_secret'] as const;
 const SUBSCRIPTION_LIST_INVOICE_EXPANDS = ['data.latest_invoice.confirmation_secret'] as const;
 
+type StripeSubscriptionWithPeriodFields = Stripe.Subscription & {
+    current_period_end?: number | null;
+    trial_end?: number | null;
+    plan?: {
+        interval?: string | null;
+    } | null;
+};
+
 function mapStripeSubscriptionStatus(status: string, hasUsedTrial: boolean): SubscriptionStatus {
     switch (status) {
         case 'trialing':
@@ -87,13 +95,33 @@ function getIntervalFromPriceId(priceId: string): 'month' | 'year' {
 }
 
 function getSubscriptionInterval(subscription: Stripe.Subscription): 'month' | 'year' {
-    const interval = subscription.items.data[0]?.price.recurring?.interval ?? (subscription as any)?.plan?.interval ?? 'month';
+    const interval = subscription.items.data[0]?.price.recurring?.interval ?? (subscription as StripeSubscriptionWithPeriodFields).plan?.interval ?? 'month';
     return interval === 'year' ? 'year' : 'month';
 }
 
 function getCurrentPeriodEnd(subscription: Stripe.Subscription): Date | null {
-    const rawCurrentPeriodEnd = (subscription as any).current_period_end;
+    const rawCurrentPeriodEnd = (subscription as StripeSubscriptionWithPeriodFields).current_period_end;
     return rawCurrentPeriodEnd ? new Date(rawCurrentPeriodEnd * 1000) : null;
+}
+
+function getTrialEnd(subscription: Stripe.Subscription): Date | null {
+    const rawTrialEnd = (subscription as StripeSubscriptionWithPeriodFields).trial_end;
+    return rawTrialEnd ? new Date(rawTrialEnd * 1000) : null;
+}
+
+function getEffectiveCurrentPeriodEnd(subscription: Stripe.Subscription, hasUsedTrial: boolean): Date | null {
+    const currentPeriodEnd = getCurrentPeriodEnd(subscription);
+    const trialEnd = getTrialEnd(subscription);
+
+    if (!hasUsedTrial || !trialEnd || !isAfter(trialEnd, new Date())) {
+        return currentPeriodEnd;
+    }
+
+    if (!currentPeriodEnd || isAfter(trialEnd, currentPeriodEnd)) {
+        return trialEnd;
+    }
+
+    return currentPeriodEnd;
 }
 
 function inferHasUsedTrial(currentValue: boolean, stripeStatus: string, existingPeriodEnd: Date | null): boolean {
@@ -505,7 +533,7 @@ export async function updateSubscription(paymentMethodId: string | null, priceId
         }
 
         const subscriptionStatus = mapStripeSubscriptionStatus(subscription.status, user.hasUsedTrial);
-        const currentPeriodEnd = getCurrentPeriodEnd(subscription);
+        const currentPeriodEnd = getEffectiveCurrentPeriodEnd(subscription, user.hasUsedTrial);
 
         const nextUserData: Record<string, unknown> = {
             stripeSubscriptionId: subscription.id,
@@ -629,7 +657,8 @@ export async function getSubscriptionDetails() {
                 if (sub) {
                     subscriptionInterval = getSubscriptionInterval(sub);
                     subscriptionTier = mapPriceIdToTier(sub.items.data[0]?.price.id ?? '');
-                    let stripeCurrentPeriodEnd = getCurrentPeriodEnd(sub);
+                    const inferredHasUsedTrial = inferHasUsedTrial(user.hasUsedTrial, sub.status, user.currentPeriodEnd);
+                    let stripeCurrentPeriodEnd = getEffectiveCurrentPeriodEnd(sub, inferredHasUsedTrial);
 
                     // Fallback to existing or calculate if totally missing from both Stripe and DB
                     if (!stripeCurrentPeriodEnd && !user.currentPeriodEnd) {
@@ -642,9 +671,8 @@ export async function getSubscriptionDetails() {
                     } else if (!stripeCurrentPeriodEnd) {
                         stripeCurrentPeriodEnd = user.currentPeriodEnd;
                     }
-                    const inferredHasUsedTrial = inferHasUsedTrial(user.hasUsedTrial, sub.status, user.currentPeriodEnd);
                     const mappedStripeStatus = mapStripeSubscriptionStatus(sub.status, inferredHasUsedTrial);
-                    const stripeCancelAtPeriodEnd = (sub as any).cancel_at_period_end || false;
+                    const stripeCancelAtPeriodEnd = sub.cancel_at_period_end || false;
 
                     const stripePriceId = sub.items.data[0]?.price.id ?? '';
                     const stripeTier = mapPriceIdToTier(stripePriceId);
@@ -958,9 +986,11 @@ export async function getSubscriptionModalDetails(): Promise<{ data: Subscriptio
         const user = await prisma.user.findUnique({
             where: { id: session.user.id },
             select: {
+                id: true,
                 subscriptionTier: true,
                 subscriptionStatus: true,
                 trialEndsAt: true,
+                hasUsedTrial: true,
                 currentPeriodEnd: true,
                 cancelAtPeriodEnd: true,
                 stripeCustomerId: true,
@@ -975,6 +1005,11 @@ export async function getSubscriptionModalDetails(): Promise<{ data: Subscriptio
         let upcomingInvoice: SubscriptionModalDetails['upcomingInvoice'] = null;
         let interval = 'month';
         let subscriptionId = '';
+        let subscriptionTier = user.subscriptionTier;
+        let subscriptionStatus = user.subscriptionStatus;
+        let trialEndsAt = user.trialEndsAt;
+        let currentPeriodEnd = user.currentPeriodEnd;
+        let cancelAtPeriodEnd = user.cancelAtPeriodEnd;
 
         if (user.stripeCustomerId) {
             // Fetch payment method
@@ -1004,6 +1039,37 @@ export async function getSubscriptionModalDetails(): Promise<{ data: Subscriptio
                 subscriptionId = subscription?.id ?? '';
                 if (subscription) {
                     interval = getSubscriptionInterval(subscription);
+                    const inferredHasUsedTrial = inferHasUsedTrial(user.hasUsedTrial, subscription.status, user.currentPeriodEnd);
+                    const mappedStripeStatus = mapStripeSubscriptionStatus(subscription.status, inferredHasUsedTrial);
+                    const stripeCurrentPeriodEnd = getEffectiveCurrentPeriodEnd(subscription, inferredHasUsedTrial);
+                    const stripeCancelAtPeriodEnd = subscription.cancel_at_period_end || false;
+                    const stripeTier = mapPriceIdToTier(subscription.items.data[0]?.price.id ?? '');
+
+                    subscriptionTier = stripeTier;
+                    subscriptionStatus = mappedStripeStatus;
+                    currentPeriodEnd = stripeCurrentPeriodEnd ?? currentPeriodEnd;
+                    cancelAtPeriodEnd = stripeCancelAtPeriodEnd;
+                    trialEndsAt = mappedStripeStatus === 'trialing' ? trialEndsAt : null;
+
+                    if (
+                        currentPeriodEnd?.getTime() !== user.currentPeriodEnd?.getTime() ||
+                        mappedStripeStatus !== user.subscriptionStatus ||
+                        stripeCancelAtPeriodEnd !== user.cancelAtPeriodEnd ||
+                        stripeTier !== user.subscriptionTier ||
+                        inferredHasUsedTrial !== user.hasUsedTrial
+                    ) {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: {
+                                currentPeriodEnd,
+                                subscriptionStatus: mappedStripeStatus,
+                                cancelAtPeriodEnd: stripeCancelAtPeriodEnd,
+                                subscriptionTier: stripeTier,
+                                hasUsedTrial: inferredHasUsedTrial,
+                                trialEndsAt,
+                            },
+                        });
+                    }
                 }
             } catch (e) {
                 console.error('Error fetching subscription interval:', e);
@@ -1028,7 +1094,7 @@ export async function getSubscriptionModalDetails(): Promise<{ data: Subscriptio
             }
 
             // Fetch upcoming invoice
-            if (subscriptionId && user.subscriptionStatus === 'active') {
+            if (subscriptionId && subscriptionStatus === 'active') {
                 try {
                     const upcoming = await stripe.invoices.createPreview({
                         customer: user.stripeCustomerId,
@@ -1047,12 +1113,12 @@ export async function getSubscriptionModalDetails(): Promise<{ data: Subscriptio
 
         return {
             data: {
-                tier: user.subscriptionTier,
-                status: user.subscriptionStatus,
+                tier: subscriptionTier,
+                status: subscriptionStatus,
                 interval,
-                trialEndsAt: user.trialEndsAt?.toISOString() ?? null,
-                currentPeriodEnd: user.currentPeriodEnd?.toISOString() ?? null,
-                cancelAtPeriodEnd: user.cancelAtPeriodEnd,
+                trialEndsAt: trialEndsAt?.toISOString() ?? null,
+                currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
+                cancelAtPeriodEnd,
                 paymentMethod,
                 invoiceHistory,
                 upcomingInvoice,

@@ -254,7 +254,7 @@ const BraiderDashboard = ({
                 {!subscription?.stripeCustomerId && subscription ? (
                     <div className='absolute top-1/2 left-1/2 transform font-figtree -translate-x-1/2 -translate-y-1/2 bg-background shadow-lg p-7 max-w-[450px] w-[90dvw] rounded-[14px]'>
                         <h3 className='font-bold font-lusitana text-4xl'>Action Required</h3>
-                        <p className='text-gray-500 mt-1'>You must select a plan to access your dashboard</p>
+                        <p className='text-gray-500 mt-1'>You have no subscription plan active.</p>
                         <button
                             onClick={() => beginFreeTrial()}
                             className='font-figtree px-4 py-2 cursor-pointer rounded-[10px] primary-border-hover mt-4 w-full text-background font-bold bg-primary-light'

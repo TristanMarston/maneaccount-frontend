@@ -186,7 +186,7 @@ const SignInPage = () => {
                                     <button
                                         key={provider.name}
                                         onClick={() => {
-                                            if (agreed) {
+                                            if (agreed || mode === 'signin') {
                                                 if (formData.role !== undefined && mode === 'signup') handleGoogleSignIn(provider.id);
                                                 else if (formData.role === undefined && mode === 'signup') failToast('Please select a role to sign up.');
                                                 else if (mode === 'signin') {

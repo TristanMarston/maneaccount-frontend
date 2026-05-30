@@ -12,8 +12,20 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { stripe } from '@/lib/stripe-init';
 
+const prismaAdapter = PrismaAdapter(prisma);
+
 export const authOptions: AuthOptions = {
-    adapter: PrismaAdapter(prisma),
+    adapter: {
+        ...prismaAdapter,
+        async getUserByEmail(email) {
+            const user = await prisma.user.findFirst({
+                where: { email: email.trim().toLowerCase() },
+                orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+            });
+
+            return user ? { ...user, email: user.email ?? email } : null;
+        },
+    },
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID || '',

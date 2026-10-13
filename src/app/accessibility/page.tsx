@@ -49,7 +49,7 @@ const AccessibilityPage = () => {
             </Paragraph>
             <Paragraph>
                 <Bold>Email:&nbsp;</Bold>
-                <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
+                <Link href='mailto:connect.mane.team@gmail.com'>connect.mane.team@gmail.com</Link>
             </Paragraph>
             <Paragraph>When contacting us, please include:</Paragraph>
             <BulletList>

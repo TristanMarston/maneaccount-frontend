@@ -108,7 +108,7 @@ const PrivacyPage = () => {
             <Paragraph>
                 Requests may be submitted to{' '}
                 <Bold>
-                    <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
+                    <Link href='mailto:connect.mane.team@gmail.com'>connect.mane.team@gmail.com</Link>
                 </Bold>
                 .
             </Paragraph>
@@ -125,7 +125,7 @@ const PrivacyPage = () => {
             <Paragraph>
                 Requests may be submitted to{' '}
                 <Bold>
-                    <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
+                    <Link href='mailto:connect.mane.team@gmail.com'>connect.mane.team@gmail.com</Link>
                 </Bold>
                 .
             </Paragraph>
@@ -152,7 +152,7 @@ const PrivacyPage = () => {
             <Paragraph>
                 If you experience difficulty accessing any part of the Services or require assistance, please contact us at{' '}
                 <Bold>
-                    <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
+                    <Link href='mailto:connect.mane.team@gmail.com'>connect.mane.team@gmail.com</Link>
                 </Bold>
                 . We will make reasonable efforts to address accessibility concerns in a timely manner.
             </Paragraph>
@@ -171,7 +171,7 @@ const PrivacyPage = () => {
             <Paragraph>If you have questions, concerns, or privacy requests, please contact:</Paragraph>
             <Paragraph>
                 <Bold>Email:&nbsp;</Bold>
-                <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
+                <Link href='mailto:connect.mane.team@gmail.com'>connect.mane.team@gmail.com</Link>
             </Paragraph>
             <Paragraph>
                 <Bold>Company:&nbsp;</Bold>Counter Canter Collective LLC

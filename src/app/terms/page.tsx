@@ -155,7 +155,7 @@ const TermsPage = () => {
             <HeadingOne>17. Contact Information</HeadingOne>
             <Paragraph>
                 <Bold>Email:&nbsp;</Bold>
-                <Link href='mailto:support@maneaccount.com'>support@maneaccount.com</Link>
+                <Link href='mailto:connect.mane.team@gmail.com'>connect.mane.team@gmail.com</Link>
             </Paragraph>
             <Paragraph>
                 <Bold>Company:&nbsp;</Bold>Counter Canter Collective LLC

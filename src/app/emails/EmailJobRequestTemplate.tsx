@@ -40,7 +40,7 @@ export const ManeAccountJobRequestEmail = ({ showName, barnName, braiderName, ho
                                     <Text style={label}>Total Services:</Text> {serviceCount}
                                 </Text>
                                 <Text style={detailRow}>
-                                    <Text style={label}>Potential Earnings:</Text> ${earnings}
+                                    <Text style={label}>Potential Earnings:</Text> {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(earnings)}
                                 </Text>
                             </Section>
                         </Section>

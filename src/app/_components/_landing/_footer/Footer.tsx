@@ -34,11 +34,11 @@ const Footer = () => {
                             <p className='font-figtree text-white/80 text-[15px] leading-relaxed -mt-2'>
                                 <b>Questions?</b> Email{' '}
                                 <a
-                                    href='mailto:support@maneaccount.com'
-                                    title='support@maneaccount.com'
+                                    href='mailto:connect.mane.team@gmail.com'
+                                    title='connect.mane.team@gmail.com'
                                     className='font-semibold cursor-pointer underline hover:text-white/70 transition-all'
                                 >
-                                    support@maneaccount.com
+                                    connect.mane.team@gmail.com
                                 </a>
                             </p>
                             {/* <div className='flex gap-5'>
